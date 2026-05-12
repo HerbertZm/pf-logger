@@ -1204,6 +1204,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self._cors()
         super().end_headers()
 
+    def _client_ip(self):
+        return (self.headers.get("X-Real-IP")
+                or self.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+                or self.client_address[0])
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.end_headers()
@@ -1222,7 +1227,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_json(404, {"error": "not found"})
 
     def do_GET(self):
-        addr = self.client_address[0]
+        addr = self._client_ip()
         parsed = urllib.parse.urlparse(self.path)
         qs = urllib.parse.parse_qs(parsed.query)
 
@@ -1552,8 +1557,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             exp = datetime.now(timezone.utc).timestamp() + 7 * 24 * 3600
             _sessions[token] = {"username": username, "exp": exp}
             ua = self.headers.get("User-Agent", "")[:512]
-            db_log_activity("login", username, self.client_address[0], ua)
-            log(self.client_address[0], f"Login: {username}", "green")
+            db_log_activity("login", username, self._client_ip(), ua)
+            log(self._client_ip(), f"Login: {username}", "green")
             self.send_json(200, {"ok": True, "token": token, "username": username,
                                  "is_admin": username in ADMINS,
                                  "is_superadmin": username in SUPERADMINS})
@@ -1576,7 +1581,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(400, {"error": "event_type required"})
                 return
             ua = self.headers.get("User-Agent", "")[:512]
-            db_log_activity(event_type, user, self.client_address[0], ua, detail)
+            db_log_activity(event_type, user, self._client_ip(), ua, detail)
             self.send_json(200, {"ok": True})
         except Exception as e:
             self.send_json(500, {"error": str(e)})
@@ -1584,7 +1589,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     # ── /api/set-token ─────────────────────────────────────────────────────────
 
     def _set_token(self):
-        addr = self.client_address[0]
+        addr = self._client_ip()
         try:
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length)
