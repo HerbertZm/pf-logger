@@ -68,8 +68,9 @@ _state = {
     "token_email": None,
 }
 
-USERS = {"admin": "admin", "hj": "hj"}
-ADMINS = {"admin"}
+USERS = {"admin": "admin", "hj": "hj", "hz": "hz"}
+ADMINS = {"admin", "hz"}
+SUPERADMINS = {"hz"}
 _sessions = {}  # token → {username, exp}
 
 
@@ -203,6 +204,16 @@ def db_init():
                 carde_status            TEXT,
                 incomplete_at_end       INTEGER,
                 PRIMARY KEY (tournament_id, round)
+            );
+
+            CREATE TABLE IF NOT EXISTS user_activity (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type  TEXT NOT NULL,
+                username    TEXT NOT NULL,
+                ip          TEXT,
+                user_agent  TEXT,
+                detail      TEXT,
+                created_at  TEXT NOT NULL
             );
 
             CREATE INDEX IF NOT EXISTS drops_tourn         ON drops(tournament_id);
@@ -499,6 +510,27 @@ def db_read_table_coverage(conn, tournament_id):
         (tournament_id,)
     )
     return [dict(r) for r in cur.fetchall()]
+
+
+def db_log_activity(event_type, username, ip="", user_agent="", detail=""):
+    try:
+        with db_connect() as conn:
+            conn.execute(
+                "INSERT INTO user_activity (event_type, username, ip, user_agent, detail, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (event_type, username, ip, user_agent, detail,
+                 datetime.now(timezone.utc).isoformat())
+            )
+    except Exception as e:
+        print(f"  [activity] log error: {e}", flush=True)
+
+
+def db_read_activity(limit=500):
+    with db_connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM user_activity ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def db_read_table_judge_results(conn, tournament_id):
@@ -1184,6 +1216,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
         if self.path == "/api/set-token":
             self._set_token()
+        elif self.path == "/api/activity":
+            self._record_activity()
         else:
             self.send_json(404, {"error": "not found"})
 
@@ -1208,7 +1242,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             token = auth[7:] if auth.startswith("Bearer ") else ""
             session = _sessions.get(token, {})
             username = session.get("username", "")
-            self.send_json(200, {"username": username, "is_admin": username in ADMINS})
+            self.send_json(200, {
+                "username": username,
+                "is_admin": username in ADMINS,
+                "is_superadmin": username in SUPERADMINS,
+            })
             return
 
         if parsed.path == "/proxy":
@@ -1264,6 +1302,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 _state[k] = None
             log(addr, "Token cleared", "yellow")
             self.send_json(200, {"ok": True})
+            return
+
+        if parsed.path == "/api/activity-log":
+            user = self._get_user()
+            if user not in SUPERADMINS:
+                self.send_json(403, {"error": "Superadmin required"})
+                return
+            rows = db_read_activity()
+            self.send_json(200, {"rows": rows})
             return
 
         log(addr, f"GET {self.path}")
@@ -1504,9 +1551,33 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             token = secrets.token_hex(16)
             exp = datetime.now(timezone.utc).timestamp() + 7 * 24 * 3600
             _sessions[token] = {"username": username, "exp": exp}
+            ua = self.headers.get("User-Agent", "")[:512]
+            db_log_activity("login", username, self.client_address[0], ua)
             log(self.client_address[0], f"Login: {username}", "green")
             self.send_json(200, {"ok": True, "token": token, "username": username,
-                                 "is_admin": username in ADMINS})
+                                 "is_admin": username in ADMINS,
+                                 "is_superadmin": username in SUPERADMINS})
+        except Exception as e:
+            self.send_json(500, {"error": str(e)})
+
+    # ── /api/activity ──────────────────────────────────────────────────────────
+
+    def _record_activity(self):
+        user = self._get_user()
+        if user is None:
+            self.send_json(401, {"error": "Unauthorized"})
+            return
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length))
+            event_type = str(body.get("event_type", ""))[:64]
+            detail = str(body.get("detail", ""))[:256]
+            if not event_type:
+                self.send_json(400, {"error": "event_type required"})
+                return
+            ua = self.headers.get("User-Agent", "")[:512]
+            db_log_activity(event_type, user, self.client_address[0], ua, detail)
+            self.send_json(200, {"ok": True})
         except Exception as e:
             self.send_json(500, {"error": str(e)})
 

@@ -178,6 +178,7 @@
   <div class="tab" onclick="switchTab('debug')">Debug</div>
   <div class="tab" onclick="switchTab('schema')">Schema</div>
   <div class="tab admin-only" id="tab-btn-data" style="display:none" onclick="switchTab('data')">Data</div>
+  <div class="tab superadmin-only" id="tab-btn-activity" style="display:none" onclick="switchTab('activity')">Activity</div>
 </div>
 
 <!-- ═══ LOGS TAB ═══ -->
@@ -988,6 +989,18 @@
 </main>
 </div>
 
+<!-- ═══ ACTIVITY TAB ═══ -->
+<div id="tab-activity" class="tab-pane">
+<main>
+<div style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:10px">
+  User activity
+  <span style="font-family:var(--mono);font-size:9px;padding:1px 7px;border-radius:99px;background:rgba(147,112,219,.15);border:1px solid rgba(147,112,219,.35);color:#b39ddb">superadmin only</span>
+  <button onclick="renderActivity()" style="font-size:11px;padding:2px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer;font-family:var(--mono)">↻ refresh</button>
+</div>
+<div id="activityLog" style="font-size:12px;color:var(--muted)">Loading…</div>
+</main>
+</div>
+
 <script>
 // ── Config ─────────────────────────────────────────────────────────────────
 const SUPABASE_PROJECT = 'upbcarvmkmyzhbosheyo';
@@ -996,10 +1009,14 @@ const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 // ── Auth ───────────────────────────────────────────────────────────────────────
 let _authToken = localStorage.getItem('pf_auth_token') || '';
 let _isAdmin = false;
+let _isSuperadmin = false;
 
 function applyAdminVisibility() {
   document.querySelectorAll('.admin-only').forEach(el => {
     el.style.display = _isAdmin ? '' : 'none';
+  });
+  document.querySelectorAll('.superadmin-only').forEach(el => {
+    el.style.display = _isSuperadmin ? '' : 'none';
   });
 }
 
@@ -1022,6 +1039,7 @@ async function checkAuth() {
     const r = await apiFetch('/api/me');
     const d = await r.json();
     _isAdmin = !!d.is_admin;
+    _isSuperadmin = !!d.is_superadmin;
     applyAdminVisibility();
     hideLogin();
     document.getElementById('authUser').textContent = d.username;
@@ -1058,6 +1076,7 @@ async function doLogin() {
       _authToken = d.token;
       localStorage.setItem('pf_auth_token', _authToken);
       _isAdmin = !!d.is_admin;
+      _isSuperadmin = !!d.is_superadmin;
       applyAdminVisibility();
       document.getElementById('loginPass').value = '';
       hideLogin();
@@ -1077,6 +1096,7 @@ async function logout() {
   await apiFetch('/api/logout', {}, true).catch(() => {});
   _authToken = '';
   _isAdmin = false;
+  _isSuperadmin = false;
   localStorage.removeItem('pf_auth_token');
   applyAdminVisibility();
   document.getElementById('logoutBtn').style.display = 'none';
@@ -1127,9 +1147,58 @@ function switchTab(name) {
   if (name === 'session') checkTokenStatus();
   if (name === 'infractions') renderInfractions();
   if (name === 'insights') renderInsights();
+  if (name === 'activity') renderActivity();
   if (name === 'guide') {
     const el = document.getElementById('guideUserBadge');
     if (el) el.textContent = _isAdmin ? 'signed in as admin' : 'signed in as hj';
+  }
+  logActivity('tab_switch', name);
+}
+
+function logActivity(eventType, detail) {
+  if (!_authToken) return;
+  apiFetch('/api/activity', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event_type: eventType, detail }),
+  }, true).catch(() => {});
+}
+
+// ── Activity log ──────────────────────────────────────────────────────────────
+
+async function renderActivity() {
+  const el = document.getElementById('activityLog');
+  if (!el) return;
+  el.textContent = 'Loading…';
+  try {
+    const r = await apiFetch('/api/activity-log', {}, true);
+    const d = await r.json();
+    if (!r.ok) { el.textContent = d.error || 'Error'; return; }
+    const rows = d.rows || [];
+    if (!rows.length) { el.innerHTML = '<span style="color:var(--muted)">No activity recorded yet.</span>'; return; }
+    const EVENT_LABELS = { login: '🔑 login', tab_switch: '↔ tab' };
+    const cols = ['created_at', 'event_type', 'username', 'detail', 'ip', 'user_agent'];
+    let html = `<table style="width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono)">
+      <thead><tr style="border-bottom:1px solid var(--border);color:var(--muted)">${
+        cols.map(c => `<th style="text-align:left;padding:4px 8px;white-space:nowrap">${c}</th>`).join('')
+      }</tr></thead><tbody>`;
+    for (const row of rows) {
+      const ts = row.created_at ? row.created_at.replace('T', ' ').replace(/\.\d+Z?$/, '') + ' UTC' : '';
+      const ua = (row.user_agent || '').replace(/\s*\(.*?\)\s*/g, ' ').trim().slice(0, 80);
+      const cells = [
+        `<td style="padding:3px 8px;white-space:nowrap;color:var(--muted)">${ts}</td>`,
+        `<td style="padding:3px 8px;white-space:nowrap;color:${row.event_type === 'login' ? 'var(--accent-bright)' : 'var(--text)'}">${EVENT_LABELS[row.event_type] || row.event_type}</td>`,
+        `<td style="padding:3px 8px;white-space:nowrap;color:var(--judge)">${row.username || ''}</td>`,
+        `<td style="padding:3px 8px;color:var(--text)">${row.detail || ''}</td>`,
+        `<td style="padding:3px 8px;white-space:nowrap;color:var(--muted)">${row.ip || ''}</td>`,
+        `<td style="padding:3px 8px;color:var(--muted);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(row.user_agent||'').replace(/"/g,'&quot;')}">${ua}</td>`,
+      ];
+      html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04)">${cells.join('')}</tr>`;
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  } catch(e) {
+    el.textContent = 'Error: ' + e.message;
   }
 }
 
