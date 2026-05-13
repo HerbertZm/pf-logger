@@ -15,13 +15,18 @@ A local-network web tool for tournament administrators running Magic/Riftbound e
 ## File structure
 
 ```
-serve.py          — Single-file Python HTTP server (stdlib only). All routes, DB logic, and external API calls.
-index.html        — Single-file frontend (HTML + CSS + vanilla JS). No framework, no bundler.
-action_logs.db    — SQLite database. Created automatically on first run. Never commit this.
-TODO.md           — Improvement backlog.
-DEPLOY.md         — VPS deployment guide (nginx + certbot + systemd).
-USER_GUIDE.md     — Non-technical user documentation.
-AGENT_CONTEXT.md  — This file.
+serve.py                      — Single-file Python HTTP server (stdlib only). All routes, DB logic, and external API calls.
+index.html                    — Single-file frontend (HTML + CSS + vanilla JS). No framework, no bundler.
+action_logs.db                — SQLite database. Created automatically on first run. Never commit this.
+scripts/check_db.py           — DB inspection utility (row counts, sample rows).
+scripts/test_fetch.py         — Manual integration test script.
+docs/DEPLOY.md                — VPS deployment guide (nginx + certbot + systemd).
+docs/USER_GUIDE.md            — Non-technical user documentation.
+agent/AGENT_CONTEXT.md        — This file.
+plans/CURRENT_PLAN.md         — Three-phase roadmap.
+plans/QOL_IMPROVEMENTS.md     — Day-of-event quality-of-life improvement queue.
+plans/archive/TODO.md         — Original improvement backlog (superseded).
+plans/archive/production-ready.md — Earlier productionization plan (superseded).
 ```
 
 ---
@@ -376,6 +381,6 @@ Add processing in the `for cr in carde_rounds:` loop in `fetch_and_store()`, or 
 ## Environment / deployment
 
 - Dev: `python serve.py` from the project directory. Serves on `0.0.0.0:8765`.
-- Prod: systemd service + nginx reverse proxy. See `DEPLOY.md`.
+- Prod: systemd service + nginx reverse proxy. See `docs/DEPLOY.md`.
 - DB lives at `action_logs.db` in the same directory as `serve.py`. In production, the systemd `WorkingDirectory` must point to the app directory.
 - No environment-variable support yet — `CARDE_API_TOKEN`, `USERS`, and `ADMINS` are hardcoded in `serve.py`. TODO item to move to env vars before public deployment.
