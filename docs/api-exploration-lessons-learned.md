@@ -100,7 +100,7 @@ Per-round match counts for Atlanta RQ:
 | R12 | 117 | ~234 |
 | R13 | 106 | ~212 |
 
-**The timer app (max table 451) only covered a fraction of the venue.** Tables 452+ self-reported results directly into carde without the broadcast timer. This is why our `time_logs` and `missing_tables_json` only reflect a subset of the full event — the tool was deployed for the "featured" section of the venue.
+**StageTimer (max table 451) only covered a fraction of the venue.** Tables 452+ self-reported results directly into Carde.io without a broadcast clock. This is why our `time_logs` and `missing_tables_json` only reflect a subset of the full event — StageTimer was deployed for the featured section of the venue only.
 
 ---
 
@@ -131,17 +131,20 @@ Same issue as the carde API: `completed_at` in our DB comes from carde and has t
 
 ---
 
-## 3. Timer App (Third-Party): Timezone & Interpretation
+## 3. StageTimer (Optional Third-Party Broadcast Timer): Timezone & Interpretation
 
-- Timer app logs are in **UTC**
+StageTimer is an optional broadcast timer tool — not all events use it, and not all tournaments running at the same event will have a timer screen. When present, it displays the round clock to players on a screen. Its logs were used here as a supplemental data source for round start/end times.
+
+- StageTimer logs are in **UTC**
 - The event was in **EDT (UTC-4)**
-- Convert: `app_time + 4 hours = local event time`
-- The user was in UTC+2 during analysis, making logs appear 6 hours behind local — don't let this confuse the offset
+- Convert: `stagetimer_time + 4 hours = local event time`
+- The analyst was in UTC+2 during analysis, making logs appear 6 hours behind local — don't let this confuse the offset
 
 Additionally:
-- "Stops" in the timer app are often mid-round pauses, not round ends
+- "Stops" in StageTimer are often mid-round pauses, not round ends
 - The actual round end is the **last stop before the next round's reset**
 - R2 on Day 1 was started by "Device FA38" (a secondary device), not the head TO — so `started_by` identity is not reliable
+- StageTimer only covers the tables it was deployed for — at Atlanta RQ, this was tables 1–451 out of ~2974 total. Tables outside that range had no broadcast clock.
 
 ---
 
@@ -198,7 +201,7 @@ This means:
 1. **Timer-triggered sync**: When the carde timer expires (or when we detect `timer_end_datetime` has passed), immediately capture `missing_tables_json`. This is the single highest-value improvement.
 2. **Store per-match `updated_at` at round end**: Fetching all matches for a round right after it closes would let us reconstruct who finished late and who had extensions — cheaply, since it's a one-time fetch per round.
 3. **Standings generation timestamp**: If the standings endpoint includes metadata with a `generated_at` field, capture that — it's the closest proxy to "pairings published" we'll have.
-4. **Timezone-aware storage**: Confirm all timestamps stored in the DB are UTC with explicit tz info. The timer app / carde discrepancy caused repeated confusion.
+4. **Timezone-aware storage**: Confirm all timestamps stored in the DB are UTC with explicit tz info. The StageTimer / Carde.io discrepancy caused repeated confusion during this analysis.
 
 ### Data quality flags to add to the UI
 - Flag rounds where `missing_tables_json` was captured late (> N minutes after `timer_end_datetime`)
@@ -213,9 +216,9 @@ This means:
 |---|---|---|---|
 | Round | carde `get_all_rounds` | ✅ High | |
 | SK Pub (round start) | carde `started_at` | ✅ High | Proxy for pairings published |
-| App Timer Start | Timer app log | ✅ High | Converted from UTC |
-| App Sched End | Timer start + 60 min | ✅ High | |
-| App Actual End | Timer app log (last stop) | ✅ High | |
+| App Timer Start | StageTimer log | ✅ High | Converted from UTC |
+| App Sched End | StageTimer start + 60 min | ✅ High | |
+| App Actual End | StageTimer log (last stop) | ✅ High | |
 | Between Rds | Prev `timer_end` → this `started_at` | ✅ High | |
 | Rd Turnover | `app_sched_end` → next `started_at` | ✅ High | |
 | Seatings Turnover | `app_actual_end` → next `app_timer_start` | ✅ High | |

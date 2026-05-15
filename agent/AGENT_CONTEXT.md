@@ -6,7 +6,8 @@ Everything an agent needs to work on this codebase without re-deriving it from s
 
 ## What this is
 
-A local-network web tool for tournament administrators running Magic/Riftbound events on PurpleFox. It pulls data from two external sources (Supabase/PurpleFox + carde.io), stores it in a local SQLite database, and presents it as a real-time dashboard with drops, time extensions, penalties, round timing, and judge activity.
+A local-network web tool for tournament administrators running Magic/Riftbound/Lorcana events using different tools (currently the tool only supports events running on Carde.io **and** PurpleFox, but there are expansions planned).
+It pulls data from different sources (Supabase/PurpleFox + carde.io), stores it in a local SQLite database, and presents it as a real-time dashboard with drops, time extensions, penalties, round timing, and judge activity.
 
 **No build step. No external Python dependencies. Runs with `python serve.py`.**
 
@@ -22,6 +23,7 @@ scripts/check_db.py           — DB inspection utility (row counts, sample rows
 scripts/test_fetch.py         — Manual integration test script.
 docs/DEPLOY.md                — VPS deployment guide (nginx + certbot + systemd).
 docs/USER_GUIDE.md            — Non-technical user documentation.
+docs/api-exploration-lessons-learned.md - Technical analysis stemming from a post-event data gathering process.
 agent/AGENT_CONTEXT.md        — This file.
 plans/CURRENT_PLAN.md         — Three-phase roadmap.
 plans/QOL_IMPROVEMENTS.md     — Day-of-event quality-of-life improvement queue.
@@ -46,11 +48,18 @@ serve.py (ThreadingTCPServer on port 8765)
   ├── fetch_and_store() — Supabase + carde.io → SQLite
   ├── _carde_worker() — background thread, pairings fetch
   └── action_logs.db (SQLite, same directory)
+
+Data sources:
+  ├── Carde.io API — pairings, results, round timing, standings (always present)
+  ├── PurpleFox / Supabase — drops, extensions, penalties, judge activity (requires JWT)
+  └── StageTimer — broadcast timer logs (optional, manual import, post-event only)
 ```
 
 Two completely separate auth layers:
-- **Local auth** (`Bearer <token>`): our own users (admin/hj). Required for all API routes except `/api/login`. Sessions live in `_sessions` dict, expire after 7 days.
+- **Local auth** (`Bearer <token>`): our own users (admin/hj). Required for all Carde.io API routes except `/api/login`. Sessions live in `_sessions` dict, expire after 7 days.
 - **PurpleFox JWT**: a Supabase JWT from a logged-in PF user. Required only for `/api/sync` and `/proxy`. Stored in `_state["token"]` in-memory.
+
+**StageTimer** is an optional third-party broadcast timer used at some events to display the round clock to players. It is not integrated into the live sync — its logs (exported as text files, timestamped in UTC) are used manually for post-event analysis only. Not all events use StageTimer; within a multi-tournament convention, individual tournaments may or may not have a timer screen. When StageTimer data is available, it provides more accurate round start/end times than Carde.io alone (which only gives `started_at`, not actual clock stop time).
 
 ---
 
@@ -384,3 +393,27 @@ Add processing in the `for cr in carde_rounds:` loop in `fetch_and_store()`, or 
 - Prod: systemd service + nginx reverse proxy. See `docs/DEPLOY.md`.
 - DB lives at `action_logs.db` in the same directory as `serve.py`. In production, the systemd `WorkingDirectory` must point to the app directory.
 - No environment-variable support yet — `CARDE_API_TOKEN`, `USERS`, and `ADMINS` are hardcoded in `serve.py`. TODO item to move to env vars before public deployment.
+
+---
+
+## Additional context
+
+- Use `./TOURNAMENT_MANAGEMENT.md` to understand general tournament processes, round concepts, and game-specific details
+- Use `./TOOL_PURPOSE.md` to understand what the tool does, who uses it, the operational workflow, and current limitations
+- Use `./CARDE_IO.md` to understand how Carde.io works, its API patterns, and known gaps/quirks
+- Use `./PURPLEFOX.md` to understand how PurpleFox works, its auth model, data model details, and known gaps
+- Use `./OTHER_SOFTWARES.md` for an overview of other tournament softwares and future expansion context
+- Use `docs/api-exploration-lessons-learned.md` for a detailed post-mortem of what we discovered about Carde.io's API behavior, data quirks, and recommended architecture improvements — essential reading before working on any Carde.io integration
+
+## Memory and rules
+
+**Read these at the start of every session, before doing any work:**
+
+- `./RULES.md` — behavioral rules, corrections, and strong preferences extracted from past sessions. If a rule here conflicts with your defaults, the rule wins.
+- `./MEMORY.md` — consolidated log of past sessions (what was asked, what was learned, decisions made). Gives context on ongoing work and things already tried or ruled out.
+
+**During the session:**
+Write or update a session memory file at `memory/session_YYYY-MM-DD.md` (repo root, gitignored) with asks, learnings, decisions, and any new rules observed. See `./MEMORY.md` for the full format and instructions.
+
+**When the user invokes the consolidation skill** ("consolidate memory", "sync memory", or "/sync-memory"):
+Follow the 4-step process described in `./MEMORY.md` to append to the session log and upsert `./RULES.md`.
