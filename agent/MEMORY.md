@@ -91,6 +91,32 @@ _Consolidated session entries appear below. Most recent first._
 
 <!-- entries appended by consolidation skill -->
 
+### 2026-05-15
+**Asked:**
+- Review and scope a "Phase 0" covering: source-separated DB architecture, PostgreSQL migration, TypeScript rewrite, UI redesign brief, Carde-only mode, ingestion worker decoupling
+- Deep-dive DB schema design for the three-layer model (raw → normalized → app)
+- Produce API exploration prompts for Claude Chrome extension (Carde + PF test environments)
+- Split `plans/PLAN.md` into per-phase files; add Design Phase between Phase 0 and Phase 1
+- Sync and update CLAUDE.md, MEMORY.md, RULES.md
+
+**Learned:**
+- `status=in_progress` filter on `matches-list/` is confirmed functional — never need to fetch full match list
+- New Carde match fields: `is_ghost_match`, `deck_check_started/completed`, `match_is_loss`, `assigned_judge`, intentional/unintentional draw flags
+- `is_ghost_match` is informational only — ghost marking may happen outside Carde
+- PF users in `users` table are STAFF not players; player names are denormalized from Carde match records
+- `table_coverage` and `table_judge_calls` are distinct (visit vs. outcome), both PF-only, both absent in Carde-only mode
+- Extensions in Carde-only mode come from `time_extension_seconds` on match records (not PF `tournament_logs`)
+- Tech stack decision: full rewrite to TypeScript + Express + Prisma + PostgreSQL; NestJS rejected as too heavyweight
+
+**Decisions made:**
+- Three-layer schema: raw (append-only verbatim) → normalized (app queries) → app (tool-owned); full spec in `docs/SCHEMA_DESIGN.md`
+- `tournament_source_mapping` with `is_enabled` replaces hardcoded provider config; non-destructive Carde-only toggle
+- `carde_first_round_id` in mapping table; `carde_base_round_id` convention dropped
+- Existing SQLite kept at `data/legacy.db` — no migration to new schema
+- TIMESTAMPTZ on every timestamp; Carde EDT → UTC at ingestion
+- Design Phase added between Phase 0 and Phase 1 in the plan
+- `plans/PLAN.md` split into: `phase-0.md`, `design.md`, `phase-1.md`, `phase-2.md`, `phase-3.md`, `qol.md`, `open-decisions.md`
+
 ### 2026-05-14
 **Asked:**
 - Deep-dive Atlanta RQ round timing analysis across Carde.io API, SQLite, PurpleFox, and StageTimer logs

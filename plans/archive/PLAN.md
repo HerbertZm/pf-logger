@@ -34,6 +34,148 @@ pf-logger is a local-network tournament ops dashboard for Magic/Riftbound/Lorcan
 
 ---
 
+## Phase 0 — Foundation Rewrite
+
+**Goal:** Replace the Python/SQLite prototype with a TypeScript + PostgreSQL stack. No new features until this is stable.
+
+**Stack:** Node.js + TypeScript (strict mode), Express, Prisma ORM, PostgreSQL (VPS), dotenv.
+
+**Key architecture decisions made:**
+- Source-separated schema: raw layer (verbatim API data) → normalized layer (app queries) → app layer (tool-owned). See `docs/SCHEMA_DESIGN.md`.
+- `tournament_source_mapping` table with `is_enabled` toggle handles multi-source config and Carde-only mode without destructive row deletion.
+- TIMESTAMPTZ on every timestamp column; Carde EDT timestamps converted to UTC at ingestion.
+- `timer_end_datetime` always computed locally; `completed_at` stored verbatim but never used for any computation.
+- PF staff ≠ players ≠ app users — three distinct identity concepts, three distinct tables.
+- Selective match storage: player-identifying match records only stored for tables with tracked events; full match list processed in-memory for `missing_tables_json` then discarded.
+- Existing SQLite DB kept at `data/legacy.db` as read-only reference; no migration to new schema.
+
+---
+
+### P0.1 — API Surface Documentation
+
+Before any schema work, walk every available endpoint from Carde.io and PurpleFox using test environments. Capture exact response shapes, all field names, data types, nullable fields, timestamp formats, and any source inconsistencies between the two.
+
+**Output:** Updated `agent/CARDE_IO.md` and `agent/PURPLEFOX.md` with full field-level documentation. This directly informs the raw table schema in P0.3.
+
+**Why first:** Schema decisions made without full API knowledge create mismatches that are expensive to fix later. Do this session with the Claude Chrome extension and test credentials before writing any DDL.
+
+### P0.2 — Project Bootstrap
+
+```
+src/
+  server.ts               — Express app + entry point
+  db/
+    schema.prisma         — Prisma schema
+    migrations/           — Prisma migration files
+  ingestion/
+    worker.ts             — Background ingestion coordinator
+    providers/
+      carde.ts            — Carde.io fetcher
+      purplefox.ts        — PurpleFox/Supabase fetcher
+  routes/
+    tournaments.ts
+    admin.ts
+    session.ts
+    sync.ts
+  middleware/
+    auth.ts
+    rateLimit.ts
+static/                   — Frontend assets (served by Express)
+index.html                — App shell
+.env                      — Local config (gitignored)
+.env.example              — Template (checked in)
+```
+
+Setup: `tsc --strict`, ESLint + Prettier, `dotenv` at entry point. No bundler.
+
+### P0.3 — Source-Separated Schema
+
+Full schema spec in `docs/SCHEMA_DESIGN.md`. Summary of three layers:
+
+**Raw layer (`raw_*`)** — verbatim API data, append-only, TIMESTAMPTZ on all timestamps.
+```
+raw_carde_rounds      raw_carde_matches (selective — interesting tables only)
+raw_pf_drops          raw_pf_penalties       raw_pf_extensions
+raw_pf_coverage       raw_pf_judge_calls     raw_pf_staff
+```
+
+**Normalized layer** — business-logic tables derived from raw; what the app queries.
+```
+rounds     matches    drops      penalties  extensions
+table_coverage        table_judge_calls     pf_staff
+```
+
+**App layer (`app_*`)** — no source dependency.
+```
+app_tournaments       tournament_source_mapping (is_enabled toggle for Carde-only mode)
+app_users             app_sessions      app_activity      worker_state
+```
+
+Pending P0.1: selective match ingestion strategy depends on whether Carde supports in-progress match filtering at the API level.
+
+### P0.4 — Per-Tournament Source Config
+
+`app_tournaments` includes a `sources` JSONB column declaring which providers are active and their external IDs:
+
+```json
+{
+  "carde":      { "enabled": true,  "tournament_id": 123 },
+  "purplefox":  { "enabled": false, "tournament_uuid": null }
+}
+```
+
+The ingestion worker reads this per tournament. Setting `purplefox.enabled = false` is Carde-only mode: PF fetches are skipped and the UI hides PF-only columns (extensions, drops, judge coverage). Can be toggled per tournament at runtime from the Manage tab — no restart required.
+
+### P0.5 — Background Ingestion Worker
+
+Module at `src/ingestion/worker.ts`, same deployment. Runs independently of the HTTP server. Responsibilities:
+
+- Polls Carde on a configurable interval per active tournament
+- Subscribes to PurpleFox Supabase real-time where JWT is valid; falls back to polling
+- Writes to raw tables only; triggers normalized layer refresh after each write
+- Handles timer-expiry snapshot (equivalent to Phase 1 items 1.9 and 1.10) natively — the right layer for it
+- Stores state in `worker_state` table, not in memory — survives restarts
+
+### P0.6 — HTTP API Port
+
+Port all existing endpoints to TypeScript + Express. Auth, session, tournament, sync, logs, backfill — all reading from PostgreSQL via Prisma. API surface unchanged from the frontend's perspective.
+
+### P0.7 — SQLite → PostgreSQL Migration
+
+Data export script: reads existing SQLite DB, transforms to new schema, writes to PostgreSQL. Field-by-field mapping documented. Zero-loss verification checklist:
+
+- Row counts match per entity type
+- No drops lost (by tournament + player + round)
+- No extensions lost
+- Round timer data preserved
+- `user_activity` preserved
+- Round pairing data preserved
+
+### P0.8 — .env Config
+
+```
+DATABASE_URL=postgresql://user:pass@host/db
+CARDE_API_TOKEN=...
+PF_PASSWORD_PEPPER=...
+PORT=8080
+NODE_ENV=production
+```
+
+`.env.example` checked in. `.env` gitignored. All secrets from env only — no hardcoded fallbacks in production paths.
+
+---
+
+**Phase 0 verification checklist:**
+- All existing sync/log/backfill flows work against PostgreSQL
+- Sessions survive server restart
+- Raw tables contain verbatim API data; normalized tables match what the old UI showed
+- Carde-only tournament: PF fetches skipped, UI adapts (no drops/extensions columns)
+- SQLite data fully migrated with no row loss
+- `.env` controls all secrets; no hardcoded values remain
+- Ingestion worker runs independently of HTTP server
+
+---
+
 ## Phase 1 — Productionization + Structure
 
 **Goal:** No more code changes between events. All config from the UI. Codebase split into readable modules. UI gets a first-pass design system. Critical data capture reliability fixed.

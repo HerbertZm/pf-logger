@@ -24,13 +24,25 @@ Auth: `Authorization: Token {CARDE_API_TOKEN}`
 
 `GET /api/v2/organize/tournament-rounds/{round_id}/matches-list/` returns paginated matches per round. Key fields per match:
 
-- `table_number` (-1 for byes/unassigned)
+- `id` — match ID
+- `table_number` — -1 for byes/unassigned
+- `pod_number` — nullable
+- `order` — display order within the round
+- `status` — `IN_PROGRESS`, `COMPLETE`, etc.
 - `match_is_bye` — true for auto-win matches
-- `status` — COMPLETE, etc.
-- `winning_player_id`
-- `result_reported_at` — when result was entered (null for draws — use `updated_at` instead)
-- `updated_at`
+- `match_is_loss` — true for judge-assigned given losses
+- `match_is_intentional_draw` / `match_is_unintentional_draw`
+- `is_ghost_match` — match is no longer physically active (players left, result not entered)
+- `is_feature_match`
+- `deck_check_started` / `deck_check_completed`
 - `time_extension_seconds` — always 0 for our events (extensions tracked in PurpleFox)
+- `winning_player_id`
+- `games_won_by_winner` / `games_won_by_loser` / `games_drawn`
+- `result_reported_at` — when result was entered; null for draws — use `updated_at` instead
+- `created_at` / `updated_at` — ISO 8601 with UTC offset (`+00:00`)
+- `assigned_judge` — nullable; judge assigned to this match
+- `reporting_player` — nullable
+- `last_modified_by_name` — nullable
 - `player_match_relationships` — array of player objects with `user_identifier` and `user.id`
 
 ### Live tournament state (active events only)
@@ -121,7 +133,7 @@ Drawn matches always have `result_reported_at: null`. Use `updated_at` as a prox
 
 All live-state endpoints (timer, audit, history, overview) return 404 after an event is marked complete. There is no retroactive access to historical timer state.
 
-### Matches-list filters are mostly non-functional
+### Matches-list filters
 
 The older `GET /api/v2/organize/matches/?event_id=...` endpoint silently ignores all filter params.
 The correct endpoint is `tournament-rounds/{round_id}/matches-list/`. Confirmed working params:
@@ -129,8 +141,13 @@ The correct endpoint is `tournament-rounds/{round_id}/matches-list/`. Confirmed 
 - `ordering=table_number` and `ordering=-table_number` (ascending/descending)
 - `judge=assigned_to_me` (filters by assigned judge)
 - `search=<name>` (player name search, returns 0 results for non-players)
+- `status=in_progress` — **returns only matches that have not yet reported a result**. This is the key filter for outstanding table tracking. Use `avoid_cache=true` alongside it.
 
-Params confirmed non-functional (silently return full count): `has_time_extension`, `status`, `result`, `result_pending`.
+Params confirmed non-functional (silently return full count): `has_time_extension`, `result`, `result_pending`.
+
+**Note on `status=in_progress` and the UI:** The "Match Status → In Progress" toggle in the Carde admin UI is purely client-side. It does not change the API call. The backend polling cycle always sends `status=in_progress` regardless of the UI toggle state. This is the correct filter to use in the ingestion worker.
+
+**Ingestion implication:** We never need to fetch all matches for a round. The outstanding table list is exactly the response from `status=in_progress`. At timer expiry, this response directly produces `missing_tables_json` — no in-memory filtering of a full list required.
 
 ### Match counts decrease across rounds — this is expected
 

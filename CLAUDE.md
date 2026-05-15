@@ -1,6 +1,6 @@
 # pf-logger — Agent Entry Point
 
-Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Supabase) and Carde.io, stores in SQLite, serves a real-time dashboard for drops, penalties, extensions, round timing, and judge activity. Single-file Python server (`serve.py`) + single-file frontend (`index.html`). No build step, no external Python deps (yet).
+Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Supabase) and Carde.io, stores in PostgreSQL, serves a real-time dashboard for drops, penalties, extensions, round timing, and judge activity. TypeScript + Express + Prisma backend, vanilla JS frontend. **Currently being rewritten from Python/SQLite — see `plans/phase-0.md`.**
 
 ---
 
@@ -19,6 +19,10 @@ Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Sup
 - Top-8 rounds have `timer_duration_minutes = NULL` — always null-check before computing any timing metric.
 - "Timer app" always means **StageTimer** specifically — never use the generic term.
 - Never use `INSERT OR REPLACE` on `tournament_meta` or any table with write-once fields — use `ON CONFLICT DO UPDATE SET` with `COALESCE`.
+- Extensions are tracked in **PurpleFox only in PF+Carde mode** — in Carde-only mode, use `time_extension_seconds` from Carde match records.
+- `is_ghost_match` from Carde is informational only — ghost marking may happen outside Carde entirely and will not be reflected in that flag.
+- PF users are **staff** (judges/scorekeepers), not players. Player names come from Carde match records and are denormalized — no separate players table.
+- `status=in_progress` on `matches-list/` is confirmed functional — use it in the ingestion worker; never fetch full match lists.
 
 ---
 
@@ -32,7 +36,15 @@ Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Sup
 | Carde.io API behavior, endpoints, known gaps | `agent/CARDE_IO.md` |
 | PurpleFox data model, auth, sync behavior | `agent/PURPLEFOX.md` |
 | Other softwares, future expansion context | `agent/OTHER_SOFTWARES.md` |
-| Full roadmap and QoL improvements | `plans/PLAN.md` |
+| Database schema design (three-layer model, all tables) | `docs/SCHEMA_DESIGN.md` |
+| UI/UX design brief (for design sessions) | `docs/DESIGN_BRIEF.md` |
+| Phase 0 — Foundation Rewrite (TS + PostgreSQL + ingestion worker) | `plans/phase-0.md` |
+| Design Phase — UI/UX redesign spec | `plans/design.md` |
+| Phase 1 — Admin API + Manage Tab | `plans/phase-1.md` |
+| Phase 2 — Events, SSE, Timing Analysis, StageTimer | `plans/phase-2.md` |
+| Phase 3 — Analytics, Infrastructure, Polish | `plans/phase-3.md` |
+| QoL improvements (13 items) | `plans/qol.md` |
+| Open decisions (4 remaining) | `plans/open-decisions.md` |
 | Carde.io API post-mortem (essential before touching Carde integration) | `docs/api-exploration-lessons-learned.md` |
 
 ---
