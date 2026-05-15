@@ -52,6 +52,12 @@ TOURNAMENTS = {
         "carde_event_id": 513852,
         "carde_base_round_id": 727668,  # first round 727669
     },
+    "c1c62586-b27a-4e71-a4ea-b89f4b0ac79d": {
+        "name": "Riftbound Regional Qualifier - Sydney",
+        "short": "Sydney RQ",
+        "carde_event_id": 559231,
+        "carde_base_round_id": 466503,  # first round ~466504 (3 phases: 466501–466503)
+    },
 }
 SUPABASE_ANON_KEY = (
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
