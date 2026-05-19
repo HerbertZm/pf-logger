@@ -45,7 +45,7 @@ Before running a design session, update `docs/DESIGN_BRIEF.md` to reflect the ne
 
 ## D.2 — Claude Design Session
 
-Run a design session using the updated `docs/DESIGN_BRIEF.md`. Produce:
+Use the ready-to-paste prompt in `plans/design-prompt.md`. It is self-contained — open it, copy everything below the divider, and paste into a Claude Design session. Produce:
 
 - **Design token spec:** Color palette (semantic: `--urgent`, `--warning`, `--success`, `--info`, `--muted`), spacing scale (4px base), type scale, border radius tokens, shadow levels
 - **Component inventory:** Complete list of all UI components with states (default, hover, active, disabled, loading)

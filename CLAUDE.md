@@ -38,6 +38,7 @@ Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Sup
 | Other softwares, future expansion context | `agent/OTHER_SOFTWARES.md` |
 | Database schema design (three-layer model, all tables) | `docs/SCHEMA_DESIGN.md` |
 | UI/UX design brief (for design sessions) | `docs/DESIGN_BRIEF.md` |
+| Claude Design ready-to-paste prompt | `plans/design-prompt.md` |
 | Phase 0 — Foundation Rewrite (TS + PostgreSQL + ingestion worker) | `plans/phase-0.md` |
 | Design Phase — UI/UX redesign spec | `plans/design.md` |
 | Phase 1 — Admin API + Manage Tab | `plans/phase-1.md` |
