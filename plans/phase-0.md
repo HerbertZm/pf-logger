@@ -187,6 +187,8 @@ NODE_ENV=production
 
 Replace the vanilla JS `index.html` with a React 18 + Vite application. This is the only frontend implementation — there is no intermediate vanilla JS port.
 
+> **Detailed implementation plan:** `plans/ui-implementation.md` — covers all 12 build steps in order: bootstrap, design system, shared primitives, API client + types, context providers + hooks, layout shell, auth flow, Dashboard (Screen 1), Logs Feed (Screen 3), Insights (Screen 2), Session tab, Data tab, and Manage tab (P1). Includes per-component prop specs, CSS alignment math, source-conditional rendering map, QoL slot-in table, and a full verification checklist. Read it before starting any component work.
+
 ### Tooling setup
 
 - `npm create vite@latest client -- --template react-ts` to scaffold the client

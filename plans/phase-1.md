@@ -58,6 +58,8 @@ Superadmin-gated endpoints for full tournament and user management:
 
 ## 1.2 — Manage Tab (Superadmin-only)
 
+> **Detailed implementation plan:** `plans/ui-implementation.md` Step 12 — covers `ManageTab.tsx`, `TournamentPanel`, `UsersPanel`, `SessionsPanel`, form components, badge vs. CTA visual rules, and the superadmin guard. Requires P1.1 admin API endpoints to be complete first.
+
 New tab in the UI with three panels, lazy-loaded:
 
 **Tournaments panel**

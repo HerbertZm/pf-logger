@@ -6,7 +6,7 @@ _Paste the content below this line directly into a Claude Design session._
 
 I need a complete UI/UX redesign for a real-time tournament operations dashboard called **pf-logger**. It's a local-network web app used by judge staff at live TCG (Trading Card Game) events — Magic: The Gathering, Lorcana, Riftbound. Events range from 80 to 2000+ players.
 
-Please produce: a design token spec, a component inventory, a navigation/layout spec, and wireframes or mockups for the key screens listed below.
+Please produce: a design token spec, a component inventory, a navigation/layout spec, and wireframes or mockups for the key screens listed below. Use the Figma Connector/MCP to accomplish it. My account should have a project called "PF Logger" (https://www.figma.com/files/project/602934209) where you can add different files if needed
 
 ---
 
@@ -17,6 +17,7 @@ Please produce: a design token spec, a component inventory, a navigation/layout 
 | Head Judge | Laptop or tablet | Monitor all rounds, act on drops/extensions/penalties |
 | Floor Judges | Phone (portrait, one-handed) | Check outstanding tables, reference pairings |
 | Tournament Organizer | Laptop | Monitor event progress, review insights |
+| Admin | Laptop | Add new events, tournaments. Manage API keys, insights, etc |
 
 Users are on their feet in loud, bright venues. A floor judge needs to read the current round status in under 3 seconds, one-handed, in bright lighting.
 
@@ -59,11 +60,11 @@ Users are on their feet in loud, bright venues. A floor judge needs to read the 
 
 ## Technical constraints (hard limits)
 
-- **React 18 + Vite** — the frontend is a React TypeScript app. Design tokens are CSS custom properties in a `tokens.css` file. No external component library (MUI, Chakra, etc.) — all components are built in-house. Component styles are plain CSS files co-located with their component, referencing tokens via `var(--token-name)`.
-- **No external fonts or icon CDNs** — LAN deployment; no network access during events. System font stack only. Icons via inline SVG or a self-hosted sprite if needed.
+- **React 18 + Vite** — the frontend is a React TypeScript app. Design tokens are CSS custom properties in a `tokens.css` file. No external component library (MUI, Chakra, etc.) — all components are built in-house. Component styles are plain CSS files co-located with their component, referencing tokens via `var(--token-name)`. If you believe that using a library like MUI or Tailwind will make things easier and improve performance and development times, bring it up to discuss before generating designs.
+- **Minor external fonts or icon CDNs** — This app will run in a "small" VPS and wants to be fast. Try to use modern assets but ensure that there are slow-network fallbacks that look good
 - **Dark mode by default** — venue lighting is variable; dark background reduces eye strain in both bright and dim environments.
 - **No animations on data** — the app refreshes data on a background polling cycle. Animated transitions on data updates would be jarring. Static state changes only.
-- **No Tailwind, no CSS-in-JS** — design tokens via CSS custom properties only. The token surface must be inspectable and overridable without a build step.
+- **No Tailwind, no CSS-in-JS** — design tokens via CSS custom properties only. The token surface must be inspectable and overridable without a build step. If you believe that using a library like MUI or Tailwind will make things easier and improve performance and development times, bring it up to discuss before generating designs.
 
 ---
 
@@ -103,7 +104,9 @@ Data is updated by a **background ingestion worker**, not by user-triggered sync
 ## Key screens to design
 
 ### Screen 1 — Active Round View (most important)
+
 The main view when an event is running. Must surface immediately without scrolling:
+
 - Time remaining on the round clock (large, color-shifts as it approaches 0 and goes negative)
 - Outstanding table count (tables without a result)
 - How many outstanding tables have extensions
@@ -111,21 +114,26 @@ The main view when an event is running. Must surface immediately without scrolli
 - Penalty count this round
 
 Secondary (collapsible or below the fold):
+
 - List of outstanding table numbers
 - List of extensions this round (table number, duration granted)
 
 ### Screen 2 — Cross-Round Summary
+
 A compact all-rounds view in the Insights tab. One row per round:
+
 - Columns: drops, extensions, outstanding at round end, time called vs. actual end
 - Cells with value 0 shown as "—" to reduce noise
 - Visual treatment when a round had notable issues
 
 ### Screen 3 — Logs Feed
+
 - Grouped by round with collapsible headers (top round expanded by default)
 - Quick filter buttons: "This round", "Extensions", "Drops", "Penalties", "Clear"
 - Each entry: colored type badge, player name, table number, round, who logged it, timestamp
 
 ### Screen 4 — Manage Tab (superadmin)
+
 - Tournament list with source badges (PF + Carde / Carde-only), Edit/Deactivate
 - User management table with role badges, Reset Password, Deactivate
 - Active sessions with IP, expiry, Revoke button
@@ -138,6 +146,7 @@ A compact all-rounds view in the Insights tab. One row per round:
 2. **Component inventory** — list of every UI component needed with all states (default, hover, active, disabled, loading, error, empty)
 3. **Navigation spec** — tab structure decision for mobile (bottom nav vs. top tabs), sticky header/context bar behavior, how urgency badges work on tabs
 4. **Wireframes or mockups** for the 4 screens above — mobile (375px) and desktop (1280px) variants for Screen 1 and Screen 2 at minimum
+5. **Future Improvements** - while this task is focused on the first re-write/productionized version for this app, I wanna keep iterating on it and need to be prepared for any future changes. Make sure to include that in your spec
 
 ---
 
