@@ -57,7 +57,8 @@ Use the ready-to-paste prompt in `plans/design-prompt.md`. It is self-contained 
 - Dark mode by default (venue lighting)
 - Mobile-first: portrait phone is primary, tablet/laptop secondary
 - No external fonts — system font stack only (LAN deployment, no CDN)
-- No build step — CSS custom properties only, no Tailwind, no PostCSS
+- Design tokens via CSS custom properties in `tokens.css` — no Tailwind, no CSS-in-JS
+- No external component library — all components are built in-house
 - All interactive elements 44px minimum touch target
 - No animations on data updates — sync cycles are frequent, animation would be jarring
 - Active round timer must be the most visually prominent element on the main screen
@@ -66,32 +67,43 @@ Use the ready-to-paste prompt in `plans/design-prompt.md`. It is self-contained 
 
 ## D.3 — Design System Implementation
 
-Translate the design session output into static files:
+Translate the design session output into the React design system established in P0.8:
 
-```
-static/css/
-  theme.css        — CSS custom properties (tokens only, no classes)
-  layout.css       — grid, flex, page structure, responsive breakpoints
-  components.css   — all component classes (buttons, panels, badges, tables, modals, toasts)
-```
+**Token file** (`client/src/styles/tokens.css`) — update with finalized values from the design session. The token structure already exists from P0.8; this step fills in the approved visual values (color palette, spacing scale, type scale, radius, shadows).
 
-All recurring inline `style=""` attributes in the current `index.html` replaced with classes from this system.
+**Component audit** — review the shared component primitives built in P0.8 (`Badge`, `Button`, `Panel`, `Spinner`, `Toast`) against the approved component inventory. Update styles and add missing variants (loading states, error states, empty states) per the design spec.
+
+**Layout update** — update `layout/` components (`TopBar`, `TabBar`, `ContextBar`) to match the approved navigation spec. This is where bottom nav vs. top tabs, sticky header behavior, and urgency badge placement get implemented.
+
+No migration of inline `style=""` attributes — the React components are built from the start with tokens.
 
 ---
 
-## D.4 — HTML/JS Shell Build
+## D.4 — React Shell Implementation
 
-Build the static frontend shell that Phase 1 features plug into:
+With the design system in place, implement or refine the full screen layouts from the design session:
 
 ```
-index.html         — app shell, tab structure, persistent header (~200 lines)
-static/js/
-  api.js           — apiFetch(), worker status polling
-  auth.js          — login, session state, role-based visibility
-  ui.js            — tab switching, renderAll(), source-aware column toggling
+client/src/
+  App.tsx                    — tab routing, persistent layout, source-aware wrappers
+  components/
+    layout/
+      Shell.tsx              — outermost wrapper (TopBar + TabBar + content area)
+      TopBar.tsx             — tournament name, current round, freshness, worker status
+      TabBar.tsx             — tabs with urgency badges; mobile: bottom nav
+      ContextBar.tsx         — persistent context strip (always visible)
+    dashboard/
+      ActiveRound.tsx        — primary view: timer + outstanding tables + counts
+      RoundTimer.tsx         — large countdown, color-shifts via urgency tokens
+      OutstandingTables.tsx  — collapsible table list with extension markers
+    logs/
+      LogFeed.tsx            — grouped by round, collapsible round headers
+      FilterBar.tsx          — quick-filter presets + search input
+    insights/
+      CrossRoundSummary.tsx  — one row per round, zero-suppression cells
 ```
 
-Source-aware rendering: `ui.js` receives the `sources` config for the active tournament and applies/removes CSS classes to show or hide source-conditional elements. No conditional logic scattered across render functions — one source config object controls all column visibility.
+Source-aware rendering: `TournamentContext` exposes the `sources` config; components read `useTournament().sources.pf` and `useTournament().sources.carde` to conditionally render columns. No conditional logic scattered across components — one context value controls all source-conditional visibility.
 
 ---
 
@@ -111,10 +123,11 @@ These states must be designed before implementation, not discovered during it.
 
 ## Verification Checklist
 
-- Design token spec approved and implemented as CSS custom properties
+- Design token spec approved and `tokens.css` updated with finalized values
 - All key screens have a wireframe/mockup approved before implementation starts
-- Component classes cover all states (loading, error, empty, populated)
-- Carde-only mode renders correctly — no broken column references
-- Mobile layout tested at 375px width (iPhone SE)
-- Touch targets verified at 44px minimum
-- Dark mode works without any JS — CSS only via `prefers-color-scheme`
+- All React components cover all states (loading, error, empty, populated)
+- Carde-only mode renders correctly — no broken column references, no empty gaps
+- Mobile layout tested at 375px width (iPhone SE) — no horizontal scroll
+- Touch targets verified at 44px minimum across all interactive elements
+- Dark mode renders correctly; no hardcoded light-mode colors in component styles
+- `TournamentContext.sources` controls all source-conditional visibility — no scattered conditionals

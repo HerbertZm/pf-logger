@@ -1,8 +1,10 @@
-# Deployment Guide — analysis.heidy.tools
+# Deployment Guide — pf-logger
 
 Deploy on a VPS with nginx reverse proxy + Let's Encrypt TLS.
 
-**Assumptions:** Ubuntu 22.04/24.04, root or sudo access, `heidy.tools` DNS managed somewhere you can add records.
+**Stack:** Node.js 20 LTS, PostgreSQL 16, nginx, systemd, GitHub Actions for CI/CD.
+
+**Assumptions:** Ubuntu 22.04/24.04, root or sudo access, DNS for `analysis.heidy.tools` managed somewhere you can add records.
 
 ---
 
@@ -22,69 +24,125 @@ Propagation takes a few minutes to an hour. Check with `dig analysis.heidy.tools
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y python3 python3-pip nginx certbot python3-certbot-nginx ufw git
+
+# Node.js 20 LTS (via NodeSource)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# PostgreSQL 16
+sudo apt install -y postgresql postgresql-contrib
+
+# Other tools
+sudo apt install -y nginx certbot python3-certbot-nginx ufw git
 ```
 
-The app uses only Python stdlib — no pip packages needed.
-
----
-
-## Step 3 — Copy the app and database to the server
-
-**Copy everything including the database in one shot** — this preserves all your existing data:
+Verify versions:
 
 ```bash
-scp -r /path/to/pf-loggger user@<VPS-IP>:/opt/pf-loggger
-```
-
-This transfers `serve.py`, `index.html`, and critically `action_logs.db` (your existing SQLite database with all drops, penalties, timing data, etc.) to the server. Do not skip the database or copy the code separately without it.
-
-If you use git to manage the code (and therefore can't commit the DB), transfer the database separately after cloning:
-
-```bash
-# Clone code
-git clone <your-repo> /opt/pf-loggger   # run this ON the server
-
-# Then from your LOCAL machine, copy just the database
-scp /path/to/pf-loggger/action_logs.db user@<VPS-IP>:/opt/pf-loggger/action_logs.db
-```
-
-Verify it arrived and looks right:
-
-```bash
-# On the server
-ls -lh /opt/pf-loggger/action_logs.db    # should show the file size you expect
-sqlite3 /opt/pf-loggger/action_logs.db "SELECT COUNT(*) FROM drops;"
-```
-
-If `sqlite3` isn't installed: `sudo apt install -y sqlite3`.
-
-Set ownership so the service user can read and write the database:
-
-```bash
-sudo chown -R www-data:www-data /opt/pf-loggger
+node -v    # should print v20.x.x
+npm -v
+psql --version
 ```
 
 ---
 
-## Step 4 — Create a systemd service
+## Step 3 — PostgreSQL setup
 
 ```bash
-sudo nano /etc/systemd/system/pf-loggger.service
+sudo -u postgres psql
+```
+
+Inside psql:
+
+```sql
+CREATE USER pflogger WITH PASSWORD 'your_strong_password_here';
+CREATE DATABASE pflogger OWNER pflogger;
+\q
+```
+
+Test the connection:
+
+```bash
+psql postgresql://pflogger:your_strong_password_here@localhost/pflogger -c "SELECT 1;"
+```
+
+---
+
+## Step 4 — Create a deploy user
+
+Run the app as a dedicated non-root user. Do not run as `www-data` or `root`.
+
+```bash
+sudo useradd -m -s /bin/bash deploy
+sudo mkdir -p /opt/pf-logger
+sudo chown deploy:deploy /opt/pf-logger
+```
+
+---
+
+## Step 5 — Clone the repo and configure
+
+```bash
+sudo -u deploy git clone https://github.com/YOUR_ORG/pf-logger.git /opt/pf-logger
+cd /opt/pf-logger
+sudo -u deploy npm ci
+```
+
+Create the environment file:
+
+```bash
+sudo -u deploy nano /opt/pf-logger/.env
+```
+
+Paste and fill in all values:
+
+```
+DATABASE_URL=postgresql://pflogger:your_strong_password_here@localhost/pflogger
+CARDE_API_TOKEN=...
+PF_PASSWORD_PEPPER=...
+PORT=8080
+NODE_ENV=production
+```
+
+`.env` is gitignored — it never leaves the server. Reference `.env.example` in the repo for the full list of required variables.
+
+---
+
+## Step 6 — Run Prisma migrations and build
+
+```bash
+cd /opt/pf-logger
+
+# Apply database schema
+sudo -u deploy npx prisma migrate deploy
+
+# Build the TypeScript API + React frontend
+sudo -u deploy npm run build
+```
+
+`npm run build` compiles the Express API to `dist/server.js` and builds the React app to `client/dist/`. Express serves `client/dist/` as static files with a SPA fallback.
+
+---
+
+## Step 7 — systemd service
+
+```bash
+sudo nano /etc/systemd/system/pf-logger.service
 ```
 
 Paste:
 
 ```ini
 [Unit]
-Description=PurpleFox Action Log Exporter
-After=network.target
+Description=pf-logger tournament dashboard
+After=network.target postgresql.service
 
 [Service]
 Type=simple
-User=www-data
-WorkingDirectory=/opt/pf-loggger
-ExecStart=/usr/bin/python3 serve.py
+User=deploy
+WorkingDirectory=/opt/pf-logger
+EnvironmentFile=/opt/pf-logger/.env
+ExecStart=/usr/bin/node dist/server.js
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
@@ -98,20 +156,20 @@ Enable and start:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable pf-loggger
-sudo systemctl start pf-loggger
-sudo systemctl status pf-loggger   # should show "active (running)"
+sudo systemctl enable pf-logger
+sudo systemctl start pf-logger
+sudo systemctl status pf-logger   # should show "active (running)"
 ```
 
-View logs any time:
+View logs:
 
 ```bash
-sudo journalctl -u pf-loggger -f
+sudo journalctl -u pf-logger -f
 ```
 
 ---
 
-## Step 5 — Configure nginx as reverse proxy
+## Step 8 — nginx reverse proxy
 
 ```bash
 sudo nano /etc/nginx/sites-available/analysis.heidy.tools
@@ -124,13 +182,15 @@ server {
     listen 80;
     server_name analysis.heidy.tools;
 
+    # Rate-limit the login endpoint
     location /api/login {
         limit_req zone=login burst=3 nodelay;
-        proxy_pass http://127.0.0.1:8765;
+        proxy_pass http://127.0.0.1:8080;
     }
 
+    # Everything else → Express (which serves API + built React app)
     location / {
-        proxy_pass         http://127.0.0.1:8765;
+        proxy_pass         http://127.0.0.1:8080;
         proxy_http_version 1.1;
         proxy_set_header   Host              $host;
         proxy_set_header   X-Real-IP         $remote_addr;
@@ -141,7 +201,7 @@ server {
 }
 ```
 
-Also add the rate-limit zone to the http block in `/etc/nginx/nginx.conf` (inside `http { ... }`):
+Add the rate-limit zone to the `http {}` block in `/etc/nginx/nginx.conf`:
 
 ```nginx
 limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
@@ -151,19 +211,19 @@ Enable the site:
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/analysis.heidy.tools /etc/nginx/sites-enabled/
-sudo nginx -t          # should print "syntax is ok"
+sudo nginx -t
 sudo systemctl reload nginx
 ```
 
 ---
 
-## Step 6 — TLS certificate (HTTPS)
+## Step 9 — TLS certificate
 
 ```bash
 sudo certbot --nginx -d analysis.heidy.tools
 ```
 
-Certbot verifies domain ownership, obtains a Let's Encrypt cert, and rewrites the nginx config to redirect HTTP → HTTPS and serve on port 443.
+Certbot validates the domain, issues a Let's Encrypt cert, and rewrites the nginx config to redirect HTTP → HTTPS on port 443.
 
 Test auto-renewal:
 
@@ -173,41 +233,171 @@ sudo certbot renew --dry-run
 
 ---
 
-## Step 7 — Firewall
+## Step 10 — Firewall
 
 ```bash
 sudo ufw allow OpenSSH
-sudo ufw allow 'Nginx Full'    # ports 80 and 443
+sudo ufw allow 'Nginx Full'   # ports 80 and 443
 sudo ufw enable
 sudo ufw status
 ```
 
-Port 8765 should **not** be in the allow list — nginx proxies to it internally.
+Port 8080 must **not** be in the allow list — nginx proxies to it internally.
 
 ---
 
-## Step 8 — Verify
+## Step 11 — Verify
 
 ```bash
 curl -I https://analysis.heidy.tools/api/me
 # Expected: HTTP/2 401
+
+curl https://analysis.heidy.tools/api/health
+# Expected: JSON with uptime, DB status, worker status
 ```
 
 Open `https://analysis.heidy.tools` in a browser — login modal over HTTPS.
 
 ---
 
+## CI/CD setup (GitHub Actions)
+
+After the initial manual deploy above, all subsequent deployments happen automatically on push to `main`. Setup is a one-time operation per repo.
+
+### Generate a deployment SSH key pair
+
+Do this on your **local machine** — the private key goes to GitHub, the public key goes to the VPS:
+
+```bash
+ssh-keygen -t ed25519 -C "pf-logger-deploy" -f ~/.ssh/pf_logger_deploy
+# Passphrase: leave empty (Actions can't enter it interactively)
+```
+
+This produces:
+- `~/.ssh/pf_logger_deploy` — private key (goes to GitHub)
+- `~/.ssh/pf_logger_deploy.pub` — public key (goes to VPS)
+
+### Authorize the key on the VPS
+
+```bash
+# Copy the public key to the deploy user on the VPS
+ssh-copy-id -i ~/.ssh/pf_logger_deploy.pub deploy@<VPS-IP>
+
+# Or manually: append the .pub contents to /home/deploy/.ssh/authorized_keys
+```
+
+Test it works before wiring up GitHub:
+
+```bash
+ssh -i ~/.ssh/pf_logger_deploy deploy@<VPS-IP> "echo OK"
+# Should print: OK
+```
+
+### Add secrets to GitHub
+
+In the repo, go to **Settings → Secrets and variables → Actions → New repository secret** and add:
+
+| Secret name | Value |
+|---|---|
+| `VPS_HOST` | VPS IP address or hostname |
+| `VPS_USER` | `deploy` |
+| `VPS_SSH_KEY` | Contents of `~/.ssh/pf_logger_deploy` (the private key, including the `-----BEGIN...` header and footer) |
+
+### GitHub Actions workflow
+
+The workflow file lives at `.github/workflows/deploy.yml` in the repo. On every push to `main` it:
+
+1. Type-checks and lints both the API and React app
+2. Runs a production build
+3. SSHs to the VPS, pulls the latest code, migrates the DB, rebuilds, and restarts the service
+
+A failed type-check or build aborts the pipeline — a broken build never reaches the server.
+
+See `plans/phase-1.md` — section 1.4 for the full workflow YAML and required `package.json` scripts.
+
+### What the deploy step does on the VPS
+
+```bash
+cd /opt/pf-logger
+git pull origin main
+npm ci --omit=dev
+npx prisma migrate deploy
+npm run build
+sudo systemctl restart pf-logger
+```
+
+`npm ci --omit=dev` installs only production dependencies. Prisma migrations are applied before the build — if a migration fails, the restart is skipped and the old version stays running.
+
+### Allowing deploy to restart the service without a password
+
+The `systemctl restart pf-logger` command requires sudo. Grant the deploy user passwordless permission for that one command only:
+
+```bash
+sudo visudo -f /etc/sudoers.d/pf-logger-deploy
+```
+
+Add this single line:
+
+```
+deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart pf-logger
+```
+
+---
+
+## Manual deployment (no CI/CD)
+
+If you need to deploy manually outside of the CI/CD flow:
+
+```bash
+ssh deploy@<VPS-IP>
+cd /opt/pf-logger
+git pull origin main
+npm ci --omit=dev
+npx prisma migrate deploy
+npm run build
+sudo systemctl restart pf-logger
+sudo journalctl -u pf-logger -f   # watch logs to confirm clean start
+```
+
+---
+
+## Database backups
+
+The admin API exposes `GET /api/admin/backup` which streams a `pg_dump` of the PostgreSQL database. This is accessible only to superadmin users.
+
+For scheduled backups, add a cron job on the VPS:
+
+```bash
+sudo crontab -u deploy -e
+```
+
+```cron
+0 3 * * * pg_dump -U pflogger pflogger | gzip > /opt/pf-logger/backups/$(date +\%Y-\%m-\%d).sql.gz
+```
+
+Keep the `backups/` directory gitignored.
+
+---
+
+## Updating environment variables
+
+Environment variables live in `/opt/pf-logger/.env` on the VPS. After changing any value:
+
+```bash
+sudo systemctl restart pf-logger
+```
+
+The service reads `.env` on startup via the `EnvironmentFile=` directive in the systemd unit. No rebuild needed for env-only changes.
+
+---
+
 ## Before going live — security checklist
 
-- [ ] Change default passwords (`admin/admin` and `hj/hj`) to something strong
-- [ ] Move `USERS`, `ADMINS`, `CARDE_API_TOKEN`, and `SUPABASE_ANON_KEY` out of `serve.py` into environment variables; set them in the systemd unit with `Environment=` lines:
-  ```ini
-  Environment="CARDE_API_TOKEN=your_token_here"
-  Environment="ADMIN_PASSWORD=strongpassword"
-  ```
-  Then read them in `serve.py` via `os.environ.get(...)`.
-- [ ] Restrict nginx access by IP if this is internal-team-only (negates need for strong passwords entirely):
-  ```nginx
-  allow 1.2.3.4;   # your IP
-  deny all;
-  ```
+- [ ] All secrets in `.env` — no hardcoded values anywhere in the codebase
+- [ ] `PF_PASSWORD_PEPPER` is random and stored nowhere except `.env`
+- [ ] Default admin password changed on first login
+- [ ] Firewall active: only ports 22, 80, 443 open
+- [ ] Port 8080 not exposed externally (nginx proxies internally)
+- [ ] SSH key auth only — password auth disabled in `/etc/ssh/sshd_config` (`PasswordAuthentication no`)
+- [ ] Certbot auto-renewal working (`sudo certbot renew --dry-run`)
+- [ ] PostgreSQL not accepting external connections (default behavior — listens on localhost only)

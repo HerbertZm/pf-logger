@@ -92,6 +92,93 @@ New tab in the UI with three panels, lazy-loaded:
 
 ---
 
+## 1.4 — CI/CD Pipeline (GitHub Actions)
+
+Automate type-checking, linting, building, and deploying to the VPS on every push to `main`. No manual SSH required after initial setup.
+
+### What the pipeline does
+
+On push to `main`:
+
+1. **Type-check** — `tsc --noEmit` on both `src/` and `client/src/`
+2. **Lint** — ESLint on both
+3. **Build** — `npm run build` (compiles TypeScript API + Vite React frontend to `dist/`)
+4. **Deploy** — SSH to VPS, pull latest code, install deps, run Prisma migrations, rebuild, restart service
+
+The deploy step only runs if the build step passes. A broken build never reaches the server.
+
+### GitHub Actions workflow
+
+Create `.github/workflows/deploy.yml`:
+
+```yaml
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/pf-logger
+            git pull origin main
+            npm ci --omit=dev
+            npx prisma migrate deploy
+            npm run build
+            sudo systemctl restart pf-logger
+```
+
+### Required GitHub secrets
+
+Add these in the repo under **Settings → Secrets and variables → Actions**:
+
+| Secret | Value |
+|---|---|
+| `VPS_HOST` | VPS IP or hostname |
+| `VPS_USER` | SSH user (e.g. `deploy`) |
+| `VPS_SSH_KEY` | Private half of the deployment SSH key pair |
+
+### VPS setup for CI/CD
+
+See `docs/DEPLOY.md` — the "CI/CD access" section covers generating the key pair, adding the public key to the VPS, and validating the connection before wiring up GitHub.
+
+### `package.json` scripts required
+
+```json
+{
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p client/tsconfig.json",
+    "lint": "eslint src client/src",
+    "build": "tsc -p tsconfig.build.json && vite build --root client",
+    "start": "node dist/server.js",
+    "dev": "concurrently \"ts-node-dev src/server.ts\" \"vite --root client\""
+  }
+}
+```
+
+---
+
 ## Verification Checklist
 
 - Superadmin creates tournament from UI → appears in selector immediately

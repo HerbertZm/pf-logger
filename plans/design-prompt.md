@@ -4,7 +4,7 @@ _Paste the content below this line directly into a Claude Design session._
 
 ---
 
-I need a complete UI/UX redesign for a real-time tournament operations dashboard called **pf-logger**. It's a local-network web app used by judge staff at live TCG (Trading Card Game) events — Magic: The Gathering, Lorcana, Riftbound. Events range from 80 to 400+ players.
+I need a complete UI/UX redesign for a real-time tournament operations dashboard called **pf-logger**. It's a local-network web app used by judge staff at live TCG (Trading Card Game) events — Magic: The Gathering, Lorcana, Riftbound. Events range from 80 to 2000+ players.
 
 Please produce: a design token spec, a component inventory, a navigation/layout spec, and wireframes or mockups for the key screens listed below.
 
@@ -49,7 +49,7 @@ Users are on their feet in loud, bright venues. A floor judge needs to read the 
 ## Design goals
 
 1. **Heads-up clarity** — active round status (timer, outstanding tables, issues) readable in under 3 seconds without scrolling
-2. **Mobile-first** — portrait phone is the primary field use case; tablet and laptop are secondary
+2. **Mobile-first** — portrait phone is the primary field use case; tablet and laptop are secondary for most users but primary for TO and Admins
 3. **Urgency hierarchy** — visual treatment must distinguish "all good" / "worth watching" / "needs immediate action" without reading numbers
 4. **Touch-safe** — all interactive elements minimum 44×44px
 5. **Persistent context** — tournament name and current round always visible regardless of active tab
@@ -59,11 +59,11 @@ Users are on their feet in loud, bright venues. A floor judge needs to read the 
 
 ## Technical constraints (hard limits)
 
-- **No build step** — CSS and JS served as static files. Design tokens via CSS custom properties only. No Tailwind, no PostCSS, no bundler.
-- **LAN deployment** — no CDN, no external fonts. System font stack only (`-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`).
+- **React 18 + Vite** — the frontend is a React TypeScript app. Design tokens are CSS custom properties in a `tokens.css` file. No external component library (MUI, Chakra, etc.) — all components are built in-house. Component styles are plain CSS files co-located with their component, referencing tokens via `var(--token-name)`.
+- **No external fonts or icon CDNs** — LAN deployment; no network access during events. System font stack only. Icons via inline SVG or a self-hosted sprite if needed.
 - **Dark mode by default** — venue lighting is variable; dark background reduces eye strain in both bright and dim environments.
 - **No animations on data** — the app refreshes data on a background polling cycle. Animated transitions on data updates would be jarring. Static state changes only.
-- **Single HTML shell** — vanilla JS modules. No React, no Vue.
+- **No Tailwind, no CSS-in-JS** — design tokens via CSS custom properties only. The token surface must be inspectable and overridable without a build step.
 
 ---
 
@@ -138,3 +138,12 @@ A compact all-rounds view in the Insights tab. One row per round:
 2. **Component inventory** — list of every UI component needed with all states (default, hover, active, disabled, loading, error, empty)
 3. **Navigation spec** — tab structure decision for mobile (bottom nav vs. top tabs), sticky header/context bar behavior, how urgency badges work on tabs
 4. **Wireframes or mockups** for the 4 screens above — mobile (375px) and desktop (1280px) variants for Screen 1 and Screen 2 at minimum
+
+---
+
+## Additional Context
+
+- If there are any open questions, ask them before delivering anything
+- The focus should be on a non-AI-generated UI, with usable components, and a clear hierarchy between components
+- Feel free to use the Figma Connector/MCP to generate these designs
+- Based on the contents of this file and any other attached documents, feel free to propose any changes to the current structure and what we should be showing to the users, always focusing on ease of use, clarity of information, and being useful quickly

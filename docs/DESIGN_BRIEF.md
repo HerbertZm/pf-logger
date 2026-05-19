@@ -120,11 +120,11 @@ Compact view of all rounds in the event:
 
 ## Design constraints
 
-- **No build step** — CSS and JS are served as static files; no Tailwind purge, no PostCSS, no bundler. Design tokens via CSS custom properties only.
-- **LAN deployment** — no CDN, no external fonts. System font stack or self-hosted.
-- **Single HTML shell** — JS modules loaded as `<script type="module">`. Component system in vanilla JS or minimal framework.
+- **React + Vite** — frontend is a React 18 TypeScript app built with Vite. Design tokens are CSS custom properties in `tokens.css`; component styles are plain CSS files co-located with components. No external component library (MUI, Chakra, etc.) — the design system is built in-house.
+- **LAN deployment** — no CDN, no external fonts. System font stack only.
 - **Dark mode preferred** — venue lighting is variable; dark background reduces eye strain
-- **No animations on data** — sync cycles refresh data every N seconds; animated transitions would be jarring and disorienting during live use
+- **No animations on data** — the background worker syncs data on a polling cycle; animated transitions on data updates would be jarring and disorienting during live use
+- **No external UI dependencies** — components must be buildable without network access during the event (no CDN-loaded icon libraries, no Google Fonts)
 
 ---
 
