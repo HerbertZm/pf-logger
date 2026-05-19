@@ -42,6 +42,7 @@ Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Sup
 | Phase 0 — Foundation Rewrite (TS + PostgreSQL + ingestion worker) | `plans/phase-0.md` |
 | Design Phase — UI/UX redesign spec | `plans/design.md` |
 | UI implementation plan — React build steps, component specs, source-conditional map | `plans/ui-implementation.md` |
+| UI code patterns — concrete implementations (main.tsx, contexts, hooks, API client) | `plans/ui-code-patterns.md` |
 | Phase 1 — Admin API + Manage Tab | `plans/phase-1.md` |
 | Phase 2 — Events, SSE, Timing Analysis, StageTimer | `plans/phase-2.md` |
 | Phase 3 — Analytics, Infrastructure, Polish | `plans/phase-3.md` |

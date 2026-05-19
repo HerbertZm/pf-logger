@@ -1,88 +1,94 @@
 # pf-logger — UI Implementation Plan
 
-**Goal:** Replace the vanilla JS / Python prototype (`index.html` + `serve.py`) with a React 18 + Vite frontend backed by the TypeScript + Express + PostgreSQL stack built in Phase 0.
+**Goal:** Replace the Python/SQLite prototype with a React 18 + Vite frontend backed by the TypeScript + Express + PostgreSQL stack from Phase 0.
 
-**Design reference:** Figma file at https://www.figma.com/design/czEoZNIW8dHjbiea6OwlOi  
-**Design tokens:** `client/src/styles/tokens.css` (complete, checked in)  
-**Design spec:** `docs/design-spec.md`
+**Design reference:** https://www.figma.com/design/czEoZNIW8dHjbiea6OwlOi  
+**Tokens:** `client/src/styles/tokens.css` (complete, checked in)  
+**Concrete implementations:** `plans/ui-code-patterns.md` — read this alongside each step.
 
 ---
 
-## Current state (as of design phase)
+## When Figma changes — what to update
 
-| File | What it is |
+| What changed in Figma | What to update in the repo |
 |---|---|
-| `serve.py` | Python 3 HTTP server, SQLite backend, port 8765. All routes in one file. |
-| `index.html` | 2,575-line vanilla JS monolith. IBM Plex fonts, purple accent, no round-timer view. |
-| `action_logs.db` | SQLite database — drops, extensions, penalties, coverage, judge calls, rounds, sessions. |
-| `client/src/styles/tokens.css` | CSS custom properties — complete design system, ready to use. |
-| `docs/design-spec.md` | Full screen and component spec from design session. |
+| Color, spacing, font size, shadow, radius | `client/src/styles/tokens.css` — the single source of truth for all visual values |
+| Component behavior, props, new variant, interaction rule | The relevant step section in this file (`ui-implementation.md`) |
+| New screen or major layout restructure | The relevant step section here + `docs/design-spec.md` if it exists |
+| Badge vs CTA rules, urgency logic, source-conditional map | The named sections at the bottom of this file |
 
-The new UI is not a reskin of the existing one — it's a rewrite with a new primary view (active round / timer). The existing tabs map roughly as:
+`tokens.css` + `ui-implementation.md` are the two files an agent reads before any UI work. If both are accurate to Figma, an agent can execute without needing Figma access directly.
 
-| Old tab | New tab | Notes |
+---
+
+## Tab mapping (old → new)
+
+| Old | New | Notes |
 |---|---|---|
-| Logs | Logs | Redesigned; now grouped + filterable with all log types |
-| Session | Session | Ported — same functionality |
-| Data | Data | Ported — raw table explorer |
-| Tools | Manage → Tournament panel | Backfill, end-tournament move here under P1 |
-| Activity | Manage → Audit log | Under P1 |
-| API Reference | Removed | Dev-only; move to `docs/` |
-| *(none)* | **Dashboard** | New — active round timer + outstanding tables |
-| *(none)* | **Insights** | New — cross-round summary table |
+| Logs | Logs | Redesigned — grouped + filterable |
+| Session | Session | PF JWT mgmt |
+| Data | Data | Raw table explorer |
+| Tools | Manage → Tournament panel | P1 |
+| Activity | Manage → Audit log | P1 |
+| *(none)* | **Dashboard** | New primary view — timer + outstanding tables |
+| *(none)* | **Insights** | New — cross-round summary |
 | *(none)* | **Manage** | New — P1, superadmin only |
 
 ---
 
 ## Prerequisites
 
-These P0 steps must be complete before any React component can render live data:
-
-- **P0.2** — Project bootstrap (Vite scaffold, root scripts, ESLint, tsconfig)
-- **P0.3** — Schema live in PostgreSQL (rounds, matches, drops, extensions, penalties, coverage, judge_calls)
-- **P0.4** — Background ingestion worker running (Carde + PF polling)
-- **P0.5** — All HTTP API routes ported to TypeScript + Express + Prisma
-
-The React frontend can be scaffolded (P0.2) and the design system + primitives can be built (steps 1–2 below) before the backend is fully wired. Components can render with mock data during that phase.
+P0.2 (scaffold), P0.3 (schema live), P0.4 (worker running), P0.5 (API ported). Frontend steps 1–3 can proceed before the backend is complete — use mock data.
 
 ---
 
-## Build order overview
+## Build order
 
 ```
-Step 0  Bootstrap (P0.2)
-Step 1  Design system foundation
+Step 0  Bootstrap
+Step 1  Design system
 Step 2  Shared primitives
 Step 3  API client + types
-Step 4  Context providers + hooks
+Step 4  Context + hooks         ← see ui-code-patterns.md §4
 Step 5  Layout shell
 Step 6  Auth flow
-Step 7  Dashboard — Active Round (Screen 1)
+Step 7  Dashboard (Screen 1)
 Step 8  Logs Feed (Screen 3)
-Step 9  Insights — Cross-Round Summary (Screen 2)
+Step 9  Insights (Screen 2)
 Step 10 Session tab
-Step 11 Data tab (raw explorer)
-Step 12 Manage tab — P1 (Screen 4)
+Step 11 Data tab
+Step 12 Manage tab (P1)
 ```
 
 ---
 
-## Step 0 — Project Bootstrap (P0.2)
+## Step 0 — Bootstrap
 
-**Prerequisite for everything. Do this first.**
-
-### 0.1 — Scaffold the client
+### Packages
 
 ```bash
-npm create vite@latest client -- --template react-ts
-cd client && npm install
+# Root
+npm i concurrently ts-node-dev
+npm i -D typescript eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser \
+  eslint-plugin-react-hooks prettier eslint-config-prettier
+
+# Client
+cd client
+npm create vite@latest . -- --template react-ts
+npm i                          # installs React 18, vite, typescript
 ```
 
-Remove the Vite boilerplate (`App.css`, `assets/`, contents of `App.tsx`, `index.css`).
+Delete Vite boilerplate: `App.css`, `assets/`, contents of `App.tsx` and `index.css`.
 
-### 0.2 — Root `package.json`
+### `client/index.html` — add Inter font
 
-Create a root-level `package.json` that orchestrates both the Express API and the Vite dev server:
+```html
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+```
+
+### Root `package.json` scripts
 
 ```json
 {
@@ -96,9 +102,7 @@ Create a root-level `package.json` that orchestrates both the Express API and th
 }
 ```
 
-### 0.3 — Vite config (`client/vite.config.ts`)
-
-Proxy all `/api/*` requests to Express so the React dev server and backend run independently:
+### `client/vite.config.ts`
 
 ```typescript
 import { defineConfig } from 'vite';
@@ -114,29 +118,12 @@ export default defineConfig({
       },
     },
   },
-  build: {
-    outDir: '../dist/client',
-  },
+  build: { outDir: '../dist/client' },
 });
 ```
 
-### 0.4 — TypeScript configs
+### `client/tsconfig.json`
 
-`tsconfig.json` (root, backend):
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "commonjs",
-    "strict": true,
-    "esModuleInterop": true,
-    "outDir": "dist",
-    "rootDir": "src"
-  }
-}
-```
-
-`client/tsconfig.json` (frontend):
 ```json
 {
   "extends": "../tsconfig.json",
@@ -154,11 +141,8 @@ export default defineConfig({
 }
 ```
 
-### 0.5 — ESLint + Prettier
+### `.eslintrc.json`
 
-Install: `npm i -D eslint @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint-plugin-react-hooks prettier eslint-config-prettier`
-
-Minimal `.eslintrc.json`:
 ```json
 {
   "extends": [
@@ -175,24 +159,20 @@ Minimal `.eslintrc.json`:
 
 `.prettierrc`: `{ "semi": true, "singleQuote": true, "trailingComma": "all" }`
 
+**Checkpoint:** `npm run dev` → Vite at :5173, Express at :8080, `/api/*` proxies correctly. `npm run typecheck` clean.
+
 ---
 
-## Step 1 — Design System Foundation
+## Step 1 — Design system
 
-`tokens.css` is already written and checked in. This step completes the CSS layer.
+`tokens.css` is already complete. Add `global.css` and wire everything up.
 
-### 1.1 — `client/src/styles/global.css`
-
-Imports `tokens.css` and adds base styles that apply globally. Nothing component-specific here:
+### `client/src/styles/global.css`
 
 ```css
 @import './tokens.css';
 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
   font-family: var(--font-sans);
@@ -211,90 +191,56 @@ body { overflow-x: hidden; }
   border-radius: var(--radius-sm);
 }
 
-/* Overtime flash — applied to .timer-overtime class via JS */
 @keyframes overtime-pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.4; }
 }
+.timer-overtime { animation: overtime-pulse 1s ease-in-out infinite; }
 
-.timer-overtime {
-  animation: overtime-pulse 1s ease-in-out infinite;
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 ```
 
-### 1.2 — Component CSS architecture
+### CSS architecture
 
-Each component gets a co-located `.css` file. No CSS-in-JS, no Tailwind. All values come from `var(--token-name)`:
+One co-located `.css` file per component, imported directly from the `.tsx`. No CSS-in-JS, no Tailwind. All values via `var(--token)`.
 
 ```
-components/
-  shared/
-    Badge.tsx
-    Badge.css       ← co-located, imports nothing (tokens available globally)
-    Button.tsx
-    Button.css
-    ...
+components/shared/
+  Badge.tsx   Badge.css   ← import './Badge.css' at top of Badge.tsx
+  Button.tsx  Button.css
+  ...
 ```
 
-Import global CSS in `client/src/main.tsx`:
-```typescript
-import './styles/global.css';
-```
-
-All component CSS is imported directly in the component file:
-```typescript
-// Badge.tsx
-import './Badge.css';
-```
+`global.css` is imported **once** in `client/src/main.tsx` — tokens are then globally available to all component CSS files.
 
 ---
 
-## Step 2 — Shared Primitives
+## Step 2 — Shared primitives
 
-Build these first — everything else depends on them. All are stateless, driven purely by props. No data fetching here.
+All stateless, prop-driven. **Complete implementations in `plans/ui-code-patterns.md` §2.**
 
 ### 2.1 — `Badge`
 
-**Props:**
 ```typescript
 type BadgeProps = {
-  icon: string;          // unicode glyph: '↓', '+', '!', '◈', '⚖', '✓', '◐', '⚠', '●', '★', '◆', '◇'
-  label: string;         // UPPERCASE label e.g. 'DROP'
+  icon: string;     // unicode: '↓' '!' '+' '⚖' '◈' '✓' '◐' '⚠' '●' '★' '◆' '◇'
+  label: string;    // UPPERCASE
   variant: 'urgent' | 'warning' | 'success' | 'info' | 'muted' | 'penalty';
   disabled?: boolean;
 };
 ```
 
-**Visual spec:**
-- Shape: pill (`border-radius: 9999px`)
-- Height: 28px, padding: 0 8px
-- Font: 11px Bold, UPPERCASE
-- Background: `var(--color-{variant}-bg)`
-- Text + border: `var(--color-{variant})`
-- Border: 1.5px solid
-- Disabled: `opacity: 0.4`
-
-**Variants map:**
-
-| variant | hex token | Use case |
-|---|---|---|
-| urgent | `--color-urgent` | DROP, ⚠ URGENT |
-| warning | `--color-warning` | EXT, ◐ WATCH |
-| penalty | `--color-penalty` | PEN |
-| info | `--color-info` | COVERAGE, JUDGE CALL, source badges |
-| success | `--color-success` | ✓ ON TRACK, ● LIVE |
-| muted | `--color-muted` | ENDED, CARDE ONLY |
-
-**Never use Badge as a clickable element.** Badges are purely informational.
+Shape: **always pill** (`border-radius: 9999px`). Height: 28px. Font: 11px Bold. Background/border from `--color-{variant}-bg` / `--color-{variant}`. **Never clickable.**
 
 ### 2.2 — `Button`
 
-**Props:**
 ```typescript
 type ButtonProps = {
   children: React.ReactNode;
   variant: 'primary' | 'secondary' | 'danger' | 'warning' | 'ghost';
-  size?: 'sm' | 'md';      // default: 'md'
+  size?: 'sm' | 'md';     // default: 'md'
   loading?: boolean;
   disabled?: boolean;
   onClick?: () => void;
@@ -302,17 +248,11 @@ type ButtonProps = {
 };
 ```
 
-**Visual spec:**
-- Shape: rounded rect (`border-radius: 8px`) — NEVER pill-shaped
-- Height: 44px (`md`), 32px (`sm`)
-- Padding: `0 var(--space-5)` (md), `0 var(--space-4)` (sm)
-- Font: 14px Medium, Sentence case
-- Min-width: 120px (md), 80px (sm)
-- Loading state: show `<Spinner />` inline, disable pointer events
+Shape: **always rectangular** (`border-radius: 8px`). Height: 44px (md) / 32px (sm). Loading: inline `<Spinner />`.
 
-| variant | background | text | border |
+| variant | bg | text | border |
 |---|---|---|---|
-| primary | `--color-info` | `#FFFFFF` | none |
+| primary | `--color-info` | `#fff` | none |
 | secondary | `--color-bg-elevated` | `--color-text-secondary` | `--color-border-default` |
 | danger | `--color-urgent-bg` | `--color-urgent` | `--color-urgent` |
 | warning | `--color-warning-bg` | `--color-warning` | `--color-warning` |
@@ -320,34 +260,28 @@ type ButtonProps = {
 
 ### 2.3 — `Panel`
 
-**Props:**
 ```typescript
 type PanelProps = {
   children: React.ReactNode;
-  variant?: 'default' | 'elevated' | 'urgent' | 'warning';
-  glow?: boolean;       // adds box-shadow glow matching variant color
-  accentBar?: boolean;  // adds 3px left accent bar in variant color
+  variant?: 'default' | 'elevated' | 'urgent' | 'warning' | 'success';
+  glow?: boolean;
+  accentBar?: boolean;  // 3px left bar in variant color
   className?: string;
 };
 ```
 
-**Spec:** `border-radius: var(--radius-lg)`, `padding: var(--panel-padding)`. Glow uses `--glow-urgent` / `--glow-warning` / `--glow-success` tokens. Accent bar is `position: absolute; left: 0; top: 0; bottom: 0; width: 3px`.
+`border-radius: var(--radius-lg)`, `padding: var(--panel-padding)`. Glow via `--glow-urgent / --glow-warning / --glow-success`.
 
-### 2.4 — `Badge` (status badge — reuse above)
-
-No separate component needed. The single `Badge` component handles all badge types via `variant` + `icon` + `label` props.
-
-### 2.5 — `Spinner`
+### 2.4 — `Spinner`
 
 ```typescript
-type SpinnerProps = { size?: 'sm' | 'md'; };
+type SpinnerProps = { size?: 'sm' | 'md'; };  // 10px / 16px
 ```
 
-Simple CSS `@keyframes spin` border animation. 10px (sm), 16px (md). Color: `--color-info`.
+CSS border-based spinner, `--color-info`, uses `@keyframes spin` from `global.css`.
 
-### 2.6 — `Toast` / `Banner`
+### 2.5 — `Banner`
 
-**Props:**
 ```typescript
 type BannerProps = {
   variant: 'success' | 'warning' | 'error' | 'info';
@@ -357,761 +291,405 @@ type BannerProps = {
 };
 ```
 
-**Spec:** Left accent bar (3px, variant color). Height: 36px. Background: `var(--color-{variant}-bg)`. Full-width, stacks below ContextBar. Managed by a `ToastContext` or a simple `useBanner` hook that the worker status hook drives automatically.
+36px tall, left accent bar (3px, variant color), full-width, stacks below ContextBar.
 
-### 2.7 — `FilterChip`
+### 2.6 — `FilterChip`
 
-**Props:**
 ```typescript
 type FilterChipProps = {
   label: string;
   active: boolean;
-  pfOnly?: boolean;    // shows 'PF' superscript, hidden in Carde-only mode
+  pfOnly?: boolean;    // shows 'PF' superscript; parent hides when sources.pf=false
   onClick: () => void;
 };
 ```
 
-**Spec:** Pill shape (`border-radius: 9999px`), height 36px, padding `0 var(--space-4)`. Active: `background: var(--color-info); border-color: var(--color-info); color: #fff`. Inactive: `background: var(--color-bg-elevated); border: 1.5px solid var(--color-border-default); color: var(--color-text-secondary)`. `pfOnly` badge: 8px "PF" superscript on top-right corner in info color.
+Pill shape, height 36px. Active: `--color-info` bg + white text. Inactive: `--color-bg-elevated` + border.
 
 ---
 
-## Step 3 — API Client + Types
+## Step 3 — API client + types
 
-### 3.1 — `client/src/api/client.ts`
+**Complete implementation in `plans/ui-code-patterns.md` §3.**
 
-Central fetch wrapper. Mirrors the existing `apiFetch()` but typed:
+### `client/src/api/client.ts`
 
-```typescript
-class ApiError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-  }
-}
+Central typed fetch wrapper. Handles auth header injection, 401 → clear token + dispatch `auth:expired`, non-ok → throw `ApiError`.
 
-async function apiFetch<T>(
-  url: string,
-  opts: RequestInit = {}
-): Promise<T> {
-  const token = localStorage.getItem('auth_token');
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...opts.headers,
-  };
-  const res = await fetch(url, { ...opts, headers });
-  if (res.status === 401) {
-    localStorage.removeItem('auth_token');
-    window.dispatchEvent(new Event('auth:expired'));
-    throw new ApiError(401, 'Unauthorized');
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, body.error ?? res.statusText);
-  }
-  return res.json() as Promise<T>;
-}
+Export: `api.get<T>`, `api.post<T>`, `api.patch<T>`, `api.delete<T>`.
 
-export const api = {
-  get:    <T>(url: string)                   => apiFetch<T>(url),
-  post:   <T>(url: string, body: unknown)    => apiFetch<T>(url, { method: 'POST',  body: JSON.stringify(body) }),
-  patch:  <T>(url: string, body: unknown)    => apiFetch<T>(url, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: <T>(url: string)                   => apiFetch<T>(url, { method: 'DELETE' }),
-};
-```
+### `client/src/api/types.ts`
 
-### 3.2 — `client/src/api/types.ts`
+All shared response types. Keep in sync with Prisma output.
 
-Shared response types. Mirror the Prisma schema output — keep in sync as the schema evolves:
-
-```typescript
-// Core entities
-export type Round = {
-  id: number;
-  tournamentId: number;
-  roundNumber: number;
-  timerDurationMinutes: number | null;  // null for Top-8
-  startedAt: string | null;             // ISO UTC
-  timerEndDatetime: string | null;      // ISO UTC — computed locally at ingestion
-  missingTablesJson: number[] | null;   // snapshot at time-called
-  snapshotCapturedAt: string | null;
-};
-
-export type Drop = {
-  id: number;
-  tournamentId: number;
-  roundId: number;
-  playerName: string;
-  tableNumber: number;
-  loggedBy: string;     // PF staff username
-  loggedAt: string;
-};
-
-export type Extension = {
-  id: number;
-  tournamentId: number;
-  roundId: number;
-  tableNumber: number;
-  playerName: string;
-  durationMinutes: number;
-  grantedBy: string;
-  grantedAt: string;
-};
-
-export type Penalty = {
-  id: number;
-  roundId: number;
-  playerName: string;
-  infraction: string;
-  remedy: string;
-  tableNumber: number;
-  loggedBy: string;
-  loggedAt: string;
-};
-
-export type Coverage = {
-  id: number;
-  roundId: number;
-  tableNumber: number;
-  judgeId: string;
-  arrivedAt: string;
-};
-
-export type JudgeCall = {
-  id: number;
-  roundId: number;
-  tableNumber: number;
-  judgeId: string;
-  outcome: string;
-  loggedAt: string;
-};
-
-export type Tournament = {
-  id: number;
-  name: string;
-  shortName: string;
-  cardeEventId: number | null;
-  pfTournamentId: string | null;
-  isActive: boolean;
-  sources: { pf: boolean; carde: boolean; };
-};
-
-export type WorkerStatus = {
-  isRunning: boolean;
-  lastSync: string | null;    // ISO UTC
-  error: string | null;
-  pfJwtExpiresAt: string | null;
-};
-
-// Dashboard API response
-export type ActiveRoundResponse = {
-  round: Round;
-  outstandingTables: number[];
-  tablesWithExtensions: number[];
-  extensions: Extension[];
-  dropCount: number;
-  penaltyCount: number;
-  nowUtc: string;
-};
-
-// Logs API response
-export type LogEntry =
-  | ({ type: 'drop' }      & Drop)
-  | ({ type: 'extension' } & Extension)
-  | ({ type: 'penalty' }   & Penalty)
-  | ({ type: 'coverage' }  & Coverage)
-  | ({ type: 'judge_call' } & JudgeCall);
-
-export type LogsResponse = {
-  rounds: Round[];
-  entries: LogEntry[];    // all types, sorted by loggedAt desc
-};
-
-// Cross-round summary
-export type RoundSummary = {
-  round: Round;
-  dropCount: number;
-  extensionCount: number;
-  penaltyCount: number;
-  outstandingAtTimeCalled: number;
-  overtimeMinutes: number | null;
-  extensions: Extension[];  // for histogram
-};
-```
+**Domain rules baked into types:**
+- `Round.timerDurationMinutes: number | null` — `null` means Top-8; always null-check before timer math
+- `Round.timerEndDatetime: string | null` — UTC ISO, computed at ingestion; never use `completed_at` for this
+- `Extension` — PF-only in PF+Carde mode; from `time_extension_seconds` in Carde-only mode
+- `LogEntry` — discriminated union on `type: 'drop' | 'extension' | 'penalty' | 'coverage' | 'judge_call'`
 
 ---
 
-## Step 4 — Context Providers + Hooks
+## Step 4 — Context providers + hooks
 
-### 4.1 — `AuthContext`
+**Complete implementations in `plans/ui-code-patterns.md` §4.**
 
-```
-client/src/context/AuthContext.tsx
-client/src/hooks/useAuth.ts        → re-export of useContext(AuthContext)
-```
+### `AuthContext`
 
-State: `{ token: string | null; username: string | null; isAdmin: boolean; isSuperadmin: boolean; }`
+State: `{ token, username, isAdmin, isSuperadmin }`. Actions: `login()`, `logout()`. On mount: validate token via `GET /api/me`. Listens for `auth:expired` custom event → clear state.
 
-Actions: `login(username, password)` → POST `/api/login`, store token in `localStorage`. `logout()` → GET `/api/logout`, clear `localStorage`.
+### `TournamentContext`
 
-On mount: if token in `localStorage`, GET `/api/me` to verify. On `auth:expired` event: clear state + show login modal.
+State: `{ tournaments, activeTournamentId, activeTournament, sources, setActiveTournament }`.
 
-### 4.2 — `TournamentContext`
+`sources: { pf: boolean; carde: boolean }` derived from `activeTournament`. **This is the single source of truth for all source-conditional rendering.** Persists selection in `localStorage`.
 
-```
-client/src/context/TournamentContext.tsx
-client/src/hooks/useTournament.ts
-```
+### `useWorkerStatus`
 
-State:
-```typescript
-{
-  tournaments: Tournament[];
-  activeTournamentId: number | null;
-  activeTournament: Tournament | null;
-  sources: { pf: boolean; carde: boolean; };   // derived from activeTournament
-  setActiveTournament: (id: number) => void;
-}
-```
+Polls `GET /api/worker-status` every 10s. Returns `{ lastSync, isRunning, error, isStale, pfJwtExpiresAt }`.
 
-On mount: GET `/api/tournaments`, auto-select most recent active tournament. Persist selection in `localStorage` so it survives refresh.
+`isStale = lastSync && (Date.now() - lastSync.getTime()) > 120_000`.
 
-`sources` is derived directly: `activeTournament?.sources ?? { pf: false, carde: false }`.
+### `useRoundTimer`
 
-**This is the single source of truth for all source-conditional rendering.** Components read `useTournament().sources.pf` — no other mechanism.
+`setInterval` at 1s over `round.timerEndDatetime`. Returns `{ remaining, isOvertime, isTopEight, urgency }`.
 
-### 4.3 — `useWorkerStatus`
+Urgency: `urgent` if overtime OR outstanding ≥ 5. `warning` if < 5 min OR outstanding ≥ 1. `success` otherwise.
 
-```
-client/src/hooks/useWorkerStatus.ts
-```
-
-Polls `GET /api/worker-status` every 10 seconds. Returns:
-```typescript
-{ lastSync: Date | null; isRunning: boolean; error: string | null; isStale: boolean; pfJwtExpiresAt: Date | null; }
-```
-
-`isStale = lastSync !== null && (Date.now() - lastSync.getTime()) > 2 * 60 * 1000` (> 2 minutes).
-
-In P2, replace polling with SSE subscription. The hook interface stays the same — only the internal mechanism changes.
-
-### 4.4 — `useRoundTimer`
-
-```
-client/src/hooks/useRoundTimer.ts
-```
-
-Computes countdown from `round.timerEndDatetime` (UTC). Updates every second via `setInterval`. Returns:
-```typescript
-{
-  remaining: number;        // seconds remaining; negative = overtime
-  isOvertime: boolean;
-  isTopEight: boolean;      // true when timerDurationMinutes is null
-  urgency: 'success' | 'warning' | 'urgent';
-}
-```
-
-Urgency rules:
-- `urgent`: `remaining <= 0` (overtime) OR `outstandingTables >= 5`
-- `warning`: `remaining <= 5 * 60` (< 5 min) OR `outstandingTables >= 1`
-- `success`: everything else
-
-**Always null-check `timerDurationMinutes` before doing any computation.** If null, return `{ isTopEight: true, urgency: 'success', ... }`.
+**Always guard `timerDurationMinutes === null` first** — return `{ isTopEight: true, remaining: 0, isOvertime: false, urgency: 'success' }`.
 
 ---
 
-## Step 5 — Layout Shell
-
-### File layout
+## Step 5 — Layout shell
 
 ```
 client/src/components/layout/
-  Shell.tsx          — outermost: ContextBar + (TopBar or BottomNav) + content area
-  ContextBar.tsx     — 56px sticky bar, tournament name + round always visible
-  TopBar.tsx         — desktop only: pf-logger logo + tournament selector + worker status
-  TabBar.tsx         — mobile: fixed 72px bottom nav; desktop: 44px sticky top tabs
+  Shell.tsx        — outermost: ContextBar + TopBar/BottomNav + content area
+  ContextBar.tsx   — 56px sticky, always visible
+  TopBar.tsx       — desktop only: logo + tournament selector + worker status
+  TabBar.tsx       — mobile: 72px fixed bottom; desktop: 44px sticky top tabs
 ```
 
-### `ContextBar`
+### ContextBar
 
-Always visible on all viewports. Height: `var(--space-context-bar)` (56px). Sticky, `z-index: var(--z-sticky)`.
+`position: sticky; top: 0; z-index: var(--z-sticky); height: var(--space-context-bar)`.
 
-Content:
-- Left: tournament name (13px Semi Bold) + round info (11px Regular, muted)
-- Right: live dot (green ellipse 8px) + "Live" label, OR last-updated time
+Left: tournament name (13px Semi Bold) + round info (11px muted). Right: live indicator from `useWorkerStatus()`. States: green "● Live", amber "⚠ Stale · Xm ago", red "✕ Error".
 
-Uses `useWorkerStatus()` for the freshness indicator. On `isStale`: swap to amber "Stale · Xm ago". On `error`: swap to red dot.
+### TabBar
 
-### `TabBar`
+Two render paths via media query (breakpoint: 768px):
 
-Two render modes controlled by a media query / window width:
+**Mobile:** `position: fixed; bottom: 0; height: 72px`. Each tab: 22×22 SVG icon + 8px label. Active: `--color-info` + top 2px indicator.
 
-**Mobile (≤768px):** `position: fixed; bottom: 0; height: 72px`. Background `--color-bg-overlay`. Tab items: icon (22×22 via inline SVG or unicode drawn with CSS) + label (8px). Active tab: `--color-info`, top 2px indicator. Badges: absolute-positioned 14px pills.
-
-**Desktop (≥1024px):** `position: sticky; top: 56px` (below ContextBar). Height: 44px. Background `--color-bg-surface`. Tabs horizontal, active underline 2px.
+**Desktop:** `position: sticky; top: 56px; height: 44px`. Horizontal tabs, active 2px underline.
 
 Tab badge logic:
-```
-Dashboard:  dot (8px circle, color = urgency) when outstanding > 0 OR overtime
-Logs:       count badge (drops + extensions + penalties + coverage + judge_calls this round); clears when tab viewed
-Session:    '!' badge when pfJwtExpiresAt < 30 min → amber; expired → red
-```
+- Dashboard: 8px dot in urgency color when `outstanding > 0 || isOvertime`
+- Logs: count since last viewed; clears on tab focus
+- Session: amber `!` when `pfJwtExpiresAt < 30min`; red when expired
 
-### Tab icons (SVG primitives, inline)
+### Tab icons — inline SVG
 
-Draw from SVG path data. Implement as `<svg>` elements with `currentColor` fill so they inherit the tab's active/inactive color:
+All use `currentColor` so they inherit active/inactive color automatically:
 
-- **Dashboard:** 2×2 grid of 4 rounded squares (9×9 each, 2px gap)
-- **Logs:** 3 horizontal bars (`rx=2`), widths 18px / 14px / 10px, 3px tall, 5px apart
-- **Insights:** 3 vertical bars ascending left-to-right (5×10, 5×16, 5×20), gap 3px
-- **Data:** table grid (22×9 rect / 22×9 rect, with 2 vertical dividers at x=7 and x=14)
-- **Session:** ellipse head (9×9) + rounded rect shoulders (16×8, radius 4)
-- **Manage:** gear shape — outer circle + 4 rectangular teeth + inner hole circle (use SVG `<circle>` + `<rect>` elements)
+- **Dashboard:** 2×2 grid of 9×9 rounded squares (2px gap, `rx=2`)
+- **Logs:** 3 bars (18/14/10px wide, 3px tall, 5px apart)
+- **Insights:** 3 ascending vertical bars (5×10, 5×16, 5×20, gap 3px)
+- **Data:** table grid (22×9 rects with 2 vertical dividers at x=7 and x=14)
+- **Session:** circle head + rounded rect body
+- **Manage:** gear (outer ring + 4 rect teeth + inner hole)
 
 ---
 
-## Step 6 — Auth Flow
+## Step 6 — Auth flow
 
 ### `LoginModal`
 
-Renders as a centered overlay (`z-index: var(--z-modal)`) with a backdrop. Not dismissible — user must authenticate.
+Centered overlay, `z-index: var(--z-modal)`. Not dismissible. Controlled form: `username` + `password` inputs. Submit → `useAuth().login()`. Inline error below form (not `alert()`). Auto-focus `username` on mount.
 
-Fields: username (text input), password (password input). Submit → `useAuth().login()`. On error: inline error message below the form (never an alert). On success: modal unmounts, app renders normally.
+### `App.tsx`
 
-Auto-focus username field on mount. Enter key submits.
+Tab routing via `useState` — no router library:
 
-### Auth guard
+```typescript
+type Tab = 'dashboard' | 'logs' | 'insights' | 'session' | 'data' | 'manage';
 
-`App.tsx` renders `<LoginModal />` when `!auth.token`. Once authed, renders `<Shell>` with the current tab's view. No routing library needed — tab state is managed in React state (`useState<TabName>('dashboard')`).
+function App() {
+  const auth = useAuth();
+  const [tab, setTab] = useState<Tab>('dashboard');
+  if (!auth.token) return <LoginModal />;
+  return <Shell tab={tab} onTabChange={setTab}>{/* tab views */}</Shell>;
+}
+```
 
 ---
 
 ## Step 7 — Dashboard: Active Round (Screen 1)
 
-This is the most important screen — the main operational view for judges. Build it with care.
-
-**File layout:**
 ```
 client/src/components/dashboard/
-  ActiveRound.tsx          — screen container, fetches data, distributes to children
-  RoundTimer.tsx           — large countdown + urgency state
-  RoundStrip.tsx           — 36px colored bar below ContextBar
-  StatChips.tsx            — 4 summary chips (outstanding, w/ext, drops, penalties)
-  OutstandingTables.tsx    — numbered table chips, extension-marked
-  ExtensionsList.tsx       — extension rows, collapsible
+  ActiveRound.tsx       — container, polls every 15s, distributes data
+  RoundStrip.tsx        — 36px colored bar, urgency-keyed
+  RoundTimer.tsx        — hero countdown
+  StatChips.tsx         — 4 summary chips
+  OutstandingTables.tsx — collapsible table chips
+  ExtensionsList.tsx    — collapsible extension rows
 ```
 
-### `ActiveRound` — data fetching
+### Polling pattern (same for all data-fetching containers)
 
-Polls `GET /api/dashboard/active-round?tournamentId={id}` every 15 seconds. Response: `ActiveRoundResponse` (see types).
+```typescript
+useEffect(() => {
+  fetch();
+  const id = setInterval(fetch, 15_000);
+  return () => clearInterval(id);
+}, [tournamentId]);
+```
 
-While loading (first fetch): show skeleton `<Panel>` with pulsing background.
-On error: show error `<Banner variant="error">`.
-On null round (no active round): show empty state — "No active round. Waiting for first sync."
-
-### `RoundStrip`
-
-36px bar immediately below ContextBar. Background + border-bottom color = urgency color bg. Contains: "ROUND {n} · {duration} min" left-aligned in 11px Bold. Right-aligned: status badge (`<Badge variant={urgency} icon="..." label="..." />`).
+Loading: skeleton `<Panel>` with pulse. Error: `<Banner variant="error">`. No active round: empty state.
 
 ### `RoundTimer`
-
-The hero element. Largest typography on screen.
 
 ```typescript
 type RoundTimerProps = {
   round: Round;
   outstandingCount: number;
-  onExtend: () => void;    // triggers extend-round modal
+  onExtend: () => void;
 };
 ```
 
-**Render rules:**
-1. If `round.timerDurationMinutes === null` → Top-8 variant: render "—" in 48px muted, label "Top 8 / No timer"
-2. If `isOvertime` → render negative time (e.g. "-05:22"), apply `className="timer-overtime"` to the text + card border for the CSS pulse animation
-3. Otherwise → render countdown, color = urgency token
+1. `timerDurationMinutes === null` → `"—"` in 48px muted, "Top 8 / No timer"
+2. `isOvertime` → `"-MM:SS"`, apply `.timer-overtime` to text + card border
+3. Otherwise → countdown, color = urgency token
 
-**Time format:** `MM:SS` (no hours). Negative time: `-MM:SS`. Computed by `useRoundTimer()` hook.
+Font: 80px mobile (`--text-hero-size`), 48px desktop (`--text-3xl-size`).
 
-**Card structure:**
-- `<Panel variant={urgency} glow={urgency === 'urgent'}>` 
-- Timer text: `font-size: var(--text-hero-size)` (80px mobile), `var(--text-3xl-size)` (48px desktop)
-- Below timer: "{outstanding} outstanding · {ext} w/ extensions" in 13px muted
-- "Extend round" `<Button variant="secondary" size="sm">` — only shown when NOT overtime
+### `StatChips` — 4 chips
 
-### `StatChips`
+Outstanding (`urgent`) · w/ Extensions (`warning`) · Drops (`muted`) · Penalties (`penalty`).
 
-4 chips in a row. On mobile: 4 across at 80px each. On desktop: flexible width.
+Zero-suppression: value `0` → `"—"` with `.value-zero` class.
 
-Each chip (`StatChip` sub-component):
-- Background: `--color-bg-surface`
-- Border: 1px solid `var(--color-{variant})` at 40% opacity (muted border for 0 values)
-- Value: 24px Bold in variant color; if value === 0, render "—" in `--color-text-tertiary` with class `value-zero`
-- Label: 11px Regular muted
-
-Chips: Outstanding (`urgent`), w/ Extensions (`warning`), Drops (`muted`), Penalties (`penalty`).
-
-Source-conditional: **Drops chip hidden when `sources.pf === false`** (Carde-only mode).
+**Drops chip hidden when `sources.pf === false`.**
 
 ### `OutstandingTables`
 
-Collapsible section. Shown only when `outstandingTables.length > 0`.
-
-Each table is a chip: 44×36px, `border-radius: 8px`. Default: `--color-bg-elevated` background. If table is in `tablesWithExtensions`: amber background + amber border, "+ext" label below number.
-
-Section header: "Outstanding tables · {n} tables" — click toggles collapse. Default: expanded.
-
-### `ExtensionsList`
-
-Collapsible section. Only shown when `extensions.length > 0`.
-
-Desktop table columns: TABLE · PLAYER · DURATION · GRANTED BY · TIME. Mobile: stacked cards.
-
-Each row is 52px tall. Left accent bar: `--color-warning`. The "DURATION" cell in amber Bold.
+Table chips: 44×36px, `border-radius: 8px`. Extension-marked tables: amber bg + border. Collapsible, expanded by default.
 
 ---
 
 ## Step 8 — Logs Feed (Screen 3)
 
-**File layout:**
 ```
 client/src/components/logs/
-  LogFeed.tsx              — screen container, fetches + groups by round
-  FilterBar.tsx            — 7 chips + search + clear button
-  RoundGroup.tsx           — collapsible round header + entries
-  LogEntry.tsx             — single 52px row
+  LogFeed.tsx     — container, polls every 20s, groups by round
+  FilterBar.tsx   — 7 chips + search + clear
+  RoundGroup.tsx  — collapsible header + entries
+  LogEntry.tsx    — 52px row
 ```
 
-### `LogFeed` — data fetching
-
-Polls `GET /api/logs?tournamentId={id}` every 20 seconds. Response: `LogsResponse`.
-
-Groups entries by round number (`entries.filter(e => e.roundId === round.id)`). Current round (highest active round) is expanded by default; all others collapsed.
-
-Tracks a `lastViewed: Date` for the Logs tab badge. When the user is on the Logs tab, update `lastViewed` on each poll response and count entries after that timestamp for the badge.
-
-### `FilterBar`
+### FilterBar state
 
 ```typescript
 type FilterState = {
-  roundId: number | null;   // null = all rounds
-  types: Set<LogEntryType>; // 'drop' | 'extension' | 'penalty' | 'coverage' | 'judge_call'
+  roundId: number | null;
+  types: Set<'drop' | 'extension' | 'penalty' | 'coverage' | 'judge_call'>;
   search: string;
 };
 ```
 
-Chips (in order): All · This Round · Drops · Extensions · Penalties · Coverage · Judge Calls
+Chips: All · This Round · Drops · Extensions · Penalties · Coverage · Judge Calls
 
-`coverage` and `judge_call` chips: only rendered when `sources.pf === true`. When `sources.pf === false`, these chips are hidden and their filter is cleared.
+`coverage` and `judge_call` chips: **hidden + cleared when `sources.pf === false`**.
 
-"Clear" is a `<Button variant="danger" size="sm">` — NOT a chip. Right-aligned.
+"Clear" = `<Button variant="danger" size="sm">` (rectangular, not a chip). Search: 300ms debounce.
 
-Search: `<input type="text">` with debounce (300ms). Searches `playerName`, `tableNumber`, `loggedBy` fields.
+### LogEntry grid layout
 
-### `LogEntry`
-
-52px tall row. This is where alignment matters most — get this exactly right.
-
-```
-Layout: [3px accent bar] [12px gap] [badge 28px tall] [12px gap] [name/sub stack] [flex grow] [logged-by] [timestamp]
-```
-
-Vertical centering math (all from top of row):
-- Row height: 52px
-- Badge: 28px tall → `top = (52-28)/2 = 12px`
-- Primary name (13px, line-height 18px): `top = (52-18)/2 = 17px`
-- Secondary sub (11px, line-height 16px): `top = 17 + 18 = 35px`... use flexbox column instead
-- Right column (by + ts): both 11px → use flex column, `justify-content: center`
-
-**Recommended implementation:** Use CSS `display: grid` on the row with fixed column widths:
 ```css
 .log-entry {
   display: grid;
   grid-template-columns: 3px 12px 80px 1fr 160px 80px;
+  /* accent | gap | badge | name/sub | logged-by | timestamp */
   align-items: center;
   height: 52px;
 }
 ```
 
-Left accent bar color = log type color token. Badge uses `<Badge>` component. All text colors from design tokens.
+### Tab badge
 
-### `RoundGroup`
-
-Collapsible. Header: 40px tall, `--color-bg-elevated` background.
-
-When group is current active round AND urgency = urgent: header gets `--color-urgent-bg` background + 1px border.
-
-Header content: "Round {n} · {status} · {count} entries" left-aligned. Chevron right-aligned (▾ open / ▸ closed).
+Track `lastViewed: number` (timestamp). Badge count = entries after `lastViewed`. Reset on tab focus.
 
 ---
 
 ## Step 9 — Insights: Cross-Round Summary (Screen 2)
 
-**File layout:**
 ```
 client/src/components/insights/
-  CrossRoundSummary.tsx    — screen container
-  TotalsStrip.tsx          — summary totals across all rounds
-  RoundTable.tsx           — the main table
-  RoundRow.tsx             — one row per round
-  ExtensionHistogram.tsx   — expandable detail (QoL 4)
+  CrossRoundSummary.tsx
+  TotalsStrip.tsx
+  RoundTable.tsx / RoundRow.tsx
+  ExtensionHistogram.tsx
 ```
 
-### Data fetching
+Polls every 30s. Desktop columns: Rd · Status · Drops · Extensions · Outstanding · Time Called · Actual End · Overtime. Mobile: Rd · Status · Drops · Ext · Outstanding · Overtime.
 
-`GET /api/insights?tournamentId={id}` — called once on mount, refreshed every 30 seconds. Response: `RoundSummary[]`.
+Data columns right-aligned. Zero-suppression on Drops, Extensions, Outstanding, Overtime.
 
-### `TotalsStrip`
+Row urgency: `overtimeMinutes > 15` OR `outstandingAtTimeCalled >= 5` → urgent. `> 0` OR `>= 1` → warning.
 
-64px tall, `--color-bg-surface` background, 1px border. Horizontal flex with 5 cells: Total Drops · Total Extensions · Total Penalties · Rounds · Runtime. Each cell: large value (18px Bold, type-colored) + label (10px muted). Divider between cells: 1px opacity-25 vertical line.
+Expandable row: click → inline detail panel with `<ExtensionHistogram>` + outstanding list. Second click collapses.
 
-### `RoundTable`
-
-Desktop: full table with columns Rd | Status | Drops | Extensions | Outstanding | Time Called | Actual End | Overtime.
-
-Mobile: compact table with Rd | Status | Drops | Ext | Outstanding | Overtime.
-
-**Column alignment:** All data columns right-aligned for scannability. Use `text-align: right` on both `<th>` and `<td>`. Status column left-aligned (it contains a Badge).
-
-**Zero-suppression:** Any cell with value 0 renders "—" with `class="value-zero"` (color: `--color-text-tertiary`). Applied to Drops, Extensions, Outstanding, Overtime columns.
-
-**Row urgency:** Rounds with `overtimeMinutes > 15` OR `outstandingAtTimeCalled >= 5` get:
-- Background: `--color-urgent-bg`
-- 1.5px border: `--color-urgent` at 50% opacity
-- 3px left accent bar in `--color-urgent`
-
-Rounds with `overtimeMinutes > 0` OR `outstandingAtTimeCalled >= 1` get amber equivalent.
-
-**Expandable row:** Click any row → expand a detail panel below it (not a separate page). Detail shows:
-- `<ExtensionHistogram>` (if extensions exist)
-- Outstanding tables list at time-called
-- Close on second click
-
-### `ExtensionHistogram` (QoL 4)
-
-Simple bar chart. X-axis: 5-minute duration buckets (+5, +10, +15, +20, +25+). Y-axis: count. Built with pure CSS bars (no chart library needed for this simple case):
-
-```tsx
-const buckets = groupExtensionsByBucket(extensions, 5); // 5-min intervals
-// Render as flex bars with height proportional to max count
-```
-
-If no extensions: render "No extensions this round" in muted text.
+`ExtensionHistogram`: pure CSS bars, 5-min buckets, no chart lib.
 
 ---
 
 ## Step 10 — Session Tab
 
-**File layout:**
-```
-client/src/components/session/
-  SessionTab.tsx
-```
+Source-conditional: **entire tab hidden when `sources.pf === false`**.
 
-Ports the existing Session tab functionality. No new design — just uses the new component primitives.
+Sections: JWT status card · Paste JWT textarea → `POST /api/set-token` → refresh worker status · DevTools instructions (collapsible) · Clear token button.
 
-Sections:
-1. **JWT status card** — dot indicator (green/amber/red) + expiry countdown + username extracted from JWT
-2. **Paste JWT** — `<textarea>` + "Save token" `<Button variant="primary">` → POST `/api/set-token`
-3. **Instructions** — step-by-step guide for extracting JWT from DevTools (collapsible)
-4. **Clear token** → `<Button variant="danger" size="sm">`
-
-Source-conditional: **entire Session tab hidden when `sources.pf === false`** (no PF = no JWT needed). The tab badge rule also only applies when PF is enabled.
-
-`useWorkerStatus().pfJwtExpiresAt` drives the expiry display. Refresh the worker status immediately after saving a new token.
+Expiry: amber `< 30 min`, red expired. Driven by `useWorkerStatus().pfJwtExpiresAt`.
 
 ---
 
-## Step 11 — Data Tab (Raw Explorer)
+## Step 11 — Data Tab
 
-**File layout:**
-```
-client/src/components/data/
-  DataTab.tsx
-  RawTableViewer.tsx
-```
+Admin-gated (`useAuth().isAdmin`). Accordion of raw tables. Each table fetches on expand. Pagination: 50 rows + "Load more".
 
-Ports the existing raw table explorer. Each table is a collapsible accordion item. Expand → fetch data → render as `<table>`. Pagination: 50 rows at a time with "Load more" button.
-
-Tables to expose: `rounds`, `matches` (last 24h of in-progress snapshots), `drops`, `extensions`, `penalties`, `coverage`, `judge_calls`.
-
-This tab is admin-gated: only renders if `useAuth().isAdmin`.
+Tables: `rounds`, `matches`, `drops`, `extensions`, `penalties`, `coverage`, `judge_calls`.
 
 ---
 
-## Step 12 — Manage Tab (P1, Screen 4)
+## Step 12 — Manage Tab (P1)
 
-**Prerequisites:** P1.1 Admin API endpoints complete.
+**Requires P1.1 admin API endpoints.**
 
-**File layout:**
 ```
 client/src/components/manage/
-  ManageTab.tsx            — tab container, 3 panels
-  TournamentPanel.tsx      — tournaments list + create/edit form
-  TournamentForm.tsx       — create/edit form (drawer or modal)
-  UsersPanel.tsx           — users table
-  UserForm.tsx             — create/edit form
-  SessionsPanel.tsx        — active sessions table
+  ManageTab.tsx
+  TournamentPanel.tsx + TournamentForm.tsx
+  UsersPanel.tsx + UserForm.tsx
+  SessionsPanel.tsx
 ```
 
-Superadmin-gated: if `!useAuth().isSuperadmin`, render a 403-style message instead.
+Superadmin-gated — render 403 message for non-superadmin.
+
+**Badge vs Button rule:** Badges always pill (informational). Buttons always rectangular (actionable). Enforce via shared components — never custom-style one to look like the other.
 
 ### `TournamentPanel`
 
-Table columns: Name · Source badge · Status badge · Rounds · Created · Actions
+Columns: Name · Source badge · Status badge · Rounds · Created · Actions
 
-**Source badge:** `<Badge icon="⬡" label="PF+CARDE" variant="info" />` or `<Badge icon="⬡" label="CARDE ONLY" variant="muted" />`
-
-**Status badge:** `<Badge icon="●" label="Active" variant="success" />` or `<Badge icon="○" label="Ended" variant="muted" />`
-
-**Action buttons** (clearly rectangular, NOT pill-shaped):
-- `<Button variant="secondary" size="sm">Edit</Button>` → opens `<TournamentForm>` drawer
-- `<Button variant="danger" size="sm">Deactivate</Button>` / `<Button variant="secondary" size="sm">Reactivate</Button>`
-
-"Create tournament" button: top-right of section header, `<Button variant="primary">+ Create tournament</Button>`.
+Source badge: `<Badge icon="⬡" label="PF+CARDE" variant="info" />` or `"CARDE ONLY" variant="muted"`.
 
 ### `UsersPanel`
 
-Table columns: Username · Display Name · Role badge · Status badge · Last Login · Actions
-
-**Role badges:**
-- `<Badge icon="★" label="SUPERADMIN" variant="penalty" />`
-- `<Badge icon="◆" label="HEAD JUDGE" variant="warning" />`
-- `<Badge icon="◇" label="JUDGE" variant="info" />`
-
-**Action buttons:**
-- `<Button variant="secondary" size="sm">Edit</Button>`
-- `<Button variant="warning" size="sm">Reset PW</Button>` → inline confirm step
-- `<Button variant="danger" size="sm">Suspend</Button>` / `<Button variant="secondary" size="sm">Reinstate</Button>`
-
-Own row: role and deactivate buttons disabled (cannot deactivate self).
+Role badges: `★ SUPERADMIN` (penalty) · `◆ HEAD JUDGE` (warning) · `◇ JUDGE` (info). Own row: role + deactivate disabled.
 
 ### `SessionsPanel`
 
-Table columns: User · IP · Created · Expires · Actions
-
-Single action: `<Button variant="danger" size="sm">Revoke</Button>` → DELETE `/api/admin/sessions/:token`
+Columns: User · IP · Created · Expires · Revoke button.
 
 ---
 
 ## Source-conditional rendering — complete map
 
-Controlled by `useTournament().sources`. Applied per-component, never scattered:
+All conditioned on `useTournament().sources`. No other mechanism.
 
-| UI element | `sources.pf` required | `sources.carde` required |
+| UI element | `sources.pf` | `sources.carde` |
 |---|---|---|
-| Drops stat chip | ✓ | — |
+| Drops stat chip | ✓ required | — |
 | Drops filter chip | ✓ | — |
 | Drops column in round table | ✓ | — |
-| Coverage filter chip | ✓ | — |
-| Judge Calls filter chip | ✓ | — |
-| Session tab (entire tab) | ✓ | — |
+| Coverage + Judge Calls filter chips | ✓ | — |
+| Session tab (entire) | ✓ | — |
 | Session tab badge | ✓ | — |
-| Extensions (in PF+Carde mode) | ✓ | — |
-| Extensions (in Carde-only mode) | — | ✓ (from `time_extension_seconds`) |
-| Round timer + outstanding tables | — | ✓ |
-| Pairings / match data | — | ✓ |
+| Extensions source | PF data if ✓ | `time_extension_seconds` if ✓ |
+| Round timer + outstanding tables | — | ✓ required |
+| Match/pairing data | — | ✓ |
 
-When columns are hidden in Carde-only mode: remaining columns expand via `flex: 1` or grid `fr` units. No empty gaps.
+Hidden columns expand via `flex: 1` / `fr` — no empty gaps.
 
 ---
 
-## Overtime CSS animation
+## Overtime animation
 
-Defined in `global.css` (see Step 1.1). Applied by `RoundTimer` via a conditional className:
+Defined in `global.css`. Applied by `RoundTimer`:
 
 ```tsx
-<div className={`timer-value ${isOvertime ? 'timer-overtime' : ''}`}>
+<div className={`timer-value${isOvertime ? ' timer-overtime' : ''}`}>
   {formatTime(remaining)}
 </div>
 ```
 
-The animation pulses the **entire timer card** (text + border) between full opacity and 0.4 at 1Hz. Applied to both the text element and the card border via:
-
-```css
-.panel-overtime.timer-overtime {
-  animation: overtime-pulse 1s ease-in-out infinite;
-}
-```
-
-Panel urgency classes (`state-urgent`, `state-warning`, `state-success`) from `tokens.css` handle the background/border color. `timer-overtime` adds the pulse on top.
+`state-urgent` class handles bg/border color. `timer-overtime` adds 1Hz pulse on top.
 
 ---
 
-## QoL items that slot naturally into this build
+## QoL slots
 
-These are from `plans/qol.md` and are cheap to do alongside the React components they touch:
-
-| QoL | Slot in during | What it is |
+| QoL | Step | Notes |
 |---|---|---|
-| QoL 7 — Collapsible round blocks | Step 8 (Logs) | Already designed into `RoundGroup` — just ensure collapse state is persisted in `localStorage` |
-| QoL 8 — Quick filter presets | Step 8 (Logs) | `FilterBar` already has the chip design — this is just the implementation |
-| QoL 12 — Filter/sort persistence | Step 8 (Logs) | `localStorage` in the `FilterBar` state hook |
-| QoL 5 — New since last sync badge | Step 8 (Logs) | `lastViewed` timestamp already described in Logs data fetching above |
-| QoL 1 — Logistics filtering | Step 8 (Logs) | Filter logic in `FilterBar` state |
-| QoL 3 — Round pace indicator | Step 7 (Dashboard) | Urgency badge on RoundStrip already does this visually |
-| QoL 11 — Keyboard shortcuts | Any step | `useEffect` + `keydown` event listener. Suggested: `D`=Dashboard, `L`=Logs, `I`=Insights |
-| QoL 6 — Operator notes per round | Step 12 (Manage) / P1 | Needs API endpoint first (P1.1) |
-| QoL 9 — Copy round summary | Step 12 / P1 | Button in Dashboard or Insights → clipboard |
-| QoL 4 — Extension histogram | Step 9 (Insights) | `ExtensionHistogram` component already designed |
-| QoL 13 — What changed diff banner | Step 8 (Logs) | Compare log counts between poll responses, show banner |
+| 7 — Collapsible round blocks | 8 Logs | `RoundGroup` — persist collapse in `localStorage` |
+| 8 — Quick filter presets | 8 Logs | `FilterBar` chips — implement the 7-chip state |
+| 12 — Filter/sort persistence | 8 Logs | `localStorage` in FilterBar state |
+| 5 — New since last sync badge | 8 Logs | `lastViewed` timestamp already in spec |
+| 1 — Logistics filtering | 8 Logs | Filter logic in `FilterBar` |
+| 3 — Round pace indicator | 7 Dashboard | Urgency badge on `RoundStrip` |
+| 11 — Keyboard shortcuts | Any | `useEffect` keydown: D/L/I/S = tabs |
+| 4 — Extension histogram | 9 Insights | Pure CSS bars |
+| 6 — Operator notes | 12 / P1 | Needs P1.1 API first |
+| 9 — Copy round summary | 12 / P1 | Clipboard button |
+| 13 — What-changed banner | 8 Logs | Compare log counts between polls |
 
 ---
 
 ## Verification checklist
 
-### Bootstrap (Step 0)
-- [ ] `npm run dev` starts both Vite (port 5173) and Express (port 8080); `/api/*` proxies correctly
-- [ ] `npm run build` produces `dist/` with compiled server + `client/dist/` with React bundle
-- [ ] `npm run typecheck` passes with no errors on both `src/` and `client/src/`
-- [ ] `npm run lint` passes clean
+**Bootstrap**
+- [ ] `npm run dev` starts Vite (:5173) + Express (:8080); `/api/*` proxies
+- [ ] `npm run typecheck` clean; `npm run lint` clean
 
-### Design system (Steps 1–2)
-- [ ] All token CSS variables resolve (no `var(--xxx)` fallbacks hit)
-- [ ] `Badge` renders all 8 badge variants correctly, always pill-shaped
-- [ ] `Button` renders all 5 variants, always rectangular (never pill-shaped)
-- [ ] `FilterChip` renders active/inactive states; `pfOnly` prop shows/hides PF superscript
+**Design system**
+- [ ] All `var(--token)` values resolve; no fallbacks hit
+- [ ] `Badge` always pill-shaped; `Button` always rectangular
 
-### Auth (Step 6)
-- [ ] Login flow works: submit → token in `localStorage` → modal disappears
-- [ ] 401 response clears token and re-shows `<LoginModal>`
-- [ ] `useAuth().isAdmin` and `.isSuperadmin` reflect `/api/me` response correctly
+**Auth**
+- [ ] Login → token in `localStorage` → modal unmounts
+- [ ] 401 → token cleared → `<LoginModal>` reappears
+- [ ] `isAdmin` / `isSuperadmin` reflect `/api/me`
 
-### Dashboard (Step 7)
-- [ ] Timer counts down in real time; updates every second without page refresh
-- [ ] `timerDurationMinutes === null` → Top-8 variant renders "—", no NaN
-- [ ] Overtime: timer goes negative ("-05:22"), CSS pulse animation active
-- [ ] Urgency states: success (green), warning (amber), urgent (red + glow) all apply correctly
-- [ ] Outstanding table chips correct: extension-marked tables amber, others default
-- [ ] Drops stat chip hidden when `sources.pf === false`
-- [ ] Mobile layout at 375px: no horizontal scroll, all touch targets ≥ 44px
+**Dashboard**
+- [ ] Timer ticks in real time; no NaN on null `timerDurationMinutes`
+- [ ] Overtime: negative time, pulse animation active
+- [ ] Urgency states (success/warning/urgent) correct colors + glow
+- [ ] Drops chip absent when `sources.pf === false`
+- [ ] Mobile 375px: no horizontal scroll
 
-### Logs (Step 8)
-- [ ] All 5 log types render with correct badge, icon, left accent bar, and alignment
-- [ ] Coverage + Judge Calls filter chips hidden when `sources.pf === false`
-- [ ] Current round group expanded by default; older rounds collapsed
-- [ ] Filter chips correctly filter entries; "Clear" resets all
-- [ ] Search debounces correctly (300ms); no layout jump on empty results
-- [ ] Tab badge count is accurate; clears when tab is viewed
+**Logs**
+- [ ] All 5 log types: correct badge, accent bar, grid alignment
+- [ ] Coverage + Judge Calls chips absent when `sources.pf === false`
+- [ ] Tab badge count accurate; clears on tab focus
 
-### Insights (Step 9)
-- [ ] All 0 values display as "—" in muted color (zero-suppression)
-- [ ] Urgent rows get red background + left accent bar
-- [ ] Expandable row shows histogram + outstanding tables; collapses on second click
-- [ ] Totals strip totals match sum of individual round rows
+**Insights**
+- [ ] Zero-suppression: `0` → `"—"` in muted
+- [ ] Urgent rows: red bg + left accent bar
+- [ ] Totals strip sums match rows
 
-### Session tab (Step 10)
-- [ ] Entire Session tab absent from TabBar when `sources.pf === false`
-- [ ] JWT expiry countdown accurate; amber when < 30 min, red when expired
-- [ ] Saving a new token → worker status refreshes immediately
+**Session**
+- [ ] Tab absent from TabBar when `sources.pf === false`
+- [ ] Expiry: amber < 30 min, red expired
 
-### Manage tab / P1 (Step 12)
-- [ ] Tab only visible to superadmin; non-superadmin sees access-denied message
-- [ ] Badges (pill) and buttons (rect) are visually distinct at a glance
-- [ ] Tournament source toggle → `sources` in `TournamentContext` updates without page reload → Drops chip hides in real time
-- [ ] Own user row: role edit and deactivate disabled
-- [ ] Creating a tournament → appears in tournament selector immediately
+**Manage (P1)**
+- [ ] Superadmin-only; access-denied message otherwise
+- [ ] Tournament source toggle → `sources` in context updates → Drops chip hides live
+- [ ] Own user row: role + deactivate disabled
 
-### Cross-cutting
-- [ ] Dark mode renders correctly everywhere; no hardcoded light-mode colors
-- [ ] All source-conditional elements controlled by `useTournament().sources` only — no other mechanism
-- [ ] Worker stale banner appears when data > 2 min old; disappears when data freshens
-- [ ] No `console.error` in browser dev tools during normal operation
+**Cross-cutting**
+- [ ] Source-conditional rendering flows through `useTournament().sources` only
+- [ ] No hardcoded colors — only `var(--token)`
+- [ ] Worker stale banner: appears > 2 min, clears on fresh data
+- [ ] No `console.error` during normal operation
