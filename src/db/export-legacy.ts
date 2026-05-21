@@ -2,7 +2,7 @@
  * P0.6 — Step 1: Export local SQLite data to a JSON file.
  *
  * Run from the project root where action_logs.db lives:
- *   npx ts-node --compiler-options '{"module":"CommonJS"}' src/db/export-legacy.ts
+ *   npm run db:export-legacy
  *
  * Output: legacy-export.json  (gitignored)
  * Next step: POST that file to POST /api/admin/import on the server.

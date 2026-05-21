@@ -230,7 +230,7 @@ Two-step migration — local machine never needs direct DB access to the product
 
 **Step 1 — Export (local):**
 ```bash
-npx ts-node --compiler-options '{"module":"CommonJS"}' src/db/export-legacy.ts
+npm run db:export-legacy
 # Reads action_logs.db in the project root
 # Writes legacy-export.json (gitignored)
 ```

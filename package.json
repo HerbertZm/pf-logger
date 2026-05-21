@@ -13,7 +13,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "db:migrate-legacy": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" src/db/migrate-legacy.ts"
+    "db:export-legacy": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" src/db/export-legacy.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
