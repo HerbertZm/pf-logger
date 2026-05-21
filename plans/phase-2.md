@@ -74,6 +74,22 @@ StageTimer is an optional broadcast timer used at some events. Its logs are UTC 
 
 ---
 
+## 2.6 — Completed-Tournament Route Verification
+
+From P0.5 API exploration: several Carde.io endpoints have unknown behavior once a tournament is `COMPLETE` (i.e., past the final round). Verify before relying on them in analysis or reporting.
+
+**Endpoints to test against a completed tournament:**
+- `GET /api/v2/organize/events/{id}/detail/` — confirm `timer_end_datetime` and `timer_is_running` are readable and stable post-completion (not 404 or stale)
+- `GET /api/v2/organize/events/{id}/rounds/` — confirm all rounds are returned; confirm `COMPLETE` status on all rounds, including Top-8
+- `GET /api/v2/organize/events/{id}/matches-list/?status=in_progress` — confirm returns empty list (not 404) for completed events
+- `GET /api/v2/organize/tournament_overview/{id}/` — confirm `number_of_incomplete_matches` is 0 and `round` is stable
+
+**If any endpoint 404s post-completion:** add a guard in the ingestion worker that stops polling Carde once the tournament is `isEnded = true`. Currently the worker has no post-completion behavior — it will keep polling indefinitely.
+
+**Add to worker:** when `syncCardeRounds` detects all rounds are `COMPLETE` for N consecutive polls, set `app_tournaments.is_ended = true` and stop the polling loops.
+
+---
+
 ## Verification Checklist
 
 - Superadmin creates event, adds 2 tournaments, assigns a judge → judge sees only those 2
@@ -82,3 +98,4 @@ StageTimer is an optional broadcast timer used at some events. Its logs are UTC 
 - Manual drop entry: appears in logs feed, marked with `source=manual`
 - Round timing: `started_at`, `timer_end_datetime`, overtime all correct for a completed Swiss round; Top-8 rows show no timing data
 - StageTimer import: upload log file → round start/stop times appear in Insights
+- Completed-tournament routes: all Carde endpoints behave as expected post-completion; worker stops polling after `is_ended = true`

@@ -8,6 +8,7 @@ import { Banner } from '../shared/Banner';
 
 export const SessionPanel = () => {
   const { activeTournament, sources } = useTournament();
+  // useWorkerStatus for pfJwtExpiresAt — JWT is global but expiry is surfaced per tournament poll
   const { pfJwtExpiresAt } = useWorkerStatus(activeTournament?.id ?? null);
   const [jwt, setJwt] = useState('');
   const [saving, setSaving] = useState(false);
@@ -33,12 +34,13 @@ export const SessionPanel = () => {
   const expiry = expiryStatus();
 
   const handleSave = async () => {
-    if (!activeTournament || !jwt.trim()) return;
+    if (!jwt.trim()) return;
     setSaving(true);
     setResult(null);
     try {
-      await api.post('/api/set-token', { jwt: jwt.trim(), tournamentId: activeTournament.id });
-      setResult({ ok: true, msg: 'Token saved. Worker will refresh on next cycle.' });
+      // POST global JWT — not per-tournament; one JWT credential serves all PF tournaments
+      await api.post('/api/session/pf-jwt', { token: jwt.trim() });
+      setResult({ ok: true, msg: 'Token saved. Worker will use it on next cycle.' });
       setJwt('');
     } catch (e) {
       setResult({ ok: false, msg: e instanceof Error ? e.message : 'Save failed' });

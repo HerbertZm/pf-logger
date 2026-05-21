@@ -178,17 +178,15 @@ router.get('/worker-status', asyncHandler(async (req: Request, res: Response) =>
     return;
   }
 
-  const pfMapping = await prisma.tournamentSourceMapping.findFirst({
-    where: { tournamentId: tid, source: 'purplefox' },
-  });
-  const pfMeta = pfMapping?.metadata as { expiresAt?: string } | null;
+  // JWT expiry comes from pf_session singleton (metadata only — token never stored)
+  const pfSession = await prisma.pfSession.findUnique({ where: { id: 1 } });
 
   const rawSync = state.lastMatchesFetchedAt ?? state.lastRoundsFetchedAt ?? null;
   const body: WorkerStatus = {
     isRunning: state.isRunning,
     lastSync: rawSync?.toISOString() ?? null,
     error: state.lastError,
-    pfJwtExpiresAt: pfMeta?.expiresAt ?? null,
+    pfJwtExpiresAt: pfSession?.expiresAt?.toISOString() ?? null,
   };
 
   res.json(body);
