@@ -44,6 +44,8 @@ Copy `.env.example` to `.env` (gitignored) and fill in your values:
 ```
 DATABASE_URL=postgresql://pf_logger_user:yourpassword@localhost:5432/pf_logger
 CARDE_API_TOKEN=your_carde_api_token_here
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key_here
 PF_PASSWORD_PEPPER=a_long_random_string
 PORT=8080
 NODE_ENV=development
@@ -125,6 +127,8 @@ Fill in your values:
 ```
 DATABASE_URL=postgresql://pf_logger_user:yourpassword@localhost:5432/pf_logger
 CARDE_API_TOKEN=your_carde_api_token_here
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key_here
 PF_PASSWORD_PEPPER=a_long_random_string
 PORT=8080
 NODE_ENV=development
@@ -287,7 +291,7 @@ This creates username `admin` with password `changeme` and role `superadmin`. **
 
 ---
 
-## Step 9 — systemd service
+## Step 8 — systemd service
 
 ```bash
 sudo nano /etc/systemd/system/pf-logger.service
@@ -332,7 +336,7 @@ sudo journalctl -u pf-logger -f
 
 ---
 
-## Step 10 — nginx reverse proxy
+## Step 9 — nginx reverse proxy
 
 ```bash
 sudo nano /etc/nginx/sites-available/analysis.heidy.tools
@@ -380,7 +384,7 @@ sudo systemctl reload nginx
 
 ---
 
-## Step 11 — TLS certificate
+## Step 10 — TLS certificate
 
 ```bash
 sudo certbot --nginx -d analysis.heidy.tools
@@ -396,7 +400,7 @@ sudo certbot renew --dry-run
 
 ---
 
-## Step 12 — Firewall
+## Step 11 — Firewall
 
 ```bash
 sudo ufw allow OpenSSH
@@ -409,7 +413,7 @@ Port 8080 must **not** be in the allow list — nginx proxies to it internally.
 
 ---
 
-## Step 13 — Verify
+## Step 12 — Verify
 
 ```bash
 curl -I https://analysis.heidy.tools/api/me
@@ -423,7 +427,7 @@ Open `https://analysis.heidy.tools` in a browser — login modal over HTTPS.
 
 ---
 
-## Step 14 — Import legacy data (first deploy only)
+## Step 13 — Import legacy data (first deploy only)
 
 If you have historical data from the Python/SQLite app, import it now.
 
@@ -566,7 +570,7 @@ sudo journalctl -u pf-logger -f   # watch logs to confirm clean start
 
 ## Database backups
 
-The admin API exposes `GET /api/admin/backup` which streams a `pg_dump` of the PostgreSQL database. This is accessible only to superadmin users.
+> **Note:** `GET /api/admin/backup` is not yet implemented (planned for Phase 3). Use the cron job below in the meantime.
 
 For scheduled backups, add a cron job on the VPS:
 

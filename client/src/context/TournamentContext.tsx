@@ -24,10 +24,15 @@ export const TournamentProvider = ({ children }: { children: ReactNode }) => {
       .get<Tournament[]>('/api/tournaments')
       .then((list) => {
         setTournaments(list);
-        if (currentId === null) {
-          const active = list.find((t) => t.isActive) ?? list[0] ?? null;
-          if (active) setActiveId(active.id);
+        if (currentId !== null) {
+          // Validate the restored ID against the fetched list. If it refers to a tournament that
+          // no longer exists (e.g. was soft-deleted), fall through to auto-select below.
+          const stillExists = list.some((t) => t.id === currentId);
+          if (stillExists) return;
         }
+        // No valid stored ID — auto-select the active tournament or the first in the list.
+        const active = list.find((t) => t.isActive) ?? list[0] ?? null;
+        if (active) setActiveId(active.id);
       })
       .catch(() => {});
   }, []);

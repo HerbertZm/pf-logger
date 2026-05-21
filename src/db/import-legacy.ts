@@ -251,7 +251,10 @@ export async function importLegacy(payload: LegacyExport): Promise<ImportResult>
         timerEndDatetime: parseTs(rt.timer_end_datetime),
         completedAt: parseTs(rt.completed_at),
         missingTablesJson: rt.missing_tables_json ? JSON.parse(rt.missing_tables_json) : null,
-        snapshotCapturedAt: rt.missing_tables_json ? parseTs(rt.completed_at) : null,
+        // completed_at for Swiss rounds equals next round's started_at — not the real round-end
+        // time. We have no reliable signal for when the snapshot was captured from legacy data,
+        // so leave snapshotCapturedAt null. It is display-only metadata and null is safe.
+        snapshotCapturedAt: null,
       },
     });
     roundIdMap.set(roundKey(appId, rt.round), r.id);
@@ -330,6 +333,11 @@ export async function importLegacy(payload: LegacyExport): Promise<ImportResult>
       source: 'purplefox',
     }];
   });
+  // skipDuplicates cannot deduplicate legacy extensions: pfId is NULL for all imported rows, and
+  // PostgreSQL treats NULLs as distinct in unique indexes, so every row satisfies the constraint
+  // regardless of content. The import is designed to run once on a clean DB; re-runs will create
+  // duplicate extension rows. Guard against double-import at the call site (e.g. check
+  // tournamentsSkipped before proceeding).
   const extResult = await prisma.extension.createMany({ data: extData, skipDuplicates: false });
 
   // ── 6. Table Coverage ──────────────────────────────────────────────────────
@@ -369,7 +377,7 @@ export async function importLegacy(payload: LegacyExport): Promise<ImportResult>
       firstSeenAt: ts,
     }];
   });
-  const judgeResult = await prisma.tableJudgeCall.createMany({ data: judgeData, skipDuplicates: false });
+  const judgeResult = await prisma.tableJudgeCall.createMany({ data: judgeData, skipDuplicates: true });
 
   // ── 8. AppActivity (time_logs → audit trail) ───────────────────────────────
 

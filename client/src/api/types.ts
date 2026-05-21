@@ -68,7 +68,7 @@ export interface Coverage {
 export interface JudgeCall {
   id: number;
   tournamentId: number;
-  round: number | null;
+  round: number;
   tableNumber: number;
   judge: string | null;
   judgeResult: string;

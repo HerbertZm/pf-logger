@@ -161,15 +161,15 @@ All routes return `application/json`. Auth routes require `Authorization: Bearer
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/api/auth/login` | none | `{ username, password }` → `{ token, username, isAdmin }` |
-| POST | `/api/auth/logout` | Bearer | Deletes session row |
-| GET | `/api/auth/me` | Bearer | `{ username, isAdmin }` |
+| POST | `/api/login` | none | `{ username, password }` → `{ token, username, role }` |
+| POST | `/api/logout` | Bearer | Deletes session row |
+| GET | `/api/me` | Bearer | `{ username, role }` |
 
 **PF Session** — JWT is short-lived (~48h), entered at runtime via UI. Never stored in DB or `.env`.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/api/session/pf-jwt` | Bearer (admin+) | `{ token: string }` → validates JWT, stores in jwtStore, writes metadata to `pf_session` |
+| POST | `/api/session/pf-jwt` | Bearer (admin+) | `{ jwt: string }` → validates JWT, stores in jwtStore, writes metadata to `pf_session` |
 | GET | `/api/session/pf-jwt` | Bearer | `{ status: 'valid'|'expired'|'missing', expiresAt: string|null, setBy: string|null, inMemory: boolean }` — never returns the token |
 | DELETE | `/api/session/pf-jwt` | Bearer (admin+) | Clears jwtStore; updates pf_session record to mark cleared |
 
@@ -179,36 +179,29 @@ All routes return `application/json`. Auth routes require `Authorization: Bearer
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/tournaments` | Bearer | Active tournaments with source config (`{ id, name, shortName, sources: { pf, carde } }`) |
-| GET | `/api/tournaments/:id` | Bearer | Full tournament detail + source mapping |
-| POST | `/api/tournaments/:id/sync` | Bearer (admin+) | Trigger manual sync; returns updated dataset |
-| POST | `/api/tournaments/:id/end` | Bearer (admin+) | Sets `is_ended = true` |
+| GET | `/api/tournaments` | Bearer | Active tournaments with source config (`{ id, name, shortName, isActive, isEnded, sources: { pf, carde } }`) |
 
-**Data** (per tournament)
+**Dashboard** (per tournament, all via query param `?tournamentId=:id`)
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/tournaments/:id/rounds` | Bearer | All rounds with timing fields |
-| GET | `/api/tournaments/:id/drops` | Bearer | All drops for tournament |
-| PATCH | `/api/tournaments/:id/drops/:dropId` | Bearer (admin+) | `{ isChecked: boolean }` |
-| GET | `/api/tournaments/:id/extensions` | Bearer | All extensions |
-| GET | `/api/tournaments/:id/penalties` | Bearer | All penalties |
-| GET | `/api/tournaments/:id/coverage` | Bearer | Table coverage log |
-| GET | `/api/tournaments/:id/judge-calls` | Bearer | Judge call log |
-| GET | `/api/tournaments/:id/summary` | Bearer | Full dataset in one call (for initial load) |
+| GET | `/api/dashboard/active-round` | Bearer | Active round + outstanding tables + extensions + drop/penalty counts |
+| GET | `/api/logs` | Bearer | All log entries (drops, extensions, penalties, coverage, judge calls) sorted by time |
+| GET | `/api/insights` | Bearer | Per-round summary stats |
 
 **Worker**
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/worker-status` | Bearer | `{ isRunning, lastSyncAt, currentRound, lastError }` per tournament |
+| GET | `/api/worker-status` | Bearer | `{ isRunning, lastSync, error, pfJwtExpiresAt }` per tournament |
+| POST | `/api/sync` | Bearer (admin+) | `{ tournamentId, sources?: ['carde','purplefox'] }` → manual sync trigger |
 
 **System**
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/health` | none | DB connection, worker status, PF JWT expiry |
-| GET | `/api/data` | Bearer (admin+) | `?table=&limit=&offset=` — raw table explorer |
+| GET | `/api/health` | none | `{ ok, uptime, db }` — DB liveness check |
+| GET | `/api/data/:table` | Bearer (admin+) | `?tournamentId=&limit=&offset=` — raw table explorer |
 
 **Admin** — all superadmin-gated; full spec in `plans/phase-1.md` section 1.1.
 

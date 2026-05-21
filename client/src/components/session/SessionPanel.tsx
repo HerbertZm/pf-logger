@@ -39,7 +39,7 @@ export const SessionPanel = () => {
     setResult(null);
     try {
       // POST global JWT — not per-tournament; one JWT credential serves all PF tournaments
-      await api.post('/api/session/pf-jwt', { token: jwt.trim() });
+      await api.post('/api/session/pf-jwt', { jwt: jwt.trim() });
       setResult({ ok: true, msg: 'Token saved. Worker will use it on next cycle.' });
       setJwt('');
     } catch (e) {

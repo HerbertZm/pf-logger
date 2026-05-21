@@ -38,7 +38,7 @@ type PrismaCoverage = {
 };
 
 type PrismaJudgeCall = {
-  id: number; tournamentId: number; round: number | null; tableNumber: number;
+  id: number; tournamentId: number; round: number; tableNumber: number;
   judge: string | null; judgeResult: string; firstSeenAt: Date;
 };
 

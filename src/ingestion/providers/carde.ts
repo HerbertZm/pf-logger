@@ -57,7 +57,6 @@ async function cardeGet<T>(path: string): Promise<T> {
 }
 
 export async function fetchCardeRounds(cardeEventId: number): Promise<CardeRound[]> {
-  // TODO: P0.4 — confirm exact response envelope shape from P0.1 exploration
   const data = await cardeGet<{ results?: CardeRound[] } | CardeRound[]>(
     `/magic-events/${cardeEventId}/get_all_rounds/`,
   );

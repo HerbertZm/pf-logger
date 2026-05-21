@@ -239,7 +239,9 @@ router.get('/data/:table', asyncHandler(async (req: Request, res: Response) => {
 
 function entryTime(e: Record<string, unknown>): number {
   const d = (e['createdAt'] ?? e['firstSeenAt']);
-  return typeof d === 'string' ? new Date(d).getTime() : 0;
+  // Entries with no timestamp (e.g. legacy drops) sort to the end rather than the beginning
+  // so they don't crowd out timestamped entries at the top of the log.
+  return typeof d === 'string' ? new Date(d).getTime() : Infinity;
 }
 
 export { router as tournamentsRouter };

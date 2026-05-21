@@ -8,6 +8,7 @@ import { adminRouter } from './routes/admin';
 import { authMiddleware } from './middleware/auth';
 import { rateLimitMiddleware } from './middleware/rateLimit';
 import { startWorker } from './ingestion/worker';
+import { prisma } from './db/prisma';
 
 const app = express();
 const PORT = Number(process.env['PORT'] ?? 8080);
@@ -22,6 +23,16 @@ app.use('/api', sessionRouter);
 app.use('/api', authMiddleware, tournamentsRouter);
 app.use('/api', authMiddleware, syncRouter);
 app.use('/api/admin', authMiddleware, adminRouter);
+
+// GET /api/health — unauthenticated liveness + readiness probe
+app.get('/api/health', async (_req: Request, res: Response) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ ok: true, uptime: Math.floor(process.uptime()), db: 'ok' });
+  } catch {
+    res.status(503).json({ ok: false, uptime: Math.floor(process.uptime()), db: 'error' });
+  }
+});
 
 // Unmatched /api/* → 404 (prevents SPA fallback from swallowing API typos)
 app.use('/api', (_req: Request, res: Response) => {

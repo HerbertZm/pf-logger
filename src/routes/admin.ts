@@ -69,11 +69,20 @@ router.patch('/users/:id', asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  const user = await prisma.appUser.update({
-    where: { id },
-    data: { ...(role !== undefined && { role }), ...(isActive !== undefined && { isActive }) },
-    select: { id: true, username: true, role: true, isActive: true },
-  });
+  let user;
+  try {
+    user = await prisma.appUser.update({
+      where: { id },
+      data: { ...(role !== undefined && { role }), ...(isActive !== undefined && { isActive }) },
+      select: { id: true, username: true, role: true, isActive: true },
+    });
+  } catch (err: unknown) {
+    if ((err as { code?: string }).code === 'P2025') {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    throw err;
+  }
   res.json(user);
 }));
 
@@ -113,10 +122,18 @@ router.get('/tournaments', asyncHandler(async (_req: Request, res: Response) => 
 router.delete('/tournaments/:id', asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params['id']);
   if (!id) { res.status(400).json({ error: 'invalid id' }); return; }
-  await prisma.appTournament.update({
-    where: { id },
-    data: { deletedAt: new Date(), isActive: false },
-  });
+  try {
+    await prisma.appTournament.update({
+      where: { id },
+      data: { deletedAt: new Date(), isActive: false },
+    });
+  } catch (err: unknown) {
+    if ((err as { code?: string }).code === 'P2025') {
+      res.status(404).json({ error: 'Tournament not found' });
+      return;
+    }
+    throw err;
+  }
   res.json({ ok: true });
 }));
 
