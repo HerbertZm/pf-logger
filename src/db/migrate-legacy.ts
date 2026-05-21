@@ -239,7 +239,6 @@ async function main(): Promise<void> {
         cardeStatus: rt.carde_status,
         startedAt: parseTs(rt.started_at),
         timerDurationMin: rt.timer_duration_minutes,
-        extraTimeSeconds: rt.extra_time_seconds ?? 0,
         timerEndDatetime: parseTs(rt.timer_end_datetime),
         completedAt: parseTs(rt.completed_at),
         missingTablesJson: missingTables,
@@ -371,6 +370,7 @@ async function main(): Promise<void> {
     if (appId === undefined) return [];
     const ts = parseTs(j.first_seen_at);
     if (!ts) return [];
+    if (j.round === null) return []; // round is non-nullable in new schema; skip legacy nulls
     return [{
       tournamentId: appId,
       round: j.round,

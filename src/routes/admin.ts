@@ -119,15 +119,105 @@ router.delete('/tournaments/:id', asyncHandler(async (req: Request, res: Respons
 }));
 
 // POST /api/admin/tournaments
-router.post('/tournaments', (_req: Request, res: Response): void => {
-  // TODO: P1 — create tournament + source mappings
-  res.status(501).json({ error: 'Not implemented' });
-});
+// Body: { name, shortName, sources: [{ source: 'carde'|'purplefox', externalId }] }
+router.post('/tournaments', asyncHandler(async (req: Request, res: Response) => {
+  const { name, shortName, sources } = req.body as {
+    name?: string;
+    shortName?: string;
+    sources?: Array<{ source: string; externalId: string }>;
+  };
+
+  if (!name || !shortName) {
+    res.status(400).json({ error: 'name and shortName are required' });
+    return;
+  }
+  if (!Array.isArray(sources) || sources.length === 0) {
+    res.status(400).json({ error: 'sources must be a non-empty array' });
+    return;
+  }
+
+  const VALID_SOURCES = ['carde', 'purplefox'];
+  for (const s of sources) {
+    if (!VALID_SOURCES.includes(s.source)) {
+      res.status(400).json({ error: `source must be one of: ${VALID_SOURCES.join(', ')}` });
+      return;
+    }
+    if (!s.externalId) {
+      res.status(400).json({ error: 'each source entry must have an externalId' });
+      return;
+    }
+  }
+
+  // Create tournament + source mappings + worker_state in a transaction
+  const tournament = await prisma.$transaction(async (tx) => {
+    const created = await tx.appTournament.create({
+      data: { name, shortName },
+    });
+
+    await tx.tournamentSourceMapping.createMany({
+      data: sources.map((s) => ({
+        tournamentId: created.id,
+        source: s.source,
+        externalId: s.externalId,
+      })),
+    });
+
+    await tx.workerState.create({
+      data: { tournamentId: created.id, isRunning: false },
+    });
+
+    return tx.appTournament.findUniqueOrThrow({
+      where: { id: created.id },
+      include: { sourceMappings: true, workerState: true },
+    });
+  });
+
+  // Kick off the polling worker (non-blocking — don't await, failures are logged internally)
+  const { spawnTournamentWorker } = await import('../ingestion/worker');
+  spawnTournamentWorker(tournament.id).catch((err) => {
+    console.error(`[admin] failed to spawn worker for tournament ${tournament.id}:`, err);
+  });
+
+  res.status(201).json(tournament);
+}));
 
 // PATCH /api/admin/tournaments/:id/sources
-router.patch('/tournaments/:id/sources', (_req: Request, res: Response): void => {
-  // TODO: P1 — toggle is_enabled on source mapping rows
-  res.status(501).json({ error: 'Not implemented' });
-});
+// Body: { source: 'carde'|'purplefox', isEnabled?, externalId? }
+router.patch('/tournaments/:id/sources', asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params['id']);
+  if (!id) { res.status(400).json({ error: 'invalid id' }); return; }
+
+  const { source, isEnabled, externalId } = req.body as {
+    source?: string;
+    isEnabled?: boolean;
+    externalId?: string;
+  };
+
+  if (!source) {
+    res.status(400).json({ error: 'source is required' });
+    return;
+  }
+  if (isEnabled === undefined && externalId === undefined) {
+    res.status(400).json({ error: 'at least one of isEnabled or externalId must be provided' });
+    return;
+  }
+
+  // Verify tournament exists
+  const tournament = await prisma.appTournament.findUnique({ where: { id } });
+  if (!tournament) {
+    res.status(404).json({ error: 'Tournament not found' });
+    return;
+  }
+
+  const mapping = await prisma.tournamentSourceMapping.update({
+    where: { tournamentId_source: { tournamentId: id, source } },
+    data: {
+      ...(isEnabled !== undefined && { isEnabled }),
+      ...(externalId !== undefined && { externalId }),
+    },
+  });
+
+  res.json(mapping);
+}));
 
 export { router as adminRouter };

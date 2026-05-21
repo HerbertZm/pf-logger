@@ -8,6 +8,7 @@
  * - Penalties table is "tournament_penalities" (extra 'i' — typo in PF schema; keep as-is)
  * - tournament_logs.round is a direct column — no timestamp inference needed
  * - tables, table_status, tournament_time are current-round-only — wiped on round advance
+ * - PF uses camelCase for most fields; some columns (updated_by, creator_id, etc.) are snake_case
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -21,84 +22,108 @@ function getSupabase(jwt: string) {
   });
 }
 
+// ─── PF data shapes (snake_case matches actual API response) ──────────────────
+
 export interface PfDrop {
-  id: string;
-  player_game_id: string;
+  tournamentId: string;
+  playerGameId: string;
+  tableNumber: number | null;
   round: number | null;
-  table_number: number | null;
-  player_name: string | null;
-  is_checked: boolean;
-  is_cancelled: boolean;
-  updated_by: string | null;
+  playerName: string | null;
+  isChecked: boolean;
+  isCancelled: boolean;
+  updated_by: string | null;       // UUID; snake_case is intentional (PF schema)
+  updated_by_name: string | null;  // display name string; snake_case is intentional
 }
 
 export interface PfPenalty {
-  id: string;
+  id: string;                      // UUID
   round: number | null;
-  player_game_id: string | null;
-  player_name: string | null;
-  description: string | null;
-  infraction: string | null;
+  playerGameId: string | null;
+  playerName: string | null;
+  type: string | null;             // infraction category — PF field name is "type"
   sanction: string | null;
-  created_at: string;
-  creator_id: string | null;
-  creator_name: string | null;
+  description: string | null;
+  creator_id: string | null;       // UUID; snake_case is intentional
+  creator_name: string | null;     // display name string; snake_case is intentional
+  createdAt: string;               // ISO 8601 WITHOUT timezone suffix — treat as UTC
 }
 
 export interface PfExtension {
-  id: number;          // PF auto-increment integer (tournament_logs.id)
-  table_number: number;
-  round: number | null; // direct column — no timestamp inference needed
-  action: string;       // "Change time from Xmin to Ymin"
-  user_id: string | null;
-  created_at: string;   // UTC with +00:00 suffix
-}
-
-export interface PfCoverage {
-  id: string;
-  table_number: number;
-  covered_by: string;
-  first_seen_at: string;
+  id: number;                      // PF auto-increment integer (tournament_logs.id)
+  tableNumber: number;
+  round: number | null;            // direct column — no timestamp inference needed
+  action: string;                  // "Change time from Xmin to Ymin"
+  userId: string | null;           // PF staff UUID (FK to profiles.id)
+  createdAt: string;               // UTC with +00:00 suffix
 }
 
 export interface PfJudgeCall {
-  id: string;
-  table_number: number;
-  round: number | null;
-  judge: string | null;
-  judge_result: string;
-  first_seen_at: string;
+  tableNumber: number;
+  judgeResult: string;             // free-text — not an enum
+  coveredBy: string | null;        // ignored (coverage not collected)
 }
 
 export interface PfData {
   drops: PfDrop[];
   penalties: PfPenalty[];
   extensions: PfExtension[];
-  coverage: PfCoverage[];
   judgeCalls: PfJudgeCall[];
+  currentRound: number | null;     // from tournaments.round; used to annotate judge calls
+}
+
+// ─── Fetchers ─────────────────────────────────────────────────────────────────
+
+/** Fetch current round number from PF tournaments table. */
+async function fetchCurrentRound(pfTournamentId: string, jwt: string): Promise<number | null> {
+  const sb = getSupabase(jwt);
+  const { data, error } = await sb
+    .from('tournaments')
+    .select('round')
+    .eq('id', pfTournamentId)
+    .single();
+  if (error) throw new Error(`PF tournaments fetch failed: ${error.message}`);
+  return (data as { round: number | null } | null)?.round ?? null;
 }
 
 export async function fetchPfData(pfTournamentId: string, jwt: string): Promise<PfData> {
   const sb = getSupabase(jwt);
 
-  // TODO: P0.4 — implement with actual PF table/column names verified in P0.1
-  // Note: penalties table is "tournament_penalities" (typo in PF schema)
-  const [drops, penalties, extensions] = await Promise.all([
-    sb.from('tournament_drops').select('*').eq('tournament_id', pfTournamentId),
-    sb.from('tournament_penalities').select('*').eq('tournament_id', pfTournamentId),
-    sb.from('tournament_logs').select('*').eq('tournament_id', pfTournamentId),
+  const [dropsRes, penaltiesRes, extensionsRes, judgeCallsRes, currentRound] = await Promise.all([
+    sb.from('tournament_drops')
+      .select('tournamentId,playerGameId,tableNumber,round,playerName,isChecked,isCancelled,updated_by,updated_by_name')
+      .eq('tournamentId', pfTournamentId),
+
+    sb.from('tournament_penalities')   // typo is intentional — correct spelling returns 404
+      .select('id,round,playerGameId,playerName,type,sanction,description,creator_id,creator_name,createdAt')
+      .eq('tournamentId', pfTournamentId),
+
+    sb.from('tournament_logs')
+      .select('id,tableNumber,round,action,userId,createdAt')
+      .eq('tournamentId', pfTournamentId)
+      .like('action', 'Change%'),      // only extension entries
+
+    // tables is current-round-only; fetch rows with a judgeResult set
+    sb.from('tables')
+      .select('tableNumber,judgeResult,coveredBy')
+      .eq('tournamentId', pfTournamentId)
+      .not('judgeResult', 'is', null)
+      .neq('judgeResult', ''),
+
+    fetchCurrentRound(pfTournamentId, jwt),
   ]);
 
-  if (drops.error) throw new Error(`PF drops fetch failed: ${drops.error.message}`);
-  if (penalties.error) throw new Error(`PF penalties fetch failed: ${penalties.error.message}`);
-  if (extensions.error) throw new Error(`PF extensions fetch failed: ${extensions.error.message}`);
+  if (dropsRes.error) throw new Error(`PF drops fetch failed: ${dropsRes.error.message}`);
+  if (penaltiesRes.error) throw new Error(`PF penalties fetch failed: ${penaltiesRes.error.message}`);
+  if (extensionsRes.error) throw new Error(`PF extensions fetch failed: ${extensionsRes.error.message}`);
+  if (judgeCallsRes.error) throw new Error(`PF judge calls fetch failed: ${judgeCallsRes.error.message}`);
 
   return {
-    drops: drops.data as PfDrop[],
-    penalties: penalties.data as PfPenalty[],
-    extensions: extensions.data as PfExtension[],
-    coverage: [],
-    judgeCalls: [],
+    drops: dropsRes.data as PfDrop[],
+    penalties: penaltiesRes.data as PfPenalty[],
+    extensions: extensionsRes.data as PfExtension[],
+    judgeCalls: judgeCallsRes.data as PfJudgeCall[],
+    currentRound,
   };
 }
 

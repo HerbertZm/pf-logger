@@ -212,12 +212,14 @@ model Penalty {
 
   tournament AppTournament @relation(fields: [tournamentId], references: [id])
 
+  @@unique([pfId, tournamentId])
   @@map("penalties")
 }
 
 model Extension {
   id               Int      @id @default(autoincrement())
   tournamentId     Int      @map("tournament_id")
+  pfId             String?  @map("pf_id")         // PF tournament_logs.id as string; NULL in Carde-only mode
   roundId          Int?     @map("round_id")
   round            Int?
   tableNumber      Int      @map("table_number")
@@ -232,6 +234,7 @@ model Extension {
   tournament AppTournament @relation(fields: [tournamentId], references: [id])
   roundRel   Round?        @relation(fields: [roundId], references: [id])
 
+  @@unique([pfId, tournamentId])
   @@map("extensions")
 }
 
@@ -252,7 +255,7 @@ model TableCoverage {
 model TableJudgeCall {
   id           Int      @id @default(autoincrement())
   tournamentId Int      @map("tournament_id")
-  round        Int?
+  round        Int      // always known at fetch time (from tournaments.round)
   tableNumber  Int      @map("table_number")
   judge        String?
   judgeResult  String   @map("judge_result")
@@ -260,6 +263,7 @@ model TableJudgeCall {
 
   tournament AppTournament @relation(fields: [tournamentId], references: [id])
 
+  @@unique([tournamentId, tableNumber, round])
   @@map("table_judge_calls")
 }
 

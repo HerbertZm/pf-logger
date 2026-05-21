@@ -7,6 +7,7 @@ import { syncRouter } from './routes/sync';
 import { adminRouter } from './routes/admin';
 import { authMiddleware } from './middleware/auth';
 import { rateLimitMiddleware } from './middleware/rateLimit';
+import { startWorker } from './ingestion/worker';
 
 const app = express();
 const PORT = Number(process.env['PORT'] ?? 8080);
@@ -45,6 +46,11 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 app.listen(PORT, () => {
   console.warn(`pf-logger running on port ${PORT} [${process.env['NODE_ENV'] ?? 'development'}]`);
+  // Start background ingestion worker for all active tournaments.
+  // Crash here does not take down the HTTP server.
+  startWorker().catch((err) => {
+    console.error('[worker] failed to start on boot:', err);
+  });
 });
 
 export default app;
