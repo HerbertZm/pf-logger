@@ -120,3 +120,6 @@ memory/
 *.tmp
 *.bak
 *.orig
+
+# Legacy migration export (generated locally, uploaded via /api/admin/import)
+legacy-export.json

@@ -224,16 +224,37 @@ All routes return `application/json`. Auth routes require `Authorization: Bearer
 
 ---
 
-## P0.6 — SQLite → PostgreSQL Migration
+## P0.6 — Legacy Data Export + Server Import
 
-Data export script: reads existing `data/legacy.db`, transforms to new schema where possible, writes to PostgreSQL. Some data (e.g. round pairings) cannot be cleanly migrated due to schema divergence — preserve in legacy DB for reference only.
+Two-step migration — local machine never needs direct DB access to the production server.
 
-**Zero-loss verification checklist:**
-- Drops: row count matches by tournament
-- Extensions: row count matches by tournament
-- Penalties: row count matches by tournament
-- Round timer records: all rounds preserved with timestamps
-- `user_activity` → `app_activity`: all audit log rows preserved
+**Step 1 — Export (local):**
+```bash
+npx ts-node --compiler-options '{"module":"CommonJS"}' src/db/export-legacy.ts
+# Reads action_logs.db in the project root
+# Writes legacy-export.json (gitignored)
+```
+
+**Step 2 — Upload (to server):**
+```bash
+curl -X POST https://<host>/api/admin/import \
+     -H "Authorization: Bearer <superadmin-token>" \
+     -H "Content-Type: application/json" \
+     -d @legacy-export.json
+```
+
+The import endpoint (`POST /api/admin/import`) is superadmin-gated, idempotent (safe to re-run if interrupted), and returns a verification summary:
+```json
+{
+  "created": { "tournaments": 4, "rounds": 32, "drops": 180, "penalties": 14, "extensions": 27, "coverage": 0, "judgeCalls": 0, "activity": 27 },
+  "skipped": { "tournaments": 0, "rounds": 0, "dropsSkippedNoAppId": 0, "judgeCallsNullRound": 0 },
+  "totalsInExport": { "tournaments": 4, "rounds": 32, "drops": 180, ... }
+}
+```
+
+**Note:** Round pairings and match-level data cannot be migrated from the legacy schema (not stored there). Historical drops, penalties, extensions, coverage, judge calls, and round timing records are all preserved.
+
+**Verification:** `created.*` should equal `totalsInExport.*` for all tables on a clean import. Non-zero `skipped.*` values on a re-run are expected and safe.
 
 ---
 
