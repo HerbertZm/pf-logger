@@ -1,0 +1,20 @@
+.active-round {
+  display: flex;
+  flex-direction: column;
+}
+
+.active-round__skeleton {
+  height: 280px;
+  border-radius: var(--radius-lg);
+}
+
+.active-round__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-body-size);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}

@@ -137,6 +137,8 @@ app_users             app_sessions      app_activity      worker_state
 
 ## P0.4 — Background Ingestion Worker
 
+> **Moved to Phase 1.** The stack is functional with manual sync for now. Full worker implementation deferred until Phase 1 operational tooling is in place.
+
 Module at `src/ingestion/worker.ts`, same deployment as HTTP server. Runs independently.
 
 - Polls Carde on a configurable interval per active tournament using `status=in_progress` — never fetches full match lists

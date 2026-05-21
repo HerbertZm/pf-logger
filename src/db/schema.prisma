@@ -1,0 +1,418 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── App Layer ────────────────────────────────────────────────────────────────
+
+model AppTournament {
+  id        Int      @id @default(autoincrement())
+  name      String
+  shortName String   @map("short_name")
+  isActive  Boolean   @default(true) @map("is_active")
+  isEnded   Boolean   @default(false) @map("is_ended")
+  deletedAt DateTime? @db.Timestamptz() @map("deleted_at")
+  createdAt DateTime  @default(now()) @db.Timestamptz() @map("created_at")
+
+  sourceMappings  TournamentSourceMapping[]
+  workerState     WorkerState?
+  rounds          Round[]
+  matches         Match[]
+  drops           Drop[]
+  penalties       Penalty[]
+  extensions      Extension[]
+  tableCoverage   TableCoverage[]
+  tableJudgeCalls TableJudgeCall[]
+
+  rawCardeRounds  RawCardeRound[]
+  rawCardeMatches RawCardeMatch[]
+  rawPfDrops      RawPfDrop[]
+  rawPfPenalties  RawPfPenalty[]
+  rawPfExtensions RawPfExtension[]
+  rawPfCoverage   RawPfCoverage[]
+  rawPfJudgeCalls RawPfJudgeCall[]
+
+  @@map("app_tournaments")
+}
+
+model TournamentSourceMapping {
+  id                Int     @id @default(autoincrement())
+  tournamentId      Int     @map("tournament_id")
+  source            String  // 'carde' | 'purplefox'
+  externalId        String  @map("external_id")
+  isEnabled         Boolean @default(true) @map("is_enabled")
+  cardeFirstRoundId Int?    @map("carde_first_round_id")
+  metadata          Json?
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@unique([tournamentId, source])
+  @@map("tournament_source_mapping")
+}
+
+model AppUser {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  role         String   // 'user' | 'admin' | 'superadmin'
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @db.Timestamptz() @map("created_at")
+
+  sessions AppSession[]
+
+  @@map("app_users")
+}
+
+model AppSession {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  username  String
+  expiresAt DateTime @db.Timestamptz() @map("expires_at")
+  ip        String?
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @db.Timestamptz() @map("created_at")
+
+  user AppUser @relation(fields: [username], references: [username])
+
+  @@map("app_sessions")
+}
+
+model AppActivity {
+  id        Int      @id @default(autoincrement())
+  eventType String   @map("event_type")
+  username  String
+  ip        String?
+  userAgent String?  @map("user_agent")
+  detail    String?
+  createdAt DateTime @default(now()) @db.Timestamptz() @map("created_at")
+
+  @@map("app_activity")
+}
+
+model WorkerState {
+  tournamentId         Int       @id @map("tournament_id")
+  lastRoundsFetchedAt  DateTime? @db.Timestamptz() @map("last_rounds_fetched_at")
+  lastMatchesFetchedAt DateTime? @db.Timestamptz() @map("last_matches_fetched_at")
+  lastPfFetchedAt      DateTime? @db.Timestamptz() @map("last_pf_fetched_at")
+  currentRound         Int?      @map("current_round")
+  isRunning            Boolean   @default(false) @map("is_running")
+  lastError            String?   @map("last_error")
+  updatedAt            DateTime  @default(now()) @db.Timestamptz() @map("updated_at")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@map("worker_state")
+}
+
+// ─── Normalized Layer ─────────────────────────────────────────────────────────
+
+model Round {
+  id                 Int       @id @default(autoincrement())
+  tournamentId       Int       @map("tournament_id")
+  roundNumber        Int       @map("round_number")
+  phase              String    // 'swiss' | 'top8'
+  cardeRoundId       Int       @map("carde_round_id")
+  cardeStatus        String?   @map("carde_status")
+  startedAt          DateTime? @db.Timestamptz() @map("started_at")
+  timerDurationMin   Int?      @map("timer_duration_min") // NULL for Top-8
+  extraTimeSeconds   Int       @default(0) @map("extra_time_seconds")
+  timerEndDatetime   DateTime? @db.Timestamptz() @map("timer_end_datetime") // computed locally; never from API
+  completedAt        DateTime? @db.Timestamptz() @map("completed_at") // verbatim from Carde; never use for duration
+  missingTablesJson  Json?     @map("missing_tables_json")
+  snapshotCapturedAt DateTime? @db.Timestamptz() @map("snapshot_captured_at")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+  matches    Match[]
+  extensions Extension[]
+
+  @@unique([tournamentId, roundNumber])
+  @@map("rounds")
+}
+
+model Match {
+  id                       Int       @id @default(autoincrement())
+  tournamentId             Int       @map("tournament_id")
+  roundId                  Int       @map("round_id")
+  roundNumber              Int       @map("round_number")
+  tableNumber              Int       @map("table_number")
+  cardeMatchId             Int       @map("carde_match_id")
+  status                   String
+  timeExtensionSec         Int       @default(0) @map("time_extension_sec")
+  isGhostMatch             Boolean   @default(false) @map("is_ghost_match")
+  isBye                    Boolean   @default(false) @map("is_bye")
+  matchIsLoss              Boolean   @default(false) @map("match_is_loss")
+  matchIsIntentionalDraw   Boolean   @default(false) @map("match_is_intentional_draw")
+  matchIsUnintentionalDraw Boolean   @default(false) @map("match_is_unintentional_draw")
+  deckCheckStarted         Boolean   @default(false) @map("deck_check_started")
+  deckCheckCompleted       Boolean   @default(false) @map("deck_check_completed")
+  assignedJudge            String?   @map("assigned_judge")
+  resultReportedAt         DateTime? @db.Timestamptz() @map("result_reported_at")
+  resultAt                 DateTime? @db.Timestamptz() @map("result_at") // COALESCE(result_reported_at, updated_at)
+  p1UserId                 String?   @map("p1_user_id")
+  p1Name                   String?   @map("p1_name")
+  p2UserId                 String?   @map("p2_user_id")
+  p2Name                   String?   @map("p2_name")
+  winningPlayerId          String?   @map("winning_player_id")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+  round      Round         @relation(fields: [roundId], references: [id])
+
+  @@unique([tournamentId, roundNumber, tableNumber])
+  @@map("matches")
+}
+
+model Drop {
+  id             Int     @id @default(autoincrement())
+  tournamentId   Int     @map("tournament_id")
+  playerGameId   String  @map("player_game_id")
+  round          Int
+  tableNumber    Int?    @map("table_number")
+  playerName     String? @map("player_name")
+  isChecked      Boolean @default(false) @map("is_checked")
+  isCancelled    Boolean @default(false) @map("is_cancelled")
+  addedByName    String? @map("added_by_name") // write-once on first sync
+  verifiedByName String? @map("verified_by_name") // set only when is_checked → true
+  updatedBy      String? @map("updated_by")
+  source         String  @default("purplefox")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@unique([tournamentId, playerGameId, round])
+  @@map("drops")
+}
+
+model Penalty {
+  id           Int      @id @default(autoincrement())
+  tournamentId Int      @map("tournament_id")
+  pfId         String?  @map("pf_id")
+  round        Int?
+  playerGameId String?  @map("player_game_id")
+  playerName   String?  @map("player_name")
+  description  String
+  infraction   String?
+  sanction     String?
+  createdAt    DateTime @db.Timestamptz() @map("created_at")
+  creatorId    String?  @map("creator_id")
+  creatorName  String?  @map("creator_name")
+  source       String   @default("purplefox")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@map("penalties")
+}
+
+model Extension {
+  id               Int      @id @default(autoincrement())
+  tournamentId     Int      @map("tournament_id")
+  roundId          Int?     @map("round_id") // inferred from timestamp; NULL if no rounds exist yet
+  round            Int?
+  tableNumber      Int      @map("table_number")
+  fromMinutes      Int?     @map("from_minutes")
+  toMinutes        Int?     @map("to_minutes")
+  extensionMinutes Int?     @map("extension_minutes") // computed: to_minutes - from_minutes
+  actionText       String?  @map("action_text") // raw PF log string; NULL in Carde-only mode
+  userId           String?  @map("user_id")
+  createdAt        DateTime @db.Timestamptz() @map("created_at")
+  source           String   // 'purplefox' | 'carde'
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+  roundRel   Round?        @relation(fields: [roundId], references: [id])
+
+  @@map("extensions")
+}
+
+model TableCoverage {
+  id           Int      @id @default(autoincrement())
+  tournamentId Int      @map("tournament_id")
+  round        Int?
+  tableNumber  Int      @map("table_number")
+  coveredBy    String   @map("covered_by")
+  firstSeenAt  DateTime @db.Timestamptz() @map("first_seen_at")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@unique([tournamentId, tableNumber, coveredBy])
+  @@map("table_coverage")
+}
+
+model TableJudgeCall {
+  id           Int      @id @default(autoincrement())
+  tournamentId Int      @map("tournament_id")
+  round        Int?
+  tableNumber  Int      @map("table_number")
+  judge        String?
+  judgeResult  String   @map("judge_result")
+  firstSeenAt  DateTime @db.Timestamptz() @map("first_seen_at")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@map("table_judge_calls")
+}
+
+model PfStaff {
+  id          Int      @id @default(autoincrement())
+  pfUserId    String   @unique @map("pf_user_id")
+  displayName String   @map("display_name")
+  lastSeenAt  DateTime @db.Timestamptz() @map("last_seen_at")
+
+  @@map("pf_staff")
+}
+
+// ─── Raw Layer (append-only; one table per source entity) ────────────────────
+
+model RawCardeRound {
+  id               Int       @id @default(autoincrement())
+  fetchedAt        DateTime  @db.Timestamptz() @map("fetched_at")
+  tournamentId     Int       @map("tournament_id")
+  cardeEventId     Int       @map("carde_tournament_id")
+  cardeRoundId     Int       @map("carde_round_id")
+  roundNumber      Int       @map("round_number")
+  startedAt        DateTime? @db.Timestamptz() @map("started_at")
+  completedAt      DateTime? @db.Timestamptz() @map("completed_at") // verbatim; equals next round's started_at for Swiss
+  timerDurationMin Int?      @map("timer_duration_min")
+  extraTimeSeconds Int       @default(0) @map("extra_time_seconds") // API may use "extra_time_seconds" or "additional_time_seconds"
+  cardeStatus      String?   @map("carde_status")
+  pairingsStatus   String?   @map("pairings_status")
+  rawPayload       Json?     @map("raw_payload")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@map("raw_carde_rounds")
+}
+
+model RawCardeMatch {
+  id                       Int       @id @default(autoincrement())
+  fetchedAt                DateTime  @db.Timestamptz() @map("fetched_at")
+  tournamentId             Int       @map("tournament_id")
+  cardeRoundId             Int       @map("carde_round_id")
+  roundNumber              Int       @map("round_number")
+  tableNumber              Int       @map("table_number")
+  cardeMatchId             Int       @map("carde_match_id")
+  status                   String    // always 'IN_PROGRESS' (status=in_progress filter)
+  timeExtensionSec         Int       @default(0) @map("time_extension_sec")
+  isGhostMatch             Boolean   @default(false) @map("is_ghost_match") // informational only
+  isBye                    Boolean   @default(false) @map("is_bye")
+  matchIsLoss              Boolean   @default(false) @map("match_is_loss")
+  matchIsIntentionalDraw   Boolean   @default(false) @map("match_is_intentional_draw")
+  matchIsUnintentionalDraw Boolean   @default(false) @map("match_is_unintentional_draw")
+  deckCheckStarted         Boolean   @default(false) @map("deck_check_started")
+  deckCheckCompleted       Boolean   @default(false) @map("deck_check_completed")
+  assignedJudge            String?   @map("assigned_judge")
+  resultReportedAt         DateTime? @db.Timestamptz() @map("result_reported_at")
+  updatedAt                DateTime  @db.Timestamptz() @map("updated_at")
+  p1UserId                 String?   @map("p1_user_id")
+  p1Name                   String?   @map("p1_name")
+  p2UserId                 String?   @map("p2_user_id")
+  p2Name                   String?   @map("p2_name")
+  winningPlayerId          String?   @map("winning_player_id")
+  rawPayload               Json?     @map("raw_payload")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@map("raw_carde_matches")
+}
+
+model RawPfDrop {
+  id             Int      @id @default(autoincrement())
+  fetchedAt      DateTime @db.Timestamptz() @map("fetched_at")
+  tournamentId   Int      @map("tournament_id")
+  pfTournamentId String   @map("pf_tournament_id")
+  playerGameId   String   @map("player_game_id")
+  round          Int?
+  tableNumber    Int?     @map("table_number")
+  playerName     String?  @map("player_name")
+  isChecked      Boolean  @default(false) @map("is_checked")
+  isCancelled    Boolean  @default(false) @map("is_cancelled")
+  updatedBy      String?  @map("updated_by")
+  rawPayload     Json?    @map("raw_payload")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@map("raw_pf_drops")
+}
+
+model RawPfPenalty {
+  id             Int       @id @default(autoincrement())
+  fetchedAt      DateTime  @db.Timestamptz() @map("fetched_at")
+  tournamentId   Int       @map("tournament_id")
+  pfTournamentId String    @map("pf_tournament_id")
+  pfId           String    @map("pf_id")
+  round          Int?
+  playerGameId   String?   @map("player_game_id")
+  playerName     String?   @map("player_name")
+  description    String?
+  infraction     String?
+  sanction       String?
+  createdAt      DateTime? @db.Timestamptz() @map("created_at")
+  creatorId      String?   @map("creator_id")
+  creatorName    String?   @map("creator_name")
+  rawPayload     Json?     @map("raw_payload")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@map("raw_pf_penalties")
+}
+
+model RawPfExtension {
+  id             Int      @id @default(autoincrement())
+  fetchedAt      DateTime @db.Timestamptz() @map("fetched_at")
+  tournamentId   Int      @map("tournament_id")
+  pfTournamentId String   @map("pf_tournament_id")
+  tableNumber    Int      @map("table_number")
+  action         String
+  fromMinutes    Int?     @map("from_minutes")
+  toMinutes      Int?     @map("to_minutes")
+  userId         String?  @map("user_id")
+  createdAt      DateTime @db.Timestamptz() @map("created_at")
+  rawPayload     Json?    @map("raw_payload")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@map("raw_pf_extensions")
+}
+
+model RawPfCoverage {
+  id             Int      @id @default(autoincrement())
+  fetchedAt      DateTime @db.Timestamptz() @map("fetched_at")
+  tournamentId   Int      @map("tournament_id")
+  pfTournamentId String   @map("pf_tournament_id")
+  tableNumber    Int      @map("table_number")
+  coveredBy      String   @map("covered_by")
+  firstSeenAt    DateTime @db.Timestamptz() @map("first_seen_at")
+  rawPayload     Json?    @map("raw_payload")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@map("raw_pf_coverage")
+}
+
+model RawPfJudgeCall {
+  id             Int      @id @default(autoincrement())
+  fetchedAt      DateTime @db.Timestamptz() @map("fetched_at")
+  tournamentId   Int      @map("tournament_id")
+  pfTournamentId String   @map("pf_tournament_id")
+  tableNumber    Int      @map("table_number")
+  round          Int?
+  judge          String?
+  judgeResult    String   @map("judge_result")
+  firstSeenAt    DateTime @db.Timestamptz() @map("first_seen_at")
+  rawPayload     Json?    @map("raw_payload")
+
+  tournament AppTournament @relation(fields: [tournamentId], references: [id])
+
+  @@map("raw_pf_judge_calls")
+}
+
+model RawPfStaff {
+  id          Int      @id @default(autoincrement())
+  fetchedAt   DateTime @db.Timestamptz() @map("fetched_at")
+  pfUserId    String   @map("pf_user_id")
+  displayName String   @map("display_name")
+  rawPayload  Json?    @map("raw_payload")
+
+  @@map("raw_pf_staff")
+}

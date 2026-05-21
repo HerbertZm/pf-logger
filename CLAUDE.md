@@ -49,6 +49,7 @@ Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Sup
 | QoL improvements (13 items) | `plans/qol.md` |
 | Open decisions (4 remaining) | `plans/open-decisions.md` |
 | Carde.io API post-mortem (essential before touching Carde integration) | `docs/api-exploration-lessons-learned.md` |
+| Live-event API exploration checklist (PF + Carde gaps to verify) | `plans/p0-api-exploration.md` |
 
 ---
 

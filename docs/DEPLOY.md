@@ -1,5 +1,155 @@
 # Deployment Guide — pf-logger
 
+---
+
+## Local Development Setup (Windows)
+
+### 1 — Install PostgreSQL
+
+**Option A — winget (recommended):**
+```powershell
+winget install PostgreSQL.PostgreSQL
+```
+
+**Option B — installer:** download from [postgresql.org/download/windows](https://www.postgresql.org/download/windows/), run it with defaults, uncheck Stack Builder.
+
+After install, set the `postgres` superuser password if you used winget:
+```powershell
+& "C:\Program Files\PostgreSQL\17\bin\psql.exe" -U postgres
+# at the prompt:
+\password postgres
+\q
+```
+
+Verify `psql` is on your PATH (open a new terminal):
+```powershell
+psql --version
+```
+
+If not found, add `C:\Program Files\PostgreSQL\17\bin` to your user `PATH` in System → Advanced → Environment Variables.
+
+### 2 — Create the database
+
+```powershell
+psql -U postgres -c "CREATE DATABASE pf_logger;"
+psql -U postgres -c "CREATE USER pf_logger_user WITH PASSWORD 'yourpassword';"
+psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE pf_logger TO pf_logger_user;"
+psql -U postgres -c "ALTER DATABASE pf_logger OWNER TO pf_logger_user;"
+```
+
+### 3 — Configure `.env`
+
+Copy `.env.example` to `.env` (gitignored) and fill in your values:
+
+```
+DATABASE_URL=postgresql://pf_logger_user:yourpassword@localhost:5432/pf_logger
+CARDE_API_TOKEN=your_carde_api_token_here
+PF_PASSWORD_PEPPER=a_long_random_string
+PORT=8080
+NODE_ENV=development
+```
+
+### 4 — Install dependencies and initialize the schema
+
+```powershell
+npm install
+npm run db:generate   # generates Prisma client
+npm run db:migrate    # creates and applies the first migration
+```
+
+### 5 — Start the dev server
+
+```powershell
+npm run dev
+```
+
+This starts both the Express API (`:8080`) and the Vite dev server (`:5173`) concurrently. All `/api/*` requests from the React app proxy to Express automatically.
+
+---
+
+## Local Development Setup (Ubuntu/Linux)
+
+### 1 — Install Node.js 20 LTS
+
+Ubuntu's default `apt` packages are too old. Use NodeSource:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v   # should print v20.x.x
+npm -v
+```
+
+### 2 — Install PostgreSQL
+
+```bash
+sudo apt update
+sudo apt install -y postgresql postgresql-contrib
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
+psql --version
+```
+
+### 3 — Create the database
+
+```bash
+sudo -u postgres psql -c "CREATE DATABASE pf_logger;"
+sudo -u postgres psql -c "CREATE USER pf_logger_user WITH PASSWORD 'yourpassword';"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE pf_logger TO pf_logger_user;"
+sudo -u postgres psql -c "ALTER DATABASE pf_logger OWNER TO pf_logger_user;"
+```
+
+Verify the connection:
+
+```bash
+psql postgresql://pf_logger_user:yourpassword@localhost:5432/pf_logger -c "SELECT 1;"
+```
+
+### 4 — Install Git and clone the repo
+
+```bash
+sudo apt install -y git
+git clone https://github.com/YOUR_ORG/pf-logger.git ~/pf-logger
+cd ~/pf-logger
+```
+
+### 5 — Configure `.env`
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Fill in your values:
+
+```
+DATABASE_URL=postgresql://pf_logger_user:yourpassword@localhost:5432/pf_logger
+CARDE_API_TOKEN=your_carde_api_token_here
+PF_PASSWORD_PEPPER=a_long_random_string
+PORT=8080
+NODE_ENV=development
+```
+
+### 6 — Install dependencies and initialize the schema
+
+```bash
+npm install
+npm run db:generate   # generates Prisma client
+npm run db:migrate    # creates and applies the first migration
+```
+
+### 7 — Start the dev server
+
+```bash
+npm run dev
+```
+
+This starts both the Express API (`:8080`) and the Vite dev server (`:5173`) concurrently. All `/api/*` requests from the React app proxy to Express automatically.
+
+---
+
+## Production Deployment (VPS)
+
 Deploy on a VPS with nginx reverse proxy + Let's Encrypt TLS.
 
 **Stack:** Node.js 20 LTS, PostgreSQL 16, nginx, systemd, GitHub Actions for CI/CD.

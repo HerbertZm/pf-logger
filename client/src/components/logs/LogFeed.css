@@ -1,0 +1,8 @@
+.log-feed { display: flex; flex-direction: column; }
+
+.log-feed__empty {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-body-size);
+  text-align: center;
+  padding: var(--space-12) 0;
+}

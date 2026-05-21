@@ -1,3 +1,28 @@
+# P0 Code Review — Lessons for Phase 1
+
+These patterns were identified during the P0 review and must be followed from day one in Phase 1.
+They're already fixed in P0 code; don't regress them.
+
+**Backend:**
+- All Prisma access goes through `src/db/prisma.ts` singleton — never `new PrismaClient()` in a route or middleware file.
+- All async route handlers must be wrapped with `asyncHandler` from `src/middleware/asyncHandler.ts`. Bare `async (req, res)` in Express 4 silently swallows rejections.
+- Role values on user create/update must be validated against the `VALID_ROLES` enum — any string is not acceptable.
+- `GET /api/logout` must be `POST` — GET can be triggered by browser prefetch.
+- Admin session list must never return live bearer tokens (`select` must exclude `token` field).
+- PF JWT lives in `src/ingestion/jwtStore.ts` only — never write a JWT to the DB, only write `expiresAt`.
+- When `tournamentId` is required, use `if (!tid) { res.status(400)... }` explicitly — don't rely on `tid ? ... : {}` semantics that silently fetch all rows when `tid = 0`.
+- Always `select` to exclude sensitive fields from list responses (tokens, password hashes).
+
+**Frontend:**
+- Auth events: `auth:login` is dispatched after successful login; `auth:logout` after logout. Any context that fetches auth-gated data should listen for these to re-fetch / clear.
+- The `api.post` method exists — use it for mutations. Never use `api.get` for state-changing operations.
+- Cleanup `setInterval`/`setTimeout` refs in `useEffect` return functions.
+
+**Domain rule reminder (see CLAUDE.md for full list):**
+- `completedAt` on a round must never be used to compute timing. It equals the next round's `started_at`. `overtimeMinutes` is `null` until the worker captures a snapshot at timer expiry.
+
+---
+
 # QoL Checkpoint 2 — During Phase 1
 
 **Ship these during Phase 1.** Both need a new backend endpoint that fits naturally alongside the Phase 1 admin API work.
@@ -56,7 +81,20 @@ Superadmin-gated endpoints for full tournament and user management:
 
 ---
 
-## 1.2 — Manage Tab (Superadmin-only)
+## 1.2 — Background Ingestion Worker (moved from P0.4)
+
+Module at `src/ingestion/worker.ts`, same deployment as HTTP server. Runs independently on startup.
+
+- Polls Carde on a configurable interval per active tournament using `status=in_progress` — never fetches full match lists
+- At `timer_end_datetime`, immediately fetches in-progress matches and stores result as `rounds.missing_tables_json` with `snapshot_captured_at` timestamp
+- Subscribes to PurpleFox Supabase real-time where JWT is valid; falls back to polling
+- Writes to raw tables only; triggers normalized layer update after each raw write
+- Stores per-tournament state in `worker_state` table — survives restarts
+- `is_ghost_match` flag from Carde is informational only — ghost marking may happen outside Carde
+
+---
+
+## 1.3 — Manage Tab (Superadmin-only)
 
 > **Detailed implementation plan:** `plans/ui-implementation.md` Step 12 — covers `ManageTab.tsx`, `TournamentPanel`, `UsersPanel`, `SessionsPanel`, form components, badge vs. CTA visual rules, and the superadmin guard. Requires P1.1 admin API endpoints to be complete first.
 

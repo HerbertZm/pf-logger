@@ -1,0 +1,22 @@
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell__content {
+  flex: 1;
+  padding: var(--space-4);
+  /* Bottom padding for mobile tab bar */
+  padding-bottom: calc(var(--space-tab-bar-mobile) + var(--space-4));
+}
+
+@media (min-width: 768px) {
+  .shell__content {
+    padding: var(--space-5);
+    padding-bottom: var(--space-5);
+    max-width: 1280px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}

@@ -1,0 +1,96 @@
+.context-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--space-context-bar);
+  padding: 0 var(--space-4);
+  background: var(--color-bg-chrome);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.context-bar__left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.context-bar__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.context-bar__name--empty { color: var(--color-text-tertiary); }
+
+.context-bar__select {
+  background: none;
+  border: none;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* let the browser render the native dropdown arrow */
+  appearance: auto;
+}
+
+.context-bar__select:focus { outline: none; }
+
+.context-bar__status {
+  font-size: var(--text-xs-size);
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.context-bar__status--live    { color: var(--color-success); }
+.context-bar__status--stale   { color: var(--color-warning); }
+.context-bar__status--error   { color: var(--color-urgent); }
+.context-bar__status--waiting { color: var(--color-text-tertiary); }
+
+.context-bar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.context-bar__gear {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: color var(--transition-base), background var(--transition-base);
+}
+
+.context-bar__gear:hover { color: var(--color-text-primary); background: var(--color-bg-hover); }
+.context-bar__gear--active { color: var(--color-info); background: var(--color-info-subtle); }
+.context-bar__gear--warn { color: var(--color-warning); }
+
+.context-bar__gear-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-warning);
+}
