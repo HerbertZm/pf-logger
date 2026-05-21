@@ -81,7 +81,7 @@ New tab in the UI with three panels, lazy-loaded:
 
 **Other:**
 - "End event" button gated to superadmin only
-- Session tab: improve PF JWT extraction instructions (step-by-step DevTools guide with screenshots)
+- Session panel (gear icon in TopBar): improve PF JWT extraction instructions (step-by-step DevTools guide with screenshots)
 
 ---
 

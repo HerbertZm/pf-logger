@@ -153,7 +153,7 @@ No scattered conditionals — one context value controls all visibility.
 | Judge call outcomes | ✓ | Hidden |
 | Round timer + outstanding tables | ✓ | ✓ |
 | Pairings / match data | ✓ | ✓ |
-| Session tab / JWT badge | ✓ | Hidden |
+| Session panel (gear icon) / JWT badge | ✓ | Hidden |
 
 When columns are hidden in Carde-only mode: the remaining columns expand to fill the space. No empty gaps, no broken grids.
 
@@ -166,8 +166,8 @@ When columns are hidden in Carde-only mode: the remaining columns expand to fill
 | Active, fresh data | Green dot + "Live · updated Xs ago" in context bar |
 | Active, stale (>2 min) | Amber warning banner: "Stale data — last updated Xm ago" |
 | Worker error | Red error banner: "Worker error — data may be stale" |
-| JWT expired | Amber `!` badge on Session tab + soft warning callout on Dashboard |
-| JWT expired, PF data required | Error banner with "Re-paste token in Session tab" CTA |
+| JWT expired | Amber `!` badge in TopBar/ContextBar + soft warning callout on Dashboard |
+| JWT expired, PF data required | Error banner with "Re-paste token in Session panel (gear icon)" CTA |
 | No data yet (new tournament) | Empty state panels with "Waiting for first sync" message |
 
 ---

@@ -56,7 +56,7 @@ Use the ready-to-paste prompt in `plans/design-prompt.md`. It is self-contained 
 
 - Dark mode by default (venue lighting)
 - Mobile-first: portrait phone is primary, tablet/laptop secondary
-- No external fonts — system font stack only (LAN deployment, no CDN)
+- External fonts (Inter via Google Fonts) are acceptable — always define the full system font stack as a fallback so the app works if the CDN is unreachable (e.g. venue Wi-Fi with captive portal)
 - Design tokens via CSS custom properties in `tokens.css` — no Tailwind, no CSS-in-JS
 - No external component library — all components are built in-house
 - All interactive elements 44px minimum touch target

@@ -55,7 +55,7 @@ Step 6  Auth flow
 Step 7  Dashboard (Screen 1)
 Step 8  Logs Feed (Screen 3)
 Step 9  Insights (Screen 2)
-Step 10 Session tab
+Step 10 Session panel (gear icon — not a primary tab)
 Step 11 Data tab
 Step 12 Manage tab (P1)
 ```
@@ -263,14 +263,16 @@ Shape: **always rectangular** (`border-radius: 8px`). Height: 44px (md) / 32px (
 ```typescript
 type PanelProps = {
   children: React.ReactNode;
-  variant?: 'default' | 'elevated' | 'urgent' | 'warning' | 'success';
+  variant?: 'default' | 'elevated' | 'urgent' | 'warning' | 'success' | 'pending';
   glow?: boolean;
-  accentBar?: boolean;  // 3px left bar in variant color
+  accentBar?: boolean;  // 3px left border accent in variant color
   className?: string;
 };
 ```
 
 `border-radius: var(--radius-lg)`, `padding: var(--panel-padding)`. Glow via `--glow-urgent / --glow-warning / --glow-success`.
+
+**Accent bar implementation:** Use `border-left: 3px solid var(--color-{variant})` directly on the Panel and set `border-top-left-radius: 0; border-bottom-left-radius: 0` on that edge only. Do **not** use `position: absolute` — it requires `overflow: hidden` and creates radius clipping issues.
 
 ### 2.4 — `Spinner`
 
@@ -459,9 +461,11 @@ type RoundTimerProps = {
 };
 ```
 
-1. `timerDurationMinutes === null` → `"—"` in 48px muted, "Top 8 / No timer"
-2. `isOvertime` → `"-MM:SS"`, apply `.timer-overtime` to text + card border
-3. Otherwise → countdown, color = urgency token
+Four render states in priority order:
+1. `timerDurationMinutes === null` → Top-8: `"—"` in 48px muted, label "Top 8 / No timer"
+2. `round.status === 'pending_results'` → **Results Pending**: text "COLLECTING RESULTS", `<Panel variant="pending">`, no pulse, `<Badge icon="◑" label="COLLECTING" variant="info" />` on RoundStrip. This state covers the gap between time being called and Carde marking the round complete.
+3. `isOvertime` → `"-MM:SS"`, apply `.timer-overtime` to text + card border for CSS pulse
+4. Otherwise → countdown, color = urgency token
 
 Font: 80px mobile (`--text-hero-size`), 48px desktop (`--text-3xl-size`).
 
@@ -472,6 +476,8 @@ Outstanding (`urgent`) · w/ Extensions (`warning`) · Drops (`muted`) · Penalt
 Zero-suppression: value `0` → `"—"` with `.value-zero` class.
 
 **Drops chip hidden when `sources.pf === false`.**
+
+**Mobile layout:** 2×2 grid (`display: grid; grid-template-columns: 1fr 1fr`). Do NOT use `min-width: 120px` on mobile — 4-across at 120px minimum overflows a 335px content area. Desktop only: `display: flex; flex-wrap: nowrap` with `min-width: var(--stat-chip-min-w)`.
 
 ### `OutstandingTables`
 
@@ -507,6 +513,7 @@ Chips: All · This Round · Drops · Extensions · Penalties · Coverage · Judg
 
 ### LogEntry grid layout
 
+**Desktop** (`@media (min-width: 768px)`):
 ```css
 .log-entry {
   display: grid;
@@ -516,6 +523,21 @@ Chips: All · This Round · Drops · Extensions · Penalties · Coverage · Judg
   height: 52px;
 }
 ```
+
+**Mobile** (default — below 768px): Drop the logged-by column entirely. Use a 2-row stacked layout within the row:
+```css
+.log-entry {
+  display: grid;
+  grid-template-columns: 3px 12px 72px 1fr 72px;
+  /* accent | gap | badge | name (primary row) | timestamp */
+  align-items: center;
+  min-height: 52px;
+}
+/* Secondary row (table number) spans under name column */
+.log-entry__sub { font-size: var(--text-xs-size); color: var(--color-text-tertiary); }
+```
+
+"Logged by" is omitted on mobile — it's non-critical during active round monitoring and was consuming 160px of a 335px content area.
 
 ### Tab badge
 
@@ -547,7 +569,9 @@ Expandable row: click → inline detail panel with `<ExtensionHistogram>` + outs
 
 ## Step 10 — Session Tab
 
-Source-conditional: **entire tab hidden when `sources.pf === false`**.
+**Not a primary tab.** Accessed via a gear/settings icon in the TopBar (desktop) or ContextBar (mobile). Session management is a once-per-event setup action — it should not consume a primary nav slot alongside Dashboard and Logs. The JWT expiry warning still surfaces in the ContextBar worker status indicator.
+
+Source-conditional: **entire session panel hidden when `sources.pf === false`**.
 
 Sections: JWT status card · Paste JWT textarea → `POST /api/set-token` → refresh worker status · DevTools instructions (collapsible) · Clear token button.
 
@@ -605,8 +629,8 @@ All conditioned on `useTournament().sources`. No other mechanism.
 | Drops filter chip | ✓ | — |
 | Drops column in round table | ✓ | — |
 | Coverage + Judge Calls filter chips | ✓ | — |
-| Session tab (entire) | ✓ | — |
-| Session tab badge | ✓ | — |
+| Session panel (entire) | ✓ | — |
+| Session / JWT expiry badge in TopBar | ✓ | — |
 | Extensions source | PF data if ✓ | `time_extension_seconds` if ✓ |
 | Round timer + outstanding tables | — | ✓ required |
 | Match/pairing data | — | ✓ |

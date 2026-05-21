@@ -187,7 +187,7 @@ NODE_ENV=production
 
 Replace the vanilla JS `index.html` with a React 18 + Vite application. This is the only frontend implementation — there is no intermediate vanilla JS port.
 
-> **Detailed implementation plan:** `plans/ui-implementation.md` — covers all 12 build steps in order: bootstrap, design system, shared primitives, API client + types, context providers + hooks, layout shell, auth flow, Dashboard (Screen 1), Logs Feed (Screen 3), Insights (Screen 2), Session tab, Data tab, and Manage tab (P1). Includes per-component prop specs, CSS alignment math, source-conditional rendering map, QoL slot-in table, and a full verification checklist. Read it before starting any component work.
+> **Detailed implementation plan:** `plans/ui-implementation.md` — covers Steps 0–12: bootstrap, design system, shared primitives, API client + types, context providers + hooks, layout shell, auth flow, Dashboard (Screen 1), Logs Feed (Screen 3), Insights (Screen 2), Session panel (gear icon — not a primary tab), Data tab, and Manage tab (P1). Includes per-component prop specs, CSS alignment math, source-conditional rendering map, QoL slot-in table, and a full verification checklist. Also read `plans/ui-code-patterns.md` for concrete implementations of all contexts, hooks, API client, and shared types before writing any component code.
 
 ### Tooling setup
 
@@ -209,18 +209,22 @@ Replace the vanilla JS `index.html` with a React 18 + Vite application. This is 
 
 ### Design system foundation (implement alongside components)
 
-The design system is built in `client/src/styles/` and is the CSS substrate that the Design Phase refines — do not wait for a finalized design spec to start. Establish the token structure now; visual values get updated during the Design Phase without structural changes.
+The design system is built in `client/src/styles/`. **The Design Phase is complete** — `client/src/styles/tokens.css` is the authoritative token file; do not invent token names, read it directly before writing any CSS. Key finalized tokens to be aware of:
 
 ```
-tokens.css     — CSS custom properties only, no classes:
-                 --color-urgent, --color-warning, --color-success, --color-info, --color-muted
-                 --color-bg, --color-surface, --color-border, --color-text, --color-text-muted
-                 --space-1 through --space-8 (4px base scale)
-                 --text-sm, --text-base, --text-lg, --text-xl, --text-2xl
-                 --radius-sm, --radius-md, --radius-lg
-                 --shadow-sm, --shadow-md
+tokens.css     — finalized token surface (read the file — this is a summary only):
+                 Semantic colors: --color-urgent/warning/success/info/muted/pending
+                 Backgrounds: --color-bg-base/surface/elevated/chrome/hover/scrim/skeleton
+                 Text: --color-text-primary/secondary/tertiary/disabled
+                 Spacing: --space-1 through --space-24 (4px base)
+                 Type: --text-hero/3xl/2xl/xl/lg/body/base/sm/xs
+                       Note: --text-body (17px) is larger than --text-base (15px)
+                 Transitions: --transition-fast (0ms) / --transition-base (60ms ease) / --transition-slow (100ms ease)
+                 Z-index: --z-base/raised/dropdown/sticky/tab-bar/modal/toast
+                 Component tokens: --btn-*, --badge-*, --panel-*, --input-*, --chip-*, --log-row-*, --stat-chip-*
+                 Note: --chip-height is 44px — matches the 44px minimum touch target rule
 
-global.css     — CSS reset, body defaults (dark background, system font stack), focus rings
+global.css     — CSS reset, body defaults (dark background, Inter with system font fallback), focus rings
 ```
 
 Component styles use plain CSS files co-located with their component (`Button.css` next to `Button.tsx`), importing tokens via `var(--token-name)`. No CSS-in-JS, no Tailwind — keeps the design system portable and the token surface inspectable.
@@ -252,7 +256,7 @@ Before P0.8 is complete, every current Python API route must have a working Reac
 - Insights / cross-round summary
 - Worker status indicator
 - Admin: raw table explorer (Data tab)
-- Admin: Session tab (PF JWT paste + status)
+- PF Session panel (PF JWT paste + status) — accessed via gear icon in TopBar/ContextBar, not a primary tab
 
 ---
 

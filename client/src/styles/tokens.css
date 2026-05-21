@@ -39,10 +39,22 @@
   --color-info-hover:       #2563EB;
   --color-info-subtle:      rgba(59, 130, 246, 0.15);
 
-  /* Muted: de-emphasized (zero-value cells, completed rounds) */
+  /* Muted: de-emphasized TEXT only (zero-value cells, captions, placeholders) */
   --color-muted:            #6B7280;
   --color-muted-bg:         #1A1C22;
   --color-muted-subtle:     rgba(107, 114, 128, 0.12);
+
+  /* Badge-neutral: state labels (CARDE ONLY, ENDED) — same hex as muted
+     but semantically distinct. Split if these ever need to diverge visually. */
+  --color-badge-neutral:    #6B7280;
+  --color-badge-neutral-bg: #1A1C22;
+
+  /* Pending: transitional state — time called, results still collecting.
+     Not urgent (no action needed), not success (round isn't clean).
+     Uses info blue — "system is working, wait." */
+  --color-pending:          #3B82F6;
+  --color-pending-bg:       #0F1F3D;
+  --color-pending-subtle:   rgba(59, 130, 246, 0.15);
 
   /* Penalty badge (purple — distinct from urgency red) */
   --color-penalty:          #A855F7;
@@ -50,11 +62,13 @@
 
 
   /* ── BACKGROUND LAYERS ──────────────────────────────────── */
-  --color-bg-base:          #0A0B0E;   /* Page / app background — darkened for contrast */
+  --color-bg-base:          #0A0B0E;   /* Page / app background */
   --color-bg-surface:       #131520;   /* Cards, panels */
-  --color-bg-elevated:      #1B1E2C;   /* Elevated cards, modals, dropdowns — blue-tinted */
-  --color-bg-overlay:       #22263A;   /* Floating overlays, top/bottom bars */
+  --color-bg-elevated:      #1B1E2C;   /* Elevated cards, modals, dropdowns */
+  --color-bg-skeleton:      #1E2134;   /* Skeleton loading state — between surface and elevated */
+  --color-bg-chrome:        #22263A;   /* Navigation bars, ContextBar, TabBar */
   --color-bg-hover:         #2C3050;   /* Hover state on surfaces */
+  --color-bg-scrim:         rgba(0, 0, 0, 0.72);   /* Modal backdrop */
 
 
   /* ── TEXT COLORS ────────────────────────────────────────── */
@@ -132,9 +146,10 @@
   --text-lg-weight:         600;
   --text-lg-line:           1.4;
 
-  --text-md-size:           17px;
-  --text-md-weight:         500;
-  --text-md-line:           1.5;
+  /* text-body: prose, descriptions, form labels — larger than component text */
+  --text-body-size:         17px;
+  --text-body-weight:       500;
+  --text-body-line:         1.5;
 
   --text-base-size:         15px;
   --text-base-weight:       400;
@@ -170,19 +185,20 @@
 
 
   /* ── TRANSITIONS ─────────────────────────────────────────── */
-  /* NOTE: No transitions on DATA values — data updates are frequent
-     and jarring if animated. Transitions are ONLY for UI interactions
-     (hover states, focus rings, tab switches). */
-  --transition-fast:        80ms ease;
-  --transition-base:        150ms ease;
-  --transition-slow:        250ms ease;
+  /* Keep transitions minimal — this is an operational tool checked
+     constantly under time pressure. Slowness = friction.
+     NEVER animate data values (poll results, counts, timer). */
+  --transition-fast:        0ms;        /* Instant — hover states, focus rings */
+  --transition-base:        60ms ease;  /* Tab switches, chip active state */
+  --transition-slow:        100ms ease; /* Drawers, modals, accordion open */
 
 
   /* ── Z-INDEX SCALE ───────────────────────────────────────── */
   --z-base:                 0;
   --z-raised:               10;
   --z-dropdown:             100;
-  --z-sticky:               200;
+  --z-sticky:               200;   /* ContextBar */
+  --z-tab-bar:              200;   /* TabBar mobile (fixed) — same level, never overlaps ContextBar */
   --z-modal:                300;
   --z-toast:                400;
 
@@ -227,8 +243,8 @@
   --input-radius:           var(--radius-md);
   --input-padding-x:        var(--space-3);
 
-  /* Filter chip */
-  --chip-height:            36px;
+  /* Filter chip — 44px to meet touch target minimum */
+  --chip-height:            44px;
   --chip-padding-x:         var(--space-4);
   --chip-radius:            var(--radius-full);
   --chip-font-size:         var(--text-sm-size);
@@ -244,7 +260,9 @@
   --round-row-bg:           var(--color-bg-surface);
   --round-row-radius:       var(--radius-md);
 
-  /* Stat chip */
+  /* Stat chip
+     Mobile: 2×2 grid — min-w not enforced, each chip is 50% column width minus gap.
+     Desktop: 4-across flex — min-w applies. */
   --stat-chip-min-w:        120px;
   --stat-chip-height:       80px;
   --stat-chip-radius:       var(--radius-lg);
@@ -272,6 +290,13 @@
   background-color: var(--color-urgent-bg);
   border-color: var(--color-urgent);
   color: var(--color-urgent);
+}
+
+/* Pending: time called, results still coming in — not urgent, just waiting */
+.state-pending {
+  background-color: var(--color-pending-bg);
+  border-color: var(--color-pending);
+  color: var(--color-pending);
 }
 
 .state-urgent.glow {
