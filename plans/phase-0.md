@@ -211,9 +211,9 @@ All routes return `application/json`. Auth routes require `Authorization: Bearer
 | PATCH | `/api/admin/tournaments/:id` | Edit name, external IDs |
 | PATCH | `/api/admin/tournaments/:id/sources` | Toggle source enabled/disabled |
 | GET/POST | `/api/admin/users` | List / Create |
-| PATCH | `/api/admin/users/:username` | Edit role / password / active |
+| PATCH | `/api/admin/users/:id` | Edit role / isActive |
 | GET/DELETE | `/api/admin/sessions/:token` | List active / Revoke |
-| GET | `/api/admin/backup` | PostgreSQL dump stream |
+| GET | `/api/admin/backup` | PostgreSQL dump stream — **Phase 3 scope, not yet implemented** |
 
 ---
 

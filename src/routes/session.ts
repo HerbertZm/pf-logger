@@ -146,6 +146,11 @@ router.get('/session/pf-jwt', authMiddleware, asyncHandler(async (_req: Request,
 router.delete('/session/pf-jwt', authMiddleware, requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   clearPfJwt();
   const user = (req as AuthenticatedRequest).user;
+  // Null out the pf_session metadata row so a subsequent GET (or restart) returns
+  // status: 'missing' rather than showing the previous token's expiry.
+  await prisma.$executeRaw`
+    UPDATE pf_session SET expires_at = NULL, set_by = NULL, set_at = NULL WHERE id = 1
+  `;
   await prisma.appActivity.create({
     data: { eventType: 'pf_jwt_cleared', username: user.username, ip: req.ip ?? null },
   });
