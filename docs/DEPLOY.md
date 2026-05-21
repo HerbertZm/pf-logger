@@ -249,6 +249,8 @@ Paste and fill in all values:
 ```
 DATABASE_URL=postgresql://pflogger:your_strong_password_here@localhost/pflogger
 CARDE_API_TOKEN=...
+SUPABASE_URL=https://upbcarvmkmyzhbosheyo.supabase.co
+SUPABASE_ANON_KEY=...
 PF_PASSWORD_PEPPER=...
 PORT=8080
 NODE_ENV=production
@@ -274,7 +276,18 @@ sudo -u deploy npm run build
 
 ---
 
-## Step 7 — systemd service
+## Step 7 — Seed the first superadmin user
+
+```bash
+cd /opt/pf-logger
+sudo -u deploy npm run db:seed
+```
+
+This creates username `admin` with password `changeme` and role `superadmin`. **Change the password immediately after first login** via the Manage tab → Users.
+
+---
+
+## Step 9 — systemd service
 
 ```bash
 sudo nano /etc/systemd/system/pf-logger.service
@@ -319,7 +332,7 @@ sudo journalctl -u pf-logger -f
 
 ---
 
-## Step 8 — nginx reverse proxy
+## Step 10 — nginx reverse proxy
 
 ```bash
 sudo nano /etc/nginx/sites-available/analysis.heidy.tools
@@ -367,7 +380,7 @@ sudo systemctl reload nginx
 
 ---
 
-## Step 9 — TLS certificate
+## Step 11 — TLS certificate
 
 ```bash
 sudo certbot --nginx -d analysis.heidy.tools
@@ -383,7 +396,7 @@ sudo certbot renew --dry-run
 
 ---
 
-## Step 10 — Firewall
+## Step 12 — Firewall
 
 ```bash
 sudo ufw allow OpenSSH
@@ -396,7 +409,7 @@ Port 8080 must **not** be in the allow list — nginx proxies to it internally.
 
 ---
 
-## Step 11 — Verify
+## Step 13 — Verify
 
 ```bash
 curl -I https://analysis.heidy.tools/api/me
@@ -407,6 +420,46 @@ curl https://analysis.heidy.tools/api/health
 ```
 
 Open `https://analysis.heidy.tools` in a browser — login modal over HTTPS.
+
+---
+
+## Step 14 — Import legacy data (first deploy only)
+
+If you have historical data from the Python/SQLite app, import it now.
+
+**On your local machine** (where `action_logs.db` lives):
+```bash
+npm run db:export-legacy
+# Writes legacy-export.json to the project root
+```
+
+**Upload to the server:**
+```bash
+# Get a token first — log in as admin
+TOKEN=$(curl -s -X POST https://analysis.heidy.tools/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"changeme"}' | python3 -m json.tool | grep '"token"' | cut -d'"' -f4)
+
+# Run the import
+curl -X POST https://analysis.heidy.tools/api/admin/import \
+     -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d @legacy-export.json
+```
+
+The import is idempotent — safe to re-run if it's interrupted. The response shows exactly how many rows were created vs skipped:
+
+```json
+{
+  "created": { "tournaments": 2, "rounds": 22, "drops": 696, "penalties": 246, "extensions": 824, ... },
+  "skipped": { "tournaments": 0, "rounds": 0, ... },
+  "totalsInExport": { "tournaments": 2, "rounds": 22, ... }
+}
+```
+
+`created.*` should match `totalsInExport.*` on a clean first run. Non-zero `skipped.*` on a re-run is expected and safe.
+
+Skip this step if starting fresh with no legacy data.
 
 ---
 
