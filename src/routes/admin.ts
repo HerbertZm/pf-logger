@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from '../db/prisma';
 import { requireSuperadmin, AuthenticatedRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { spawnTournamentWorker } from '../ingestion/worker';
 
 const router = Router();
 const PEPPER = process.env['PF_PASSWORD_PEPPER'] ?? '';
@@ -173,7 +174,6 @@ router.post('/tournaments', asyncHandler(async (req: Request, res: Response) => 
   });
 
   // Kick off the polling worker (non-blocking — don't await, failures are logged internally)
-  const { spawnTournamentWorker } = await import('../ingestion/worker');
   spawnTournamentWorker(tournament.id).catch((err) => {
     console.error(`[admin] failed to spawn worker for tournament ${tournament.id}:`, err);
   });
@@ -209,13 +209,22 @@ router.patch('/tournaments/:id/sources', asyncHandler(async (req: Request, res: 
     return;
   }
 
-  const mapping = await prisma.tournamentSourceMapping.update({
-    where: { tournamentId_source: { tournamentId: id, source } },
-    data: {
-      ...(isEnabled !== undefined && { isEnabled }),
-      ...(externalId !== undefined && { externalId }),
-    },
-  });
+  let mapping;
+  try {
+    mapping = await prisma.tournamentSourceMapping.update({
+      where: { tournamentId_source: { tournamentId: id, source } },
+      data: {
+        ...(isEnabled !== undefined && { isEnabled }),
+        ...(externalId !== undefined && { externalId }),
+      },
+    });
+  } catch (err: unknown) {
+    if ((err as { code?: string }).code === 'P2025') {
+      res.status(404).json({ error: `No '${source}' source mapping for tournament ${id}` });
+      return;
+    }
+    throw err;
+  }
 
   res.json(mapping);
 }));

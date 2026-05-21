@@ -440,7 +440,7 @@ async function normalizeExtensions(
       update: {
         // Extensions are immutable once created in PF; nothing to update
         // but keep round_id in sync if it was NULL on first sync
-        ...(round?.id !== undefined && { roundId: round.id }),
+        ...(round != null && { roundId: round.id }),
       },
     });
   }

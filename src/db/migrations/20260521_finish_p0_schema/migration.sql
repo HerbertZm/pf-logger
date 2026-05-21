@@ -10,6 +10,8 @@ ALTER TABLE "raw_pf_extensions" ADD COLUMN IF NOT EXISTS "round" INTEGER;
 ALTER TABLE "extensions" ADD COLUMN IF NOT EXISTS "pf_id" TEXT;
 
 -- Make table_judge_calls.round non-nullable (always known at fetch time from tournaments.round)
+-- Backfill any legacy nulls to 0 so the ALTER doesn't fail on existing rows.
+UPDATE "table_judge_calls" SET "round" = 0 WHERE "round" IS NULL;
 ALTER TABLE "table_judge_calls" ALTER COLUMN "round" SET NOT NULL;
 
 -- pf_session singleton: JWT metadata only, token never stored
