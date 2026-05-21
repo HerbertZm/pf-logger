@@ -59,7 +59,10 @@ Some concepts are general to all kinds of tournaments and some are specific or c
 
 - Rounds last 60 minutes
 - Uses Carde.io as the scorekeeper software
-- Uses PurpleFox for judge management (extensions, penalties, coverage)
+- **PF+Carde mode** (default for large events): uses PurpleFox for judge management (extensions, penalties, coverage). Extensions come from PF `tournament_logs`. Drops, penalties, coverage, and judge calls all available.
+- **Carde-only mode** (smaller events or fallback): PurpleFox not in use. Extensions come from Carde `time_extension_seconds` on match objects. Drops, penalties, coverage, and judge calls not available.
+- Toggle between modes via `tournament_source_mapping.is_enabled` on the PF row — non-destructive.
+- **PF implementation note**: PF `tables`, `table_status`, and `tournament_time` are **current-round-only** — wiped on every round advance. These tables have no historical data.
 - **Carde.io implementation note**: pairings published and round start are triggered by the same action in Carde — the SK publishes pairings and starts the clock in one step. There is no separate `pairings_published_at` timestamp; `started_at` is the only available proxy. This is a software limitation, not a general tournament concept — in other software or workflows, these can be distinct events separated by minutes.
 
 #### Lorcana

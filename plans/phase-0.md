@@ -35,18 +35,14 @@
 
 ## P0.1 — API Surface Documentation
 
-Before any schema work, walk every available endpoint from Carde.io and PurpleFox using test environments. Capture exact response shapes, all field names, data types, nullable fields, timestamp formats, and any source inconsistencies between the two.
+**✅ Complete (2026-05-21).** Full confirmed schemas in `agent/CARDE_IO.md` and `agent/PURPLEFOX.md`. Implementation quick references in `docs/carde-api.md` and `docs/pf-api.md`. Exploration checklist: `plans/p0-api-exploration.md`.
 
-**Output:** Updated `agent/CARDE_IO.md` and `agent/PURPLEFOX.md` with full field-level documentation.
-
-**Status:** Partially complete. Carde in-progress match filter confirmed (`status=in_progress`). Full PF surface and completed-event Carde responses still pending.
-
-### Remaining P0.1 items
-- `timer_end_datetime`: confirm whether it appears in live event responses
-- `result_reported_at` on draws: behavior in completed round responses
-- PF table and column names: verify `tournament_penalities` typo, all camelCase field names
-- PF extensions: confirm no round field exists; timestamp cross-ref is the only attribution path
-- PF judge calls: confirm separate table vs. field on coverage record
+Key findings:
+- `timer_end_datetime` lives on `v2/organize/events/{id}/detail/` only — compute locally as `started_at + (timer_duration_min * 60s)`; +7–83s server lag
+- PF extensions have a direct `round` column in `tournament_logs` — no timestamp inference needed
+- PF judge calls and coverage are both on the `tables` row — no separate table
+- `tournament_drops` (not `drops`), `tournament_penalities` (extra 'i') confirmed
+- PF `tables`, `table_status`, `tournament_time` are current-round-only — wiped on every round advance
 
 ---
 
@@ -131,6 +127,7 @@ table_coverage        table_judge_calls     pf_staff
 ```
 app_tournaments       tournament_source_mapping (is_enabled toggle)
 app_users             app_sessions      app_activity      worker_state
+pf_session            (JWT metadata singleton — token never stored, only expires_at)
 ```
 
 ---
@@ -152,9 +149,78 @@ Module at `src/ingestion/worker.ts`, same deployment as HTTP server. Runs indepe
 
 ## P0.5 — HTTP API Port
 
-Port all existing endpoints to TypeScript + Express. Auth, session, tournament, sync, logs, backfill — all reading from PostgreSQL via Prisma. API surface unchanged from the frontend's perspective.
+Port all existing endpoints to TypeScript + Express. Auth, session, tournament, sync, logs — all reading from PostgreSQL via Prisma.
 
 Includes: hashed passwords (bcrypt), persistent sessions, rate limiting, `PF_PASSWORD_PEPPER` from env.
+
+### API contract
+
+All routes return `application/json`. Auth routes require `Authorization: Bearer <token>` (app session token). The PF JWT is managed separately via `/api/session/pf-jwt` and is never included in Bearer auth.
+
+**Auth**
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/auth/login` | none | `{ username, password }` → `{ token, username, isAdmin }` |
+| POST | `/api/auth/logout` | Bearer | Deletes session row |
+| GET | `/api/auth/me` | Bearer | `{ username, isAdmin }` |
+
+**PF Session** — JWT is short-lived (~48h), entered at runtime via UI. Never stored in DB or `.env`.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/session/pf-jwt` | Bearer (admin+) | `{ token: string }` → validates JWT, stores in jwtStore, writes metadata to `pf_session` |
+| GET | `/api/session/pf-jwt` | Bearer | `{ status: 'valid'|'expired'|'missing', expiresAt: string|null, setBy: string|null, inMemory: boolean }` — never returns the token |
+| DELETE | `/api/session/pf-jwt` | Bearer (admin+) | Clears jwtStore; updates pf_session record to mark cleared |
+
+`inMemory: false` means the server restarted since the JWT was last pasted — UI shows "re-paste required" even if `expiresAt` is in the future.
+
+**Tournaments**
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/tournaments` | Bearer | Active tournaments with source config (`{ id, name, shortName, sources: { pf, carde } }`) |
+| GET | `/api/tournaments/:id` | Bearer | Full tournament detail + source mapping |
+| POST | `/api/tournaments/:id/sync` | Bearer (admin+) | Trigger manual sync; returns updated dataset |
+| POST | `/api/tournaments/:id/end` | Bearer (admin+) | Sets `is_ended = true` |
+
+**Data** (per tournament)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/tournaments/:id/rounds` | Bearer | All rounds with timing fields |
+| GET | `/api/tournaments/:id/drops` | Bearer | All drops for tournament |
+| PATCH | `/api/tournaments/:id/drops/:dropId` | Bearer (admin+) | `{ isChecked: boolean }` |
+| GET | `/api/tournaments/:id/extensions` | Bearer | All extensions |
+| GET | `/api/tournaments/:id/penalties` | Bearer | All penalties |
+| GET | `/api/tournaments/:id/coverage` | Bearer | Table coverage log |
+| GET | `/api/tournaments/:id/judge-calls` | Bearer | Judge call log |
+| GET | `/api/tournaments/:id/summary` | Bearer | Full dataset in one call (for initial load) |
+
+**Worker**
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/worker-status` | Bearer | `{ isRunning, lastSyncAt, currentRound, lastError }` per tournament |
+
+**System**
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/health` | none | DB connection, worker status, PF JWT expiry |
+| GET | `/api/data` | Bearer (admin+) | `?table=&limit=&offset=` — raw table explorer |
+
+**Admin** — all superadmin-gated; full spec in `plans/phase-1.md` section 1.1.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET/POST | `/api/admin/tournaments` | List all / Create |
+| PATCH | `/api/admin/tournaments/:id` | Edit name, external IDs |
+| PATCH | `/api/admin/tournaments/:id/sources` | Toggle source enabled/disabled |
+| GET/POST | `/api/admin/users` | List / Create |
+| PATCH | `/api/admin/users/:username` | Edit role / password / active |
+| GET/DELETE | `/api/admin/sessions/:token` | List active / Revoke |
+| GET | `/api/admin/backup` | PostgreSQL dump stream |
 
 ---
 
@@ -175,11 +241,15 @@ Data export script: reads existing `data/legacy.db`, transforms to new schema wh
 
 ```
 DATABASE_URL=postgresql://user:pass@host/db
-CARDE_API_TOKEN=...
+CARDE_API_TOKEN=...          # long-lived; from Carde.io admin panel
+SUPABASE_URL=https://upbcarvmkmyzhbosheyo.supabase.co
+SUPABASE_ANON_KEY=...        # public key embedded in PF frontend bundle; safe to check in .env.example
 PF_PASSWORD_PEPPER=...
 PORT=8080
 NODE_ENV=production
 ```
+
+**PF JWT does NOT go here.** It expires in ~48h, is tied to a specific staff member's Discord session, and must be re-pasted at runtime via the Session panel. Store it only in `jwtStore.ts` (memory) and write only its metadata (`expires_at`, `set_by`, `set_at`) to the `pf_session` table.
 
 `.env.example` checked in with placeholder values. `.env` gitignored. No hardcoded secrets anywhere in the codebase.
 
@@ -265,14 +335,17 @@ Before P0.8 is complete, every current Python API route must have a working Reac
 ## Verification Checklist
 
 **Backend**
-- All existing sync/log/backfill flows work against PostgreSQL
-- Sessions survive server restart
+- All sync/log flows work against PostgreSQL
+- App sessions survive server restart (stored in DB)
 - Raw tables contain verbatim API data; normalized tables match what the old UI showed
 - Carde-only tournament: PF fetches skipped, `is_enabled=false` on PF mapping row
 - Worker captures `missing_tables_json` at timer expiry without manual sync trigger
 - SQLite data migrated (drops, extensions, penalties, rounds) with no row loss
-- `.env` controls all secrets; no hardcoded values remain
+- `.env` controls all long-lived secrets; PF JWT is NOT in `.env`
 - Ingestion worker and HTTP server run independently (worker crash doesn't take down HTTP)
+- `POST /api/session/pf-jwt` stores token in memory, writes only metadata to `pf_session` table
+- `GET /api/session/pf-jwt` returns `inMemory: false` after server restart (prompts re-paste)
+- JWT token is never returned by any endpoint; never appears in any DB column
 
 **Frontend (React + Vite)**
 - `npm run dev` starts both Vite dev server and Express; `/api/*` proxies correctly

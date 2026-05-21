@@ -91,6 +91,28 @@ _Consolidated session entries appear below. Most recent first._
 
 <!-- entries appended by consolidation skill -->
 
+### 2026-05-21
+**Asked:**
+- PF and Carde.io API exploration via Claude in Chrome prompts + HAR file analysis on a test tournament
+- Update all agent/context/plan docs with confirmed API findings
+- Wrap up Phase 0: full API contracts, PF JWT on-the-go design
+
+**Learned:**
+- PF round lifecycle: `tables`, `table_status`, `tournament_time` wiped on every round advance — current-round-only, never treat empty response as "no activity"
+- Real PF table names: `tournament_drops` (not `drops`), `tournament_penalities` (extra 'i' — correct spelling 404s)
+- `tournament_logs` has direct `round` column — no timestamp inference needed for extension round attribution
+- Coverage and judge call are both on the `tables` row — `table_coverage` / `table_judge_results` tables do not exist; `judgeResult` is free-text
+- Carde `timer_end_datetime` on event-level `detail/` only; `timer_is_running` does NOT flip false on expiry; no `extra_time_seconds` on round objects
+- Carde default page size is 25 (not 50); `user_identifier` is a display name string, not UUID
+- PF JWT: ~48h validity, Discord OAuth, no refresh token — must never go in `.env`
+
+**Decisions made:**
+- PF JWT stored in memory (`jwtStore.ts`) only; `pf_session` table stores only metadata (expires_at, set_by, set_at) — token never written to DB
+- `GET /api/session/pf-jwt` returns `inMemory: boolean` to distinguish expired vs. needs-repaste-after-restart
+- Worker degrades to Carde-only on JWT expiry and surfaces error via `worker_state.last_error` and `/api/health`
+- `SUPABASE_URL` + `SUPABASE_ANON_KEY` go in `.env`; PF JWT never does
+- Full TypeScript API contract documented in `plans/phase-0.md` § P0.5
+
 ### 2026-05-15
 **Asked:**
 - Review and scope a "Phase 0" covering: source-separated DB architecture, PostgreSQL migration, TypeScript rewrite, UI redesign brief, Carde-only mode, ingestion worker decoupling

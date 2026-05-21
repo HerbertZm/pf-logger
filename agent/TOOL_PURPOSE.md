@@ -26,8 +26,9 @@ Carde.io handles pairings, results, and the clock. PurpleFox handles judge activ
 It also compensates for specific weaknesses in each system:
 
 - Carde's `completed_at` is unreliable as a "round end" time — this tool computes the real end from the timer data
-- PurpleFox extension logs don't link to rounds — this tool correlates them by timestamp
 - Neither system tells you how many outstanding tables had extensions vs. didn't at timer end — this tool cross-references both
+
+**Carde-only mode:** When PurpleFox is not in use (e.g. smaller events), the tool runs against Carde alone. Extensions come from Carde `time_extension_seconds` on match objects. Drops, penalties, coverage, and judge calls are not available. Toggle via `tournament_source_mapping.is_enabled`.
 
 ---
 
@@ -35,16 +36,16 @@ It also compensates for specific weaknesses in each system:
 
 ### What a user needs to do before an event
 
-1. Add the tournament to the `TOURNAMENTS` dict in `serve.py` with `carde_event_id` and `carde_base_round_id`
-2. Start the server (`python serve.py`) on a machine accessible to staff on the local network
-3. A logged-in PurpleFox user must paste their JWT into the tool via the Session tab — without this, syncs will fail (PurpleFox data is behind auth)
+1. Create a tournament record in the admin UI and configure its source mapping (Carde event ID, PF tournament UUID if applicable)
+2. Start the server (`npm start`) on a machine accessible to staff on the local network
+3. In PF+Carde mode: a logged-in PurpleFox user must paste their JWT into the tool via the Session panel — without this, PF syncs will fail
 
 ### During an event
 
-- Staff hit **Sync** to pull the latest data from both PurpleFox and Carde.io. There is no push or webhook — data is only as fresh as the last sync.
-- The tool auto-syncs on a timer when a valid PF JWT is present; if the JWT expires, auto-sync stops and the user must re-paste it
+- The ingestion worker polls automatically on a configurable interval per active tournament
+- In PF+Carde mode: the PF JWT has ~48h validity; if expired, auto-sync falls back to Carde-only until re-pasted
 - Drops should be checked off in the tool as the scorekeeper processes them
-- The tool does not need to be running continuously — it can be restarted between rounds, though the PF JWT will need to be re-entered (it's in-memory only)
+- The tool can be restarted between rounds — worker state is persisted to the DB; only the PF JWT needs to be re-entered (it's in-memory only)
 
 ### After an event
 
@@ -74,5 +75,5 @@ It also compensates for specific weaknesses in each system:
 - **`missing_tables_json` is timing-sensitive**: the snapshot of outstanding tables is only accurate if a sync happens close to when the round clock expires. A late sync produces an incomplete or empty snapshot. This is the single most important reliability gap.
 - **StageTimer data is not integrated**: StageTimer logs must be processed manually. The tool has no automated way to ingest them.
 - **PurpleFox JWT is in-memory**: server restarts require re-pasting the JWT. It is not persisted to the DB.
-- **Extensions are not round-tagged in PurpleFox**: the tool infers which round an extension belongs to by matching its timestamp against the round timer windows. This inference can be wrong if clocks are manipulated or the event runs late.
+- **PF `tables`, `table_status`, `tournament_time` are current-round-only**: these PF tables are wiped on every round advance. Coverage and judge call history only exists for the current round. Historical round data does not exist in PF for these tables — an empty response means the round advanced, not that there was no activity.
 - **Partial venue coverage**: on large events, StageTimer and PurpleFox may only cover a section of the venue (e.g., featured tables). The rest of the event runs without this tool's visibility.

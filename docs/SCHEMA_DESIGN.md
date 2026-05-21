@@ -2,7 +2,7 @@
 
 _Working document for Phase 0. Reflects confirmed design decisions. Sections marked **[TBD: P0.1]** depend on API exploration results before they can be finalized._
 
-Last updated: 2026-05-14
+Last updated: 2026-05-21
 
 ---
 
@@ -14,7 +14,7 @@ Last updated: 2026-05-14
 - **App layer has no source dependency.** `app_*` tables are owned entirely by this tool.
 - **TIMESTAMPTZ everywhere.** Every timestamp column on every table. No TEXT timestamps, no silent UTC assumptions. Carde timestamps (EDT for US events) are converted to UTC at ingestion.
 - **Selective match storage.** Player-identifying match records are only stored for tables with tracked events (drops, extensions, penalties, coverage). Full match lists are fetched into memory to compute `missing_tables_json`, then discarded. See [TBD: P0.1] below.
-- **`timer_end_datetime` is always computed locally:** `started_at + (timer_duration_minutes * 60) + extra_time_seconds`. Never read from the API; not present in completed event responses.
+- **`timer_end_datetime` is always computed locally:** `started_at + (timer_duration_minutes * 60)`. The Carde API does expose it on `v2/organize/events/{id}/detail/`, but compute locally for reliability — the API value has +7–83s server lag and is absent from round objects entirely. There is no round-level `extra_time_seconds` field in Carde; round timer adjustments are reflected only in the event-level `timer_end_datetime`, not in any round object field.
 - **`completed_at` is stored verbatim but never used in any computation.** For Swiss rounds it equals the next round's `started_at` (same button click in Carde). Stored for raw fidelity only.
 - **PF staff ≠ players ≠ app users.** Three distinct identity concepts. See identity section below.
 - **SQLite DB kept as legacy archive.** No migration to new schema. Kept at `data/legacy.db` for verification during transition.
@@ -58,12 +58,13 @@ carde_round_id        INT NOT NULL
 round_number          INT NOT NULL
 started_at            TIMESTAMPTZ
 completed_at          TIMESTAMPTZ   -- stored verbatim; equals next round's started_at for Swiss
-timer_duration_min    INT           -- NULL for Top-8 and playoff rounds
-extra_time_seconds    INT NOT NULL DEFAULT 0
-  -- NOTE: API returns this as "extra_time_seconds" in some responses
-  -- and "additional_time_seconds" in others. Parser must check both keys.
-carde_status          TEXT          -- UPCOMING | SCHEDULED | ACTIVE | COMPLETE
-pairings_status       TEXT
+timer_duration_min    INT           -- NULL until edit_current_round_timer sets it; NULL for Top-8
+  -- NOTE: No extra_time_seconds or additional_time_seconds on round objects — these fields
+  -- do not exist in the Carde API. Round-level timer adjustments are reflected only in
+  -- the event-level timer_end_datetime on v2/organize/events/{id}/detail/.
+carde_status          TEXT          -- UPCOMING | IN_PROGRESS | COMPLETE (no ACTIVE, no SCHEDULED)
+pairings_status       TEXT          -- NOT_GENERATED | GENERATED
+standings_status      TEXT          -- NOT_GENERATED | GENERATED
 raw_payload           JSONB
 ```
 
@@ -109,20 +110,23 @@ raw_payload                 JSONB
 
 ### `raw_pf_drops`
 
-Source: PurpleFox drops table via Supabase REST
+Source: PurpleFox `tournament_drops` table via Supabase REST.
+Note: PF table name is `tournament_drops` — `drops` returns 404.
+No timestamp column on PF side — cannot sort by insertion time.
 
 ```sql
 id                SERIAL PRIMARY KEY
 fetched_at        TIMESTAMPTZ NOT NULL
 tournament_id     INT NOT NULL REFERENCES app_tournaments(id)
 pf_tournament_id  TEXT NOT NULL   -- PF UUID
-player_game_id    TEXT NOT NULL
-round             INT
-table_number      INT
-player_name       TEXT
+player_game_id    TEXT NOT NULL   -- Carde gameId string
+round             INT NOT NULL
+table_number      INT NOT NULL
+player_name       TEXT            -- "Lastname, Firstname" (denormalized)
 is_checked        BOOLEAN NOT NULL DEFAULT FALSE
 is_cancelled      BOOLEAN NOT NULL DEFAULT FALSE
-updated_by        TEXT
+updated_by        TEXT            -- PF staff UUID (last actor; no separate added_by)
+updated_by_name   TEXT            -- PF staff display name (denormalized)
 raw_payload       JSONB
 ```
 
@@ -130,23 +134,25 @@ raw_payload       JSONB
 
 ### `raw_pf_penalties`
 
-Source: PurpleFox `tournament_penalities` table (note: typo in PF schema — extra 'i' — must be spelled this way in all queries)
+Source: PurpleFox `tournament_penalities` table (extra 'i' is real — correct spelling returns 404).
+No `tableNumber` column on PF side — penalties are not linked to a table directly.
+`created_at` has no timezone suffix in PF response — treat as UTC.
 
 ```sql
 id                SERIAL PRIMARY KEY
 fetched_at        TIMESTAMPTZ NOT NULL
 tournament_id     INT NOT NULL REFERENCES app_tournaments(id)
 pf_tournament_id  TEXT NOT NULL
-pf_id             TEXT NOT NULL    -- PF's own ID for this record
-round             INT
+pf_id             TEXT NOT NULL    -- PF UUID for this record
+round             INT NOT NULL
 player_game_id    TEXT
-player_name       TEXT
-description       TEXT
-infraction        TEXT
-sanction          TEXT
-created_at        TIMESTAMPTZ
-creator_id        TEXT
-creator_name      TEXT
+player_name       TEXT             -- "Lastname, Firstname" (denormalized)
+description       TEXT             -- free-text notes field
+infraction_type   TEXT             -- maps to PF "type" column (e.g. "Gameplay Infractions - HIDDEN CARD ERROR")
+sanction          TEXT             -- maps to PF "sanction" column (e.g. "Warning", "Intellect Penalty (IP2)")
+created_at        TIMESTAMPTZ      -- parse without tz suffix; treat as UTC
+creator_id        TEXT             -- PF staff UUID
+creator_name      TEXT             -- PF staff display name (denormalized)
 raw_payload       JSONB
 ```
 
@@ -154,19 +160,23 @@ raw_payload       JSONB
 
 ### `raw_pf_extensions`
 
-Source: PurpleFox `tournament_logs` table. Contains only time-extension entries (despite the name, not a general activity log).
+Source: PurpleFox `tournament_logs` table. Contains only time-extension entries (not a general log).
+Has a direct `round` column — no need to infer round from timestamps.
+`created_at` has `+00:00` suffix (UTC confirmed).
 
 ```sql
 id                SERIAL PRIMARY KEY
 fetched_at        TIMESTAMPTZ NOT NULL
 tournament_id     INT NOT NULL REFERENCES app_tournaments(id)
 pf_tournament_id  TEXT NOT NULL
+pf_id             INT NOT NULL     -- PF auto-increment integer ID
 table_number      INT NOT NULL
-action            TEXT NOT NULL    -- e.g. "Change time from 5min to 10min"
+round             INT NOT NULL     -- direct column; no timestamp inference needed
+action            TEXT NOT NULL    -- "Change time from Xmin to Ymin"
 from_minutes      INT              -- parsed from action text
 to_minutes        INT              -- parsed from action text
-user_id           TEXT             -- PF judge user ID
-created_at        TIMESTAMPTZ NOT NULL
+user_id           TEXT             -- PF staff UUID (FK to profiles.id)
+created_at        TIMESTAMPTZ NOT NULL  -- includes +00:00 suffix
 raw_payload       JSONB
 ```
 
@@ -174,7 +184,13 @@ raw_payload       JSONB
 
 ### `raw_pf_coverage`
 
-Source: PurpleFox table coverage — judge visits (presence, not outcome)
+Source: PurpleFox `tables.coveredBy` column. Coverage (judge visited) and judge calls (judge_result)
+are both on the same PF `tables` row — NOT separate tables. `table_coverage` and `table_judge_results`
+do not exist in PF.
+
+IMPORTANT: The PF `tables` table is **current-round-only** — wiped on every round advance.
+Fetch this table every sync and treat each fetch as the current round's state.
+No round column on coverage — round must be inferred from `tournament.round` at fetch time.
 
 ```sql
 id                SERIAL PRIMARY KEY
@@ -182,8 +198,8 @@ fetched_at        TIMESTAMPTZ NOT NULL
 tournament_id     INT NOT NULL REFERENCES app_tournaments(id)
 pf_tournament_id  TEXT NOT NULL
 table_number      INT NOT NULL
-covered_by        TEXT NOT NULL    -- judge name or PF user ID
-first_seen_at     TIMESTAMPTZ NOT NULL
+round             INT NOT NULL     -- inferred from tournaments.round at fetch time
+covered_by        TEXT             -- judge display name string (NOT a UUID); null if not yet covered
 raw_payload       JSONB
 ```
 
@@ -191,7 +207,9 @@ raw_payload       JSONB
 
 ### `raw_pf_judge_calls`
 
-Source: PurpleFox judge call outcomes — distinct from coverage (a table can have coverage without a formal call)
+Source: PurpleFox `tables.judgeResult` column — same row as coverage (see above).
+`judge_result` is **free-text** (e.g. "Player 1 1 - 2 Player 2 (0 draw)") — not an enum.
+Not linked to penalties by any FK — correlated only by table_number + round context.
 
 ```sql
 id                SERIAL PRIMARY KEY
@@ -199,10 +217,8 @@ fetched_at        TIMESTAMPTZ NOT NULL
 tournament_id     INT NOT NULL REFERENCES app_tournaments(id)
 pf_tournament_id  TEXT NOT NULL
 table_number      INT NOT NULL
-round             INT
-judge             TEXT
-judge_result      TEXT NOT NULL
-first_seen_at     TIMESTAMPTZ NOT NULL
+round             INT NOT NULL     -- inferred from tournaments.round at fetch time
+judge_result      TEXT NOT NULL    -- free-text result description
 raw_payload       JSONB
 ```
 
@@ -236,14 +252,15 @@ tournament_id         INT NOT NULL REFERENCES app_tournaments(id)
 round_number          INT NOT NULL
 phase                 TEXT NOT NULL     -- 'swiss' | 'top8'
 carde_round_id        INT NOT NULL
-carde_status          TEXT              -- UPCOMING | SCHEDULED | ACTIVE | COMPLETE
+carde_status          TEXT              -- UPCOMING | IN_PROGRESS | COMPLETE
 started_at            TIMESTAMPTZ       -- when TO started clock; proxy for pairings published
-timer_duration_min    INT               -- NULL for Top-8; null-check before ALL timing math
-extra_time_seconds    INT NOT NULL DEFAULT 0
+timer_duration_min    INT               -- NULL for Top-8 and until timer is explicitly set; null-check before ALL timing math
+  -- No extra_time_seconds: Carde has no round-level extra time field.
+  -- Round timer adjustments are absorbed into timer_end_datetime only.
 timer_end_datetime    TIMESTAMPTZ
-  -- Computed: started_at + (timer_duration_min * 60s) + extra_time_seconds
+  -- Computed: started_at + (timer_duration_min * 60s)
   -- NULL when timer_duration_min is NULL (Top-8)
-  -- Never read from API; must always be computed locally
+  -- Computed locally; do not read from API (server has +7-83s lag)
 completed_at          TIMESTAMPTZ
   -- Stored verbatim from Carde. For Swiss: equals next round's started_at.
   -- NEVER use for duration, break time, or round-end calculations.
@@ -319,8 +336,8 @@ round           INT
 player_game_id  TEXT
 player_name     TEXT
 description     TEXT NOT NULL
-infraction      TEXT
-sanction        TEXT
+infraction_type TEXT    -- maps to PF "type" column (e.g. "Gameplay Infractions - HIDDEN CARD ERROR")
+sanction        TEXT    -- maps to PF "sanction" column (e.g. "Warning", "Intellect Penalty (IP2)")
 created_at      TIMESTAMPTZ NOT NULL
 creator_id      TEXT
 creator_name    TEXT
@@ -335,10 +352,9 @@ source          TEXT NOT NULL DEFAULT 'purplefox'
 id                  SERIAL PRIMARY KEY
 tournament_id       INT NOT NULL REFERENCES app_tournaments(id)
 round_id            INT REFERENCES rounds(id)
-  -- Inferred: most recent round where rounds.started_at <= extensions.created_at
-  -- If ambiguous (gap between rounds), attributed to the last active/complete round
-  -- NULL only if no rounds exist yet (should not happen in practice)
 round               INT
+  -- In PF+Carde mode: comes directly from PF tournament_logs.round column.
+  -- In Carde-only mode: inferred from the round active at match fetch time.
 table_number        INT NOT NULL
 from_minutes        INT
 to_minutes          INT
@@ -469,6 +485,23 @@ created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 
 ---
 
+### `pf_session`
+
+Singleton row (always `id = 1`). Tracks the metadata of the last-pasted PF JWT.
+
+**The actual JWT token is NEVER stored here.** It lives in memory only (`src/ingestion/jwtStore.ts`).
+On server restart, jwtStore is empty — the UI reads `expires_at` from this table to show the correct
+prompt ("JWT expired" vs. "JWT valid but needs re-paste after restart").
+
+```sql
+id          INT PRIMARY KEY DEFAULT 1   -- singleton; always upsert on id=1
+set_by      TEXT NOT NULL               -- app username who pasted the JWT
+set_at      TIMESTAMPTZ NOT NULL        -- when it was pasted
+expires_at  TIMESTAMPTZ NOT NULL        -- decoded from JWT exp claim; displayed in UI
+```
+
+---
+
 ### `app_activity`
 
 Replaces `user_activity`.
@@ -502,13 +535,15 @@ updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
 
 ---
 
-## Open items (pending P0.1 API exploration)
+## Open items
 
-| Item | Blocked on | Notes |
-|---|---|---|
-| ~~Selective match ingestion strategy~~ | ~~P0.1 Carde~~ | **Resolved:** `status=in_progress` confirmed functional. Worker fetches only outstanding matches. |
-| `timer_end_datetime` in live events | P0.1 Carde | Absent from completed events — confirm if present for active events |
-| `result_reported_at` behavior | P0.1 Carde | Confirmed null for in-progress matches; verify behavior on draws in completed response |
-| PF table/column names | P0.1 PF | Verify `tournament_penalities` typo and all camelCase field names |
-| PF round attribution mechanism | P0.1 PF | Confirm extensions have no round field; timestamp cross-ref is the only path |
-| `raw_pf_judge_calls` source | P0.1 PF | Confirm this comes from a separate PF table or is a field on the coverage record |
+**P0.1 API exploration is complete.** All items below are resolved.
+
+| Item | Resolution |
+|---|---|
+| Selective match ingestion strategy | `status=in_progress` confirmed functional. Worker fetches only outstanding matches. |
+| `timer_end_datetime` in live events | Lives on `v2/organize/events/{id}/detail/` only. Compute locally: `started_at + (timer_duration_min * 60s)`. |
+| `result_reported_at` behavior | NULL for in-progress; non-null on completed. Draws confirmed: `result_reported_at` null, `match_is_intentional_draw: true`. |
+| PF table/column names | All confirmed. `tournament_penalities` typo real. `tournament_drops` (not `drops`). See `agent/PURPLEFOX.md`. |
+| PF round attribution mechanism | `tournament_logs` has direct `round` column. No timestamp inference needed. |
+| `raw_pf_judge_calls` source | `tables.judgeResult` column — same row as coverage. Free-text, not enum. |

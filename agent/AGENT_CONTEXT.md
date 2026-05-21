@@ -6,10 +6,13 @@ Everything an agent needs to work on this codebase without re-deriving it from s
 
 ## What this is
 
-A local-network web tool for tournament administrators running Magic/Riftbound/Lorcana events using different tools (currently the tool only supports events running on Carde.io **and** PurpleFox, but there are expansions planned).
-It pulls data from different sources (Supabase/PurpleFox + carde.io), stores it in a local SQLite database, and presents it as a real-time dashboard with drops, time extensions, penalties, round timing, and judge activity.
+A local-network web tool for tournament administrators running Magic/Riftbound/Lorcana events.
+Pulls from Carde.io and optionally PurpleFox (Supabase-backed), stores in PostgreSQL, serves a real-time dashboard for drops, extensions, penalties, round timing, and judge activity.
 
-**No build step. No external Python dependencies. Runs with `python serve.py`.**
+**Stack: TypeScript + Express + Prisma + PostgreSQL backend. React 18 + Vite frontend.**
+Runs with `npm run dev` (dev) or `npm start` (production).
+
+> The sections below covering `serve.py`, SQLite, and the Python architecture are **legacy reference only**. The rewrite plan is in `plans/phase-0.md`. New API contract is in `plans/phase-0.md` § P0.5. Confirmed API behavior is in `agent/CARDE_IO.md` and `agent/PURPLEFOX.md`.
 
 ---
 
@@ -105,25 +108,47 @@ _carde_running = set()      # tournament_ids currently being bg-fetched
 
 ---
 
-## serve.py — all API routes
+## API routes (TypeScript / Express — current target)
+
+> Full contract with request/response shapes in `plans/phase-0.md` § P0.5. Summary below.
+
+**Auth:** `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me`
+
+**PF Session (JWT):** JWT is never stored in DB or `.env` — only in memory (`jwtStore.ts`). Metadata (`expires_at`, `set_by`) persisted to `pf_session` table (singleton row).
+- `POST /api/session/pf-jwt` (admin+) — paste JWT; validates, stores in memory, writes metadata
+- `GET /api/session/pf-jwt` — `{ status, expiresAt, setBy, inMemory }` — `inMemory: false` means re-paste needed after restart
+- `DELETE /api/session/pf-jwt` (admin+) — clear stored JWT
+
+**Tournaments:** `GET /api/tournaments` · `GET /api/tournaments/:id` · `POST /api/tournaments/:id/sync` · `POST /api/tournaments/:id/end`
+
+**Data (per tournament):** `GET /api/tournaments/:id/rounds` · `/drops` · `/extensions` · `/penalties` · `/coverage` · `/judge-calls` · `/summary`
+
+**Drop check-off:** `PATCH /api/tournaments/:id/drops/:dropId` — `{ isChecked: boolean }`
+
+**Worker:** `GET /api/worker-status` — `{ isRunning, lastSyncAt, currentRound, lastError }` per tournament
+
+**System:** `GET /api/health` (no auth) · `GET /api/data?table=&limit=&offset=` (admin+)
+
+**Admin (superadmin):** `/api/admin/tournaments` · `/api/admin/users` · `/api/admin/sessions` · `/api/admin/backup` — see `plans/phase-1.md` § 1.1 for full spec.
+
+---
+
+## Legacy: serve.py — all API routes
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/login` | none | Returns `{ok, token, username, is_admin}`. Sets session in `_sessions`. |
+| POST | `/api/login` | none | Returns `{ok, token, username, is_admin}`. |
 | GET | `/api/logout` | Bearer | Removes token from `_sessions`. |
 | GET | `/api/me` | Bearer | Returns `{username, is_admin}`. |
 | GET | `/api/tournaments` | Bearer | Returns list from `TOURNAMENTS` + `is_ended` from DB. |
-| GET | `/api/logs?tournamentId=` | Bearer | Reads all tables from SQLite, returns full dataset. No network calls. |
-| GET | `/api/sync?tournamentId=` | Bearer + PF JWT | Calls `fetch_and_store()`, returns full dataset. Requires valid `_state["token"]`. |
-| GET | `/api/backfill[?tournamentId=]` | Bearer | Re-fetches carde.io round data for all (or one) tournament(s). |
-| GET | `/api/table-data?table=&limit=&offset=` | Bearer + admin | Read rows from a whitelisted SQLite table. Returns `{table, columns, rows, total, limit, offset}`. Max 200/page, cap 500. Returns 403 for non-admins. Allowed tables: drops, time_logs, penalties, table_time_updates, table_coverage, table_judge_results, tournament_meta, table_players, round_pairings, rounds_fetched, round_timers, users. |
-| GET | `/api/end-tournament?tournamentId=` | Bearer | Sets `is_ended=1` in `tournament_meta`. |
-| POST | `/api/set-token` | Bearer | Stores PF JWT in `_state`. Decodes + validates expiry. Seeds user cache from JWT metadata. |
+| GET | `/api/logs?tournamentId=` | Bearer | Reads all tables from SQLite, returns full dataset. |
+| GET | `/api/sync?tournamentId=` | Bearer + PF JWT | Calls `fetch_and_store()`, returns full dataset. |
+| GET | `/api/backfill[?tournamentId=]` | Bearer | Re-fetches carde.io round data. |
+| GET | `/api/table-data?table=&limit=&offset=` | Bearer + admin | Raw SQLite table explorer. |
+| GET | `/api/end-tournament?tournamentId=` | Bearer | Sets `is_ended=1`. |
+| POST | `/api/set-token` | Bearer | Stores PF JWT in `_state`. |
 | GET | `/api/token-status` | Bearer | Returns status/expiry of stored PF JWT. |
-| GET | `/api/schema` | Bearer | Proxies to Supabase PostgREST OpenAPI endpoint. |
-| GET | `/proxy?url=` | Bearer + PF JWT | Authenticated proxy restricted to `upbcarvmkmyzhbosheyo.supabase.co`. |
-
-All Bearer-required routes: `_require_auth()` is called at the top of `do_GET`/`do_POST` before the route dispatch. It reads `Authorization: Bearer <token>`, looks up `_sessions`, checks expiry, sends 401 JSON and returns `None` on failure.
+| GET | `/proxy?url=` | Bearer + PF JWT | Authenticated proxy to Supabase. |
 
 ---
 
@@ -191,9 +216,10 @@ The `CREATE TABLE IF NOT EXISTS` block in `db_init()` only runs on a fresh DB. F
 ## SQLite schema — all tables
 
 ### drops
-Primary source: `tournament_drops` Supabase table.
+Primary source: `tournament_drops` Supabase table (not `drops` — that returns 404).
 PK: `(tournament_id, player_game_id, round)`.
-Key cols: `is_checked`, `is_cancelled`, `added_by_name` (stamped on first unchecked insert), `verified_by_name` (stamped when `is_checked` transitions to 1). Three-pass upsert: INSERT OR IGNORE → UPDATE unchecked → UPDATE checked.
+Key cols: `is_checked`, `is_cancelled`, `added_by_name` (stamped on first unchecked insert — local concept only, PF only has `updated_by_name`), `verified_by_name` (stamped when `is_checked` transitions to 1 — local concept only). Three-pass upsert: INSERT OR IGNORE → UPDATE unchecked → UPDATE checked.
+Note: PF `tournament_drops` has no `createdAt` — no timestamp available for sorting.
 
 ### time_logs
 Source: `tournament_logs`. Contains only judge time-extension log entries ("Change time from Xmin to Ymin"). PK: `id` (Supabase int). `INSERT OR REPLACE`.
@@ -225,42 +251,55 @@ Tracks which rounds have been fetched from carde.io. PK: `(tournament_id, round)
 ### round_timers
 One row per `(tournament_id, round)`. Primary timing record. Key cols:
 - `carde_round_id` — used for pairings API calls
-- `started_at` — when TO started the clock
-- `timer_end_datetime` — derived: `started_at + timer_duration_minutes * 60 + extra_time_seconds`
-- `completed_at` — when round marked COMPLETE (after all results in)
-- `timer_duration_minutes` — base duration; NULL for top-8 bracket rounds
-- `extra_time_seconds` — round-level extra time; also seen as `additional_time_seconds` in carde response
-- `carde_status` — UPCOMING / SCHEDULED / ACTIVE / COMPLETE
+- `started_at` — when TO started the clock (from Carde `get_all_rounds`)
+- `timer_end_datetime` — computed: `started_at + timer_duration_minutes * 60`. Note: Carde does expose this on `detail/` but compute locally for reliability (+7–83s server lag). NULL for Top-8 rounds.
+- `completed_at` — stored verbatim from Carde; equals next round's `started_at` for Swiss; never use for duration
+- `timer_duration_minutes` — set when TO configures the round timer via `edit_current_round_timer`; NULL for Top-8 and until timer is set
+- `carde_status` — `UPCOMING` | `IN_PROGRESS` | `COMPLETE` (no ACTIVE, no SCHEDULED)
 - `incomplete_at_end` — number of tables without results at moment timer hit zero
-- `missing_tables_json` — JSON array of table numbers that were outstanding at time-called
+- `missing_tables_json` — JSON array of table numbers outstanding at snapshot time
+Note: there is no round-level extra time field in Carde. Round timer adjustments are reflected only in `timer_end_datetime` on the Carde `detail/` endpoint, not in any round object field.
 
 ### users
 Name cache: `(user_id TEXT PK, display_name TEXT)`. Seeded from drops, penalties, global drops, and JWT metadata. Used to resolve UUID → display name via `db_resolve_name()`.
 
 ---
 
-## Supabase notes
+## Supabase / PurpleFox notes
 
 - Column names are camelCase in PurpleFox schema (`tournamentId`, `tableNumber`, etc.).
 - Filter key is `tournamentId` not `tournament_id`.
-- `tournament_penalities` has a typo — the extra 'i' is in the actual PF schema.
-- `tournament_logs` only contains time-extension entries, not a general log.
-- OpenAPI endpoint (`/rest/v1/`) returns 401 even with a valid JWT — cannot use for schema discovery.
+- `tournament_penalities` has a typo — the extra 'i' is in the actual PF schema. Correct spelling returns 404.
+- `tournament_logs` only contains time-extension entries (despite the name — not a general log). Has a `round` column.
+- `tournament_drops` is the real table name — `drops` returns 404.
+- `tables` and `table_status` and `tournament_time` are **current-round-only**: wiped on every round advance. Never treat an empty response as "no activity."
+- Coverage and judge results are both on the PF `tables` table (`coveredBy`, `judgeResult` columns) — `table_coverage` and `table_judge_results` do not exist.
+- `judgeResult` on PF `tables` is a free-text string, not an enum.
+- `tournament_drops` has no `createdAt` — cannot sort drops by time.
+- `tournament_penalities.createdAt` has no timezone suffix — treat as UTC.
+- `tournament_logs.createdAt` has `+00:00` suffix — UTC confirmed.
+- PF `defaultTime` on tournaments is in **seconds** (3000 = 50 min).
+- `profiles` is the staff identity table (`id`, `firstname`, `lastname`). `users` returns 404.
+- JWT validity is ~48h (Discord OAuth). No refresh token — re-login required when expired.
 
 ---
 
-## carde.io API
+## Carde.io API
 
 Base: `https://api.admin.carde.io`. Auth: `Authorization: Token {CARDE_API_TOKEN}`.
+Full reference: `docs/carde-api.md`. Full behavioral notes: `agent/CARDE_IO.md`.
 
 ### GET /api/magic-events/{event_id}/get_all_rounds/
-Returns array of phase objects. Each phase has `rounds: []`. Key round fields: `id`, `round_number`, `status`, `started_at`, `completed_at`, `timer_duration_minutes`, `extra_time_seconds` / `additional_time_seconds`, `timer_end_datetime`.
+Returns array of phase objects. Each phase has `rounds: []`. Key round fields: `id`, `round_number`, `status` (`UPCOMING`|`IN_PROGRESS`|`COMPLETE`), `started_at`, `completed_at`, `timer_duration_minutes` (null until timer set), `pairings_status`, `standings_status`. **No `extra_time_seconds` or `additional_time_seconds` — these fields do not exist on round objects. No `timer_end_datetime` on round objects.**
 
 ### GET /api/magic-events/{event_id}/tournament_overview/
-Live snapshot. Key fields: `lifecycle_status`, `timer_is_running`, `timer_end_datetime`, `timer_paused_at_datetime`, `number_of_incomplete_matches`, `current_round.round_number`, `current_round.status`.
+Live snapshot. Key fields: `lifecycle_status`, `number_of_incomplete_matches`, `current_round` (id, round_number, status), `tournament_phases[].rounds[]`. **No timer fields — timer lives on `detail/` only.** Returns 404 for completed events.
+
+### GET /api/v2/organize/events/{event_id}/detail/
+**This is where timer state lives.** Key fields: `timer_end_datetime` (static ISO UTC timestamp), `timer_is_running` (does NOT flip false on expiry), `timer_paused_at_datetime`. Also contains full `settings` and `tournament_phases`.
 
 ### GET /api/v2/organize/tournament-rounds/{round_id}/matches-list/
-Query params: `round_id={id}&page_size=25[&page={n}]`. Paginated — loop while `response.next` is truthy, using it as the next `page=` value. Key match fields: `id`, `table_number`, `match_is_bye`, `status`, `time_extension_seconds`, `winning_player_id`, `player_match_relationships[].player_order`, `.user_event_status.user_identifier`, `.user_event_status.user.id`.
+Default page size: **25**. Always use `page_size=200` to get all in one call. Key params: `status=in_progress`, `avoid_cache=true`, `ordering=table_number`. Key match fields: `id`, `table_number` (-1 for byes), `status`, `time_extension_seconds` (seconds; always 0 in PF+Carde mode), `is_ghost_match`, `result_reported_at` (null for draws — use `updated_at`), `player_match_relationships[].user_event_status.user_identifier` (display name string, e.g. "Aldo M"), `.user.id` (integer — stable player ID).
 
 ---
 

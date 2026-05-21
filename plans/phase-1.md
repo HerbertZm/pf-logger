@@ -87,7 +87,8 @@ Module at `src/ingestion/worker.ts`, same deployment as HTTP server. Runs indepe
 
 - Polls Carde on a configurable interval per active tournament using `status=in_progress` — never fetches full match lists
 - At `timer_end_datetime`, immediately fetches in-progress matches and stores result as `rounds.missing_tables_json` with `snapshot_captured_at` timestamp
-- Subscribes to PurpleFox Supabase real-time where JWT is valid; falls back to polling
+- For PF: polls on the same interval (Supabase real-time not used — too complex relative to the polling interval we need). PF fetches are skipped if `jwtStore` has no valid token.
+- PF JWT lifecycle: ~48h validity, no refresh token. When JWT expires mid-event, worker logs the failure, sets `last_error` in `worker_state`, and continues Carde-only until a new JWT is pasted. The `/api/health` endpoint surfaces JWT expiry status so staff can see it without checking logs.
 - Writes to raw tables only; triggers normalized layer update after each raw write
 - Stores per-tournament state in `worker_state` table — survives restarts
 - `is_ghost_match` flag from Carde is informational only — ghost marking may happen outside Carde
@@ -119,7 +120,7 @@ New tab in the UI with three panels, lazy-loaded:
 
 **Other:**
 - "End event" button gated to superadmin only
-- Session panel (gear icon in TopBar): improve PF JWT extraction instructions (step-by-step DevTools guide with screenshots)
+- Session panel (gear icon in TopBar): PF JWT paste and status. Calls `POST /api/session/pf-jwt` to submit, `GET /api/session/pf-jwt` to poll status. Shows: current status (valid/expired/missing), expiry time, who set it, and a warning when `inMemory: false` (restart happened — re-paste required even if not yet expired). Step-by-step DevTools extraction guide inline.
 
 ---
 

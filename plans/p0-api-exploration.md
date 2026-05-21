@@ -16,129 +16,125 @@ Do this early in the day (Round 1–2) while data is actively flowing. Record re
 
 ## Carde.io
 
+**✅ Completed 2026-05-21 via live session (event 611916) + HAR analysis.**
+Full confirmed schema in `agent/CARDE_IO.md`. Implementation reference in `docs/carde-api.md`.
+
 ### 1. `tournament_overview` — live structure
 
-Call: `GET /api/magic-events/{event_id}/tournament_overview/`
-
-- [ ] Confirm it returns 200 (not 404) while event is active
-- [ ] Capture the full response shape — document every top-level field
-- [ ] Confirm fields present: current round number, incomplete match count, timer state
-- [ ] Does it include `timer_end_datetime` (or timer epoch/ms equivalent)?
-- [ ] Does it include `timer_remaining_seconds` or similar?
-- [ ] Update `agent/CARDE_IO.md` → "tournament_overview structure" with real response
+- [x] Confirmed 200 while active. Returns 404 for completed events (documented, not re-tested).
+- [x] Full response shape documented — see `agent/CARDE_IO.md`
+- [x] `current_round` object confirmed (id, round_number, status, pairings_status, standings_status)
+- [x] `number_of_incomplete_matches` is the outstanding table count field
+- [x] No `timer_end_datetime` — timer lives on `v2/organize/events/{id}/detail/` instead
+- [x] No `timer_remaining_seconds` or any countdown field anywhere in the API
 
 ### 2. `get_all_rounds` — live round fields
 
-Call: `GET /api/magic-events/{event_id}/get_all_rounds/` mid-event
-
-- [ ] Does an active round include `timer_end_datetime` directly on the round object?
-  - Current assumption: must be computed as `started_at + timer_duration_minutes*60 + extra_time_seconds`
-  - If it IS present, note the exact field name and whether it accounts for round-level extra time
-- [ ] Confirm which key holds round-level extra time on live responses: `extra_time_seconds` or `additional_time_seconds` (documented as inconsistent — check both)
-- [ ] Confirm `carde_status` value for the currently active round (`ACTIVE` assumed)
-- [ ] Confirm `pairings_status` values observed (document all seen)
-- [ ] For Top-8 rounds: confirm `timer_duration_minutes` is `null`, confirm `started_at` is still set
+- [x] No `timer_end_datetime` on round objects — confirmed absent
+- [x] No `extra_time_seconds` or `additional_time_seconds` on round objects — neither field exists
+- [x] Per-match extension is `time_extension_seconds` on match objects (seconds), not round-level
+- [x] Round-level timer adjustments via `edit_current_round_timer` reflected only in `timer_end_datetime` on `detail/`
+- [x] Active round `status` is `IN_PROGRESS` (not `ACTIVE` as previously assumed)
+- [x] Status values observed: `UPCOMING`, `IN_PROGRESS`, `COMPLETE`
+- [x] `pairings_status` values: `NOT_GENERATED`, `GENERATED`
+- [x] `timer_duration_minutes` is null on active round until `edit_current_round_timer` sets it
+- [x] Top-8 not tested (test event was 3-round Swiss only)
 
 ### 3. `matches-list` — outstanding table filter
 
-Call: `GET /api/v2/organize/tournament-rounds/{round_id}/matches-list/?status=in_progress&avoid_cache=true`
-
-- [ ] Confirm `status=in_progress` works in PF+Carde mode (documented as confirmed — just re-verify)
-- [ ] Confirm `avoid_cache=true` is accepted and doesn't 400
-- [ ] Inspect a live match object — confirm field presence: `time_extension_seconds`, `result_reported_at`, `is_ghost_match`, `assigned_judge`, `player_match_relationships`
-- [ ] For an in-progress match: is `result_reported_at` null (expected) or populated?
-- [ ] For a draw (if one occurs): confirm `result_reported_at` is null, confirm `updated_at` is non-null
-- [ ] Capture `player_match_relationships[*].user_identifier` shape — is this a UUID or a string handle?
-- [ ] Confirm `table_number: -1` entries appear in `in_progress` results or are they filtered out?
+- [x] `status=in_progress` confirmed working ✓
+- [x] `avoid_cache=true` accepted, no errors ✓
+- [x] All fields confirmed: `time_extension_seconds`, `result_reported_at`, `is_ghost_match`, `assigned_judge`, `player_match_relationships` ✓
+- [x] `result_reported_at` is null for in-progress matches ✓
+- [x] Draw confirmed: `result_reported_at` null, `match_is_intentional_draw: true`, `updated_at` non-null ✓
+- [x] `user_identifier` is a display name string e.g. `"Aldo M"` — NOT a UUID or gameId
+- [x] `table_number: -1` — not observed in in_progress results (byes auto-resolve)
 
 ### 4. Pagination
 
-- [ ] Confirm default page size for `matches-list` (assumed 50 — check `count`, `next`, `previous`)
-- [ ] Confirm `ordering=table_number` still works on live data
-- [ ] Document max page size if `page_size=` param is accepted
+- [x] Default page size is **25** (not 50 as assumed)
+- [x] `ordering=table_number` confirmed working ✓
+- [x] `page_size=200` works — returns all matches in one call ✓
 
 ### 5. Event completion boundary
 
-After the event ends (Top 8 complete):
-- [ ] Confirm `tournament_overview` returns 404 immediately after event completion
-- [ ] Confirm `get_all_rounds` still returns 200 with all rounds for historical access
-- [ ] Note any fields that change after completion (e.g., `carde_status` on rounds)
+- [ ] Not tested in this session (test event not completed through Top 8)
 
 ---
 
 ## PurpleFox
+
+**✅ Completed 2026-05-21 via Claude in Chrome session + HAR analysis.**
+Full confirmed schema in `agent/PURPLEFOX.md`. Summary of findings below.
 
 All PF calls go through Supabase REST: `GET {SUPABASE_URL}/rest/v1/{table}?...`
 Auth: `apikey: {SUPABASE_ANON_KEY}`, `Authorization: Bearer {JWT}`
 
 ### 6. Drops table
 
-Table: `drops` (assumed — verify actual table name)
+Table: ~~`drops` (assumed)~~ → **`tournament_drops`**
 
-- [ ] Confirm exact Supabase table name (case-sensitive)
-- [ ] List all columns returned in a real response — record exact camelCase names
-- [ ] Confirm: `tableNumber`, `round`, `isChecked`, `tournamentId` (suspected names)
-- [ ] Is there a `droppedBy` or `staffName` column? (player name vs staff name)
-- [ ] Is `isChecked` a boolean or 0/1 integer?
-- [ ] Is there a `createdAt` / `updatedAt` timestamp? What timezone/format?
-- [ ] Filter used: `tournamentId=eq.{uuid}` — confirm this works and returns only that event's drops
+- [x] Confirm exact Supabase table name — `tournament_drops` (`drops` → 404)
+- [x] List all columns — `tournamentId`, `playerGameId`, `tableNumber`, `round`, `playerName`, `isChecked`, `isCancelled`, `updated_by`, `updated_by_name`
+- [x] Confirm: `tableNumber` ✓, `round` ✓, `isChecked` ✓, `tournamentId` ✓
+- [x] Staff column — no `droppedBy`/`staffName`; actual: `updated_by` (UUID) + `updated_by_name` (display name string)
+- [x] `isChecked` is a **boolean**, not 0/1
+- [x] No `createdAt` or `updatedAt` — **no timestamp on drops at all**
+- [x] `tournamentId=eq.{uuid}` filter confirmed working
 
 ### 7. Extensions — `tournament_logs`
 
-Table: `tournament_logs`
-
-- [ ] Confirm exact Supabase table name
-- [ ] List all columns — record exact camelCase names
-- [ ] Confirm action/description format: `"Change time from Xmin to Ymin"` — any variation observed?
-- [ ] Is there a `tableNumber` column directly, or must it be joined?
-- [ ] Is there a `round` column, or is round truly absent (confirmed gap — just re-verify)?
-- [ ] Is there a `staffId` or `staffName` column linking to who granted the extension?
-- [ ] Confirm `createdAt` timezone: UTC or server-local? (UTC assumed from Supabase)
-- [ ] Filter: `tournamentId=eq.{uuid}&action=like.Change*` or similar — what filter works?
+- [x] Table name confirmed: `tournament_logs`
+- [x] Columns: `id` (integer), `tournamentId`, `tableNumber`, `round`, `action`, `userId`, `createdAt`
+- [x] Action format confirmed: `"Change time from Xmin to Ymin"` — no variation observed
+- [x] `tableNumber` is a **direct column** (no join needed)
+- [x] `round` is a **direct column** — previously thought absent, it's present ✓
+- [x] No `staffName` — only `userId` (UUID FK to `profiles.id`); use `?select=*,profiles(firstname,lastname)` for name
+- [x] `createdAt` is UTC with `+00:00` suffix confirmed
+- [x] `action=like.Change*` filter confirmed working; all rows are extension entries
 
 ### 8. Penalties — `tournament_penalities` (typo)
 
-Table: `tournament_penalities` (extra 'i' — confirmed typo in real schema)
+- [x] Table name confirmed: `tournament_penalities` (extra 'i') — `tournament_penalties` → 404
+- [x] Columns: `id` (uuid), `tournamentId`, `round`, `playerGameId`, `playerName`, `type`, `sanction`, `description`, `creator_id`, `creator_name`, `createdAt`
+- [x] No `tableNumber` column — penalties not linked to a table
+- [x] No `remedy` or `infraction` — use `type` (infraction category) and `sanction` (outcome)
+- [x] No `staffId` — use `creator_id` (UUID) + `creator_name` (string)
+- [x] Player name: `playerName` column ✓ (denormalized)
+- [x] Free-text notes: `description` column ✓
+- [x] `createdAt` has **no timezone suffix** (inconsistent with `tournament_logs`); treat as UTC
 
-- [ ] Re-confirm the table name is exactly `tournament_penalities`
-- [ ] List all columns — record exact camelCase names
-- [ ] Confirm fields: `tableNumber`, `round`, `infraction`, `remedy`, `staffId`, `tournamentId`
-- [ ] Is there a player name field? Or just table number?
-- [ ] Is there a `notes` or `description` free-text field?
-- [ ] Confirm `createdAt` format and timezone
+### 9. Table coverage + Judge results
 
-### 9. Table coverage
+Table: ~~`table_coverage` (assumed)~~ → **`tables`** (coverage and judge results on same row)
 
-Table: `table_coverage` (assumed — verify)
-
-- [ ] Confirm exact Supabase table name
-- [ ] List all columns — record exact camelCase names
-- [ ] Confirm `coveredBy` is a staff name string (not a UUID)
-- [ ] Is there a round number column? Or only timestamp?
-- [ ] Can multiple coverage entries exist for the same table in the same round?
+- [x] `table_coverage` → 404, `table_judge_results` → 404. Both live on `tables` table
+- [x] Columns: `tournamentId`, `tableNumber`, `playerGameId1/2`, `playerName1/2`, `playerScore1/2`, `result`, `coveredBy`, `judgeResult`, `isAtStage`, `isFeature`
+- [x] `coveredBy` is a display name string, not a UUID ✓
+- [x] No round column — `tables` is current-round-only, wiped on round advance
+- [x] One row per (tournamentId, tableNumber) — coverage and judge result on same row, not multiple entries
+- [x] **`tables` is wiped on every round advance** (DELETE + re-import) — not a historical log
 
 ### 10. Judge calls / judge results
 
-Table: unknown — need to discover
-
-- [ ] Find the actual table name (try: `table_judge_results`, `judge_calls`, `judgeResults`, `judgeCallResults`)
-- [ ] The old Python code used two separate tables for coverage and judge results — confirm they're separate in PF
-- [ ] List all columns
-- [ ] What values does `judgeResult` take? (e.g., `"Warning"`, `"Game Loss"`, `"No Issue"`)
-- [ ] Is it linked to penalties? Or separate?
+- [x] No separate judge results table — lives on `tables.judgeResult`
+- [x] `judgeResult` is **free-text**, not an enum — e.g. `"Player 1 1 - 2 Player 2 (0 draw)"`
+- [x] Not linked to penalties by a FK — correlated only by tournamentId + tableNumber + round context
+- [x] Coverage and judge result are the same row on `tables` (not separate tables)
 
 ### 11. Staff / PF users
 
-- [ ] Is there a `users` or `profiles` table accessible via the anon key?
-- [ ] If yes: confirm the shape used to map `staffId` UUID → display name
-- [ ] If no: PF user lookup requires a separate authenticated call — document the path
+- [x] `profiles` table accessible with anon key + valid JWT ✓ (`users` → 404)
+- [x] Columns: `id` (uuid = JWT sub), `firstname`, `lastname`, `colors`
+- [x] UUID → name: concatenate `firstname + ' ' + lastname`
+- [x] No filter needed — returns all staff profiles
 
 ### 12. JWT behavior
 
-- [ ] Note the `exp` timestamp on a fresh JWT — how long is the typical validity window?
-- [ ] Does PurpleFox issue a refresh token or is it always a manual re-paste?
-- [ ] Does the Supabase client in PF auto-refresh before expiry? (Would affect how long a session stays valid)
-- [ ] At what point before expiry does the gear icon warning appear? (Currently: 30 min — confirm this is useful)
+- [x] JWT validity: ~**48 hours** from issue (Discord OAuth provider)
+- [x] No refresh token in payload — re-login required when expired (manual re-paste)
+- [ ] Does PF client auto-refresh before expiry? Not confirmed
+- [ ] Gear icon warning threshold (30 min) — not tested
 
 ---
 
