@@ -5,7 +5,7 @@ import { prisma } from '../db/prisma';
 import { loginRateLimit } from '../middleware/rateLimit';
 import { authMiddleware, requireAdmin, AuthenticatedRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { setPfJwt } from '../ingestion/jwtStore';
+import { setPfJwt, getPfJwtEntry, clearPfJwt, isPfJwtInMemory } from '../ingestion/jwtStore';
 
 const router = Router();
 
@@ -71,35 +71,85 @@ router.get('/me', authMiddleware, (req: Request, res: Response): void => {
   res.json({ username: user.username, role: user.role });
 });
 
-// POST /api/set-token  (PF JWT paste — admin+ only; PF-source tournaments only)
-router.post('/set-token', authMiddleware, requireAdmin, asyncHandler(async (req: Request, res: Response) => {
-  const { jwt, tournamentId } = req.body as { jwt?: string; tournamentId?: number };
-  if (!jwt || !tournamentId) {
-    res.status(400).json({ error: 'jwt and tournamentId required' });
+// POST /api/session/pf-jwt  — paste PF JWT (admin+)
+router.post('/session/pf-jwt', authMiddleware, requireAdmin, asyncHandler(async (req: Request, res: Response) => {
+  const { jwt } = req.body as { jwt?: string };
+  if (!jwt) {
+    res.status(400).json({ error: 'jwt required' });
     return;
   }
 
   // Decode expiry from JWT payload (no verification — Supabase validates on use)
   let expiresAt: string | null = null;
   try {
-    const payload = JSON.parse(Buffer.from(jwt.split('.')[1] ?? '', 'base64').toString()) as {
-      exp?: number;
-    };
+    const payload = JSON.parse(
+      Buffer.from(jwt.split('.')[1] ?? '', 'base64').toString(),
+    ) as { exp?: number };
     if (payload.exp) expiresAt = new Date(payload.exp * 1000).toISOString();
   } catch {
-    // non-fatal — expiry display will just be null
+    // non-fatal — expiry display will be null
   }
 
-  // JWT is stored in memory only; never written to DB.
-  // Only expiresAt is persisted so the UI can show the expiry warning across restarts.
-  setPfJwt(tournamentId, jwt, expiresAt);
+  const user = (req as AuthenticatedRequest).user;
 
-  await prisma.tournamentSourceMapping.updateMany({
-    where: { tournamentId, source: 'purplefox' },
-    data: { metadata: { expiresAt } },
+  // JWT stored in memory only — never written to DB
+  setPfJwt(jwt, expiresAt, user.username);
+
+  // Persist only metadata to pf_session (singleton id=1)
+  await prisma.$executeRaw`
+    INSERT INTO pf_session (id, set_by, set_at, expires_at)
+    VALUES (1, ${user.username}, NOW(), ${expiresAt}::timestamptz)
+    ON CONFLICT (id) DO UPDATE SET
+      set_by = EXCLUDED.set_by,
+      set_at = EXCLUDED.set_at,
+      expires_at = EXCLUDED.expires_at
+  `;
+
+  await prisma.appActivity.create({
+    data: { eventType: 'pf_jwt_set', username: user.username, ip: req.ip ?? null },
   });
 
   res.json({ ok: true, expiresAt });
+}));
+
+// GET /api/session/pf-jwt — JWT status (never returns token)
+router.get('/session/pf-jwt', authMiddleware, asyncHandler(async (_req: Request, res: Response) => {
+  const inMemory = isPfJwtInMemory();
+  const memEntry = getPfJwtEntry();
+
+  // If not in memory, fall back to DB metadata so UI knows when it last expired
+  if (!inMemory) {
+    const rows = await prisma.$queryRaw<{ set_by: string; set_at: Date; expires_at: Date | null }[]>`
+      SELECT set_by, set_at, expires_at FROM pf_session WHERE id = 1
+    `;
+    const row = rows[0] ?? null;
+    const expired = row?.expires_at ? row.expires_at < new Date() : true;
+    res.json({
+      status: row ? (expired ? 'expired' : 'valid') : 'missing',
+      expiresAt: row?.expires_at?.toISOString() ?? null,
+      setBy: row?.set_by ?? null,
+      inMemory: false,
+    });
+    return;
+  }
+
+  const expired = memEntry?.expiresAt ? new Date(memEntry.expiresAt) < new Date() : false;
+  res.json({
+    status: expired ? 'expired' : 'valid',
+    expiresAt: memEntry?.expiresAt ?? null,
+    setBy: memEntry?.setBy ?? null,
+    inMemory: true,
+  });
+}));
+
+// DELETE /api/session/pf-jwt — clear stored JWT (admin+)
+router.delete('/session/pf-jwt', authMiddleware, requireAdmin, asyncHandler(async (req: Request, res: Response) => {
+  clearPfJwt();
+  const user = (req as AuthenticatedRequest).user;
+  await prisma.appActivity.create({
+    data: { eventType: 'pf_jwt_cleared', username: user.username, ip: req.ip ?? null },
+  });
+  res.json({ ok: true });
 }));
 
 export { router as sessionRouter };

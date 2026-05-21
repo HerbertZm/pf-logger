@@ -1,11 +1,13 @@
 /** Carde.io API fetcher.
  * See agent/CARDE_IO.md for full API surface documentation.
+ * See docs/carde-api.md for quick reference (auth, read/write patterns, gotchas).
  *
  * Key invariants:
- * - Always fetch matches with status=in_progress — never the full match list
- * - API may return "extra_time_seconds" or "additional_time_seconds" — check both
+ * - Always fetch matches with status=in_progress + page_size=200 — never the full match list
+ * - Round objects have NO extra_time_seconds or additional_time_seconds field — these do not exist
  * - completed_at for Swiss rounds equals the next round's started_at; never use for duration
- * - timer_end_datetime is NOT present in completed event responses; always compute locally
+ * - timer_end_datetime lives on detail/ endpoint only; compute locally as started_at + (duration * 60s)
+ * - timer_is_running does NOT flip false on expiry; detect via timer_end_datetime vs wall time
  */
 
 const BASE = 'https://app.carde.io/api';
@@ -15,12 +17,11 @@ interface CardeRound {
   id: number;
   round_number: number;
   started_at: string | null;
-  completed_at: string | null;
-  timer_duration_minutes: number | null;
-  extra_time_seconds?: number;
-  additional_time_seconds?: number; // alternate key name seen in some responses
-  status: string;
+  completed_at: string | null;  // equals next round's started_at for Swiss; never use for duration
+  timer_duration_minutes: number | null;  // NULL for Top-8 and until timer is explicitly set
+  status: string;  // UPCOMING | IN_PROGRESS | COMPLETE
   pairings_status: string | null;
+  standings_status: string | null;
 }
 
 interface CardeMatch {
@@ -66,14 +67,9 @@ export async function fetchCardeRounds(cardeEventId: number): Promise<CardeRound
 export async function fetchCardeMatches(
   cardeRoundId: number,
 ): Promise<CardeMatch[]> {
-  // status=in_progress confirmed functional — never fetch full match list
+  // status=in_progress confirmed functional; page_size=200 to get all in one call (default is 25)
   const data = await cardeGet<{ results?: CardeMatch[] } | CardeMatch[]>(
-    `/v2/organize/tournament-rounds/${cardeRoundId}/matches-list/?status=in_progress&avoid_cache=true`,
+    `/v2/organize/tournament-rounds/${cardeRoundId}/matches-list/?status=in_progress&avoid_cache=true&page_size=200`,
   );
   return Array.isArray(data) ? data : (data.results ?? []);
-}
-
-/** Normalize the extra time field regardless of which key the API used. */
-export function getExtraTimeSeconds(round: CardeRound): number {
-  return round.extra_time_seconds ?? round.additional_time_seconds ?? 0;
 }

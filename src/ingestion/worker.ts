@@ -10,8 +10,8 @@ const PF_POLL_INTERVAL_MS = 15_000;
  * Runs independently of the HTTP server — a crash here does not take down the API.
  *
  * Ingestion strategy:
- * - Carde: polls every ~30s using status=in_progress (never fetches full match lists)
- * - PurpleFox: subscribes to Supabase real-time; falls back to polling if JWT unavailable
+ * - Carde: polls every ~30s using status=in_progress&page_size=200 (never fetches full match lists)
+ * - PurpleFox: polls every ~15s; skips if no JWT in memory
  * - At timer_end_datetime, immediately snapshots outstanding matches into rounds.missing_tables_json
  */
 export async function startWorker(): Promise<void> {
@@ -73,11 +73,9 @@ async function syncPfData(tournamentId: number): Promise<void> {
   void tournamentId;
 }
 
-// Compute timer_end_datetime locally — never read from API
-export function computeTimerEnd(
-  startedAt: Date,
-  timerDurationMin: number,
-  extraTimeSeconds: number,
-): Date {
-  return new Date(startedAt.getTime() + (timerDurationMin * 60 + extraTimeSeconds) * 1000);
+// Compute timer_end_datetime locally — never read from API.
+// Carde has no round-level extra time field; adjustments are absorbed into the event-level
+// timer_end_datetime on detail/, which we don't use. Compute from round duration only.
+export function computeTimerEnd(startedAt: Date, timerDurationMin: number): Date {
+  return new Date(startedAt.getTime() + timerDurationMin * 60 * 1000);
 }

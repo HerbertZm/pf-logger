@@ -1,19 +1,24 @@
 /** PurpleFox / Supabase fetcher.
  * See agent/PURPLEFOX.md for full API surface documentation.
+ * See docs/pf-api.md for quick reference (auth, read/write patterns, gotchas).
  *
  * Key invariants:
  * - PF users are staff (judges/scorekeepers), not players
  * - Extensions live in tournament_logs table (not a general activity log)
  * - Penalties table is "tournament_penalities" (extra 'i' — typo in PF schema; keep as-is)
- * - Extensions have no round field; round is inferred by timestamp cross-reference
- * - is_ghost_match from Carde is informational only; PF may mark ghosts outside Carde
+ * - tournament_logs.round is a direct column — no timestamp inference needed
+ * - tables, table_status, tournament_time are current-round-only — wiped on round advance
  */
 
 import { createClient } from '@supabase/supabase-js';
 
 function getSupabase(jwt: string) {
-  const url = process.env['PF_SUPABASE_URL'] ?? '';
-  return createClient(url, jwt);
+  const url = process.env['SUPABASE_URL'] ?? '';
+  const anonKey = process.env['SUPABASE_ANON_KEY'] ?? '';
+  // anon key goes in the apikey header; JWT goes in Authorization: Bearer
+  return createClient(url, anonKey, {
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
+  });
 }
 
 export interface PfDrop {
@@ -41,11 +46,12 @@ export interface PfPenalty {
 }
 
 export interface PfExtension {
-  id: string;
+  id: number;          // PF auto-increment integer (tournament_logs.id)
   table_number: number;
-  action: string; // e.g. "Change time from 5min to 10min"
+  round: number | null; // direct column — no timestamp inference needed
+  action: string;       // "Change time from Xmin to Ymin"
   user_id: string | null;
-  created_at: string;
+  created_at: string;   // UTC with +00:00 suffix
 }
 
 export interface PfCoverage {

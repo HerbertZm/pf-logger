@@ -81,6 +81,17 @@ model AppSession {
   @@map("app_sessions")
 }
 
+// Singleton (id=1). Tracks metadata of the last-pasted PF JWT.
+// The actual JWT token is NEVER stored here — memory only (jwtStore.ts).
+model PfSession {
+  id        Int       @id @default(1)
+  setBy     String    @map("set_by")
+  setAt     DateTime  @db.Timestamptz() @map("set_at")
+  expiresAt DateTime? @db.Timestamptz() @map("expires_at")
+
+  @@map("pf_session")
+}
+
 model AppActivity {
   id        Int      @id @default(autoincrement())
   eventType String   @map("event_type")
@@ -118,9 +129,8 @@ model Round {
   cardeRoundId       Int       @map("carde_round_id")
   cardeStatus        String?   @map("carde_status")
   startedAt          DateTime? @db.Timestamptz() @map("started_at")
-  timerDurationMin   Int?      @map("timer_duration_min") // NULL for Top-8
-  extraTimeSeconds   Int       @default(0) @map("extra_time_seconds")
-  timerEndDatetime   DateTime? @db.Timestamptz() @map("timer_end_datetime") // computed locally; never from API
+  timerDurationMin   Int?      @map("timer_duration_min") // NULL for Top-8; null-check before ALL timing math
+  timerEndDatetime   DateTime? @db.Timestamptz() @map("timer_end_datetime") // computed: started_at + (timer_duration_min * 60s)
   completedAt        DateTime? @db.Timestamptz() @map("completed_at") // verbatim from Carde; never use for duration
   missingTablesJson  Json?     @map("missing_tables_json")
   snapshotCapturedAt DateTime? @db.Timestamptz() @map("snapshot_captured_at")
@@ -208,7 +218,7 @@ model Penalty {
 model Extension {
   id               Int      @id @default(autoincrement())
   tournamentId     Int      @map("tournament_id")
-  roundId          Int?     @map("round_id") // inferred from timestamp; NULL if no rounds exist yet
+  roundId          Int?     @map("round_id")
   round            Int?
   tableNumber      Int      @map("table_number")
   fromMinutes      Int?     @map("from_minutes")
@@ -274,8 +284,7 @@ model RawCardeRound {
   startedAt        DateTime? @db.Timestamptz() @map("started_at")
   completedAt      DateTime? @db.Timestamptz() @map("completed_at") // verbatim; equals next round's started_at for Swiss
   timerDurationMin Int?      @map("timer_duration_min")
-  extraTimeSeconds Int       @default(0) @map("extra_time_seconds") // API may use "extra_time_seconds" or "additional_time_seconds"
-  cardeStatus      String?   @map("carde_status")
+  cardeStatus      String?   @map("carde_status")  // UPCOMING | IN_PROGRESS | COMPLETE
   pairingsStatus   String?   @map("pairings_status")
   rawPayload       Json?     @map("raw_payload")
 
@@ -362,12 +371,14 @@ model RawPfExtension {
   fetchedAt      DateTime @db.Timestamptz() @map("fetched_at")
   tournamentId   Int      @map("tournament_id")
   pfTournamentId String   @map("pf_tournament_id")
+  pfId           Int      @map("pf_id")           // PF auto-increment integer ID (tournament_logs.id)
   tableNumber    Int      @map("table_number")
-  action         String
+  round          Int?                              // direct column on tournament_logs; no timestamp inference needed
+  action         String                            // "Change time from Xmin to Ymin"
   fromMinutes    Int?     @map("from_minutes")
   toMinutes      Int?     @map("to_minutes")
-  userId         String?  @map("user_id")
-  createdAt      DateTime @db.Timestamptz() @map("created_at")
+  userId         String?  @map("user_id")          // PF staff UUID
+  createdAt      DateTime @db.Timestamptz() @map("created_at")  // includes +00:00 suffix from PF
   rawPayload     Json?    @map("raw_payload")
 
   tournament AppTournament @relation(fields: [tournamentId], references: [id])

@@ -44,7 +44,7 @@ router.get('/dashboard/active-round', asyncHandler(async (req: Request, res: Res
   const round = await prisma.round.findFirst({
     where: {
       tournamentId: tid,
-      cardeStatus: { in: ['ACTIVE', 'COMPLETE'] },
+      cardeStatus: { in: ['IN_PROGRESS', 'COMPLETE'] },
     },
     orderBy: { roundNumber: 'desc' },
   });
