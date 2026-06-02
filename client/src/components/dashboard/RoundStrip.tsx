@@ -11,8 +11,6 @@ interface RoundStripProps {
 export const RoundStrip = ({ round, urgency, isPendingResults = false }: RoundStripProps) => (
   <div className={`round-strip round-strip--${urgency}`}>
     <span className="round-strip__label">Round {round.roundNumber}</span>
-    {isPendingResults && (
-      <Badge icon="◑" label="Collecting" variant="info" />
-    )}
+    {isPendingResults && <Badge icon="◑" label="Collecting" variant="info" />}
   </div>
 );

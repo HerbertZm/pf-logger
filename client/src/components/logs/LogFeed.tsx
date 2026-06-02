@@ -41,7 +41,10 @@ export const LogFeed = () => {
     const fetch = () =>
       api
         .get<LogsResponse>(`/api/logs?tournamentId=${activeTournamentId}`)
-        .then((d) => { setData(d); setError(null); })
+        .then((d) => {
+          setData(d);
+          setError(null);
+        })
         .catch((e: Error) => setError(e.message));
     fetch();
     const id = setInterval(fetch, POLL_MS);
@@ -77,10 +80,12 @@ export const LogFeed = () => {
       )}
 
       {rounds.map((round) => {
-        const entries = applyFilter(allEntries.filter((e) => {
-          const r = 'round' in e ? e.round : null;
-          return r === round.roundNumber;
-        }));
+        const entries = applyFilter(
+          allEntries.filter((e) => {
+            const r = 'round' in e ? e.round : null;
+            return r === round.roundNumber;
+          }),
+        );
         return <RoundGroup key={round.id} round={round} entries={entries} />;
       })}
     </div>

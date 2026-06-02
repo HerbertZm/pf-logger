@@ -50,8 +50,26 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     label: 'Data',
     icon: (
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-        <rect x="1" y="1" width="20" height="9" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
-        <rect x="1" y="12" width="20" height="9" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        <rect
+          x="1"
+          y="1"
+          width="20"
+          height="9"
+          rx="2"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          fill="none"
+        />
+        <rect
+          x="1"
+          y="12"
+          width="20"
+          height="9"
+          rx="2"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          fill="none"
+        />
         <line x1="7" y1="1" x2="7" y2="10" stroke="currentColor" strokeWidth="1.5" />
         <line x1="14" y1="1" x2="14" y2="10" stroke="currentColor" strokeWidth="1.5" />
         <line x1="7" y1="12" x2="7" y2="21" stroke="currentColor" strokeWidth="1.5" />
@@ -65,14 +83,23 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     icon: (
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
         <circle cx="11" cy="11" r="3" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M11 1v3M11 18v3M1 11h3M18 11h3M3.93 3.93l2.12 2.12M15.95 15.95l2.12 2.12M18.07 3.93l-2.12 2.12M6.05 15.95l-2.12 2.12"
-          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path
+          d="M11 1v3M11 18v3M1 11h3M18 11h3M3.93 3.93l2.12 2.12M15.95 15.95l2.12 2.12M18.07 3.93l-2.12 2.12M6.05 15.95l-2.12 2.12"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
       </svg>
     ),
   },
 ];
 
-export const TabBar = ({ active, onChange, logsBadge = 0, dashboardUrgent = false }: TabBarProps) => (
+export const TabBar = ({
+  active,
+  onChange,
+  logsBadge = 0,
+  dashboardUrgent = false,
+}: TabBarProps) => (
   <nav className="tab-bar" aria-label="Main navigation">
     {TABS.map((tab) => (
       <button

@@ -7,5 +7,11 @@
   flex-shrink: 0;
 }
 
-.spinner--sm { width: 10px; height: 10px; }
-.spinner--md { width: 16px; height: 16px; }
+.spinner--sm {
+  width: 10px;
+  height: 10px;
+}
+.spinner--md {
+  width: 16px;
+  height: 16px;
+}

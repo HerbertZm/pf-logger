@@ -1,45 +1,80 @@
 import type { Prisma } from '../generated/prisma/client';
-import type {
-  Round, Drop, Extension, Penalty, Coverage, JudgeCall,
-} from '../api/types';
+import type { Round, Drop, Extension, Penalty, Coverage, JudgeCall } from '../api/types';
 
 // ─── Prisma model shapes (input side) ─────────────────────────────────────────
 // These are the minimal fields each serializer needs from the Prisma model.
 // Using structural typing so any superset (e.g. full Prisma result) is accepted.
 
 type PrismaRound = {
-  id: number; tournamentId: number; roundNumber: number; phase: string;
-  cardeStatus: string | null; startedAt: Date | null; timerDurationMin: number | null;
-  timerEndDatetime: Date | null; missingTablesJson: Prisma.JsonValue;
+  id: number;
+  tournamentId: number;
+  roundNumber: number;
+  phase: string;
+  cardeStatus: string | null;
+  startedAt: Date | null;
+  timerDurationMin: number | null;
+  timerEndDatetime: Date | null;
+  missingTablesJson: Prisma.JsonValue;
   snapshotCapturedAt: Date | null;
 };
 
 type PrismaDrop = {
-  id: number; tournamentId: number; playerGameId: string; round: number;
-  tableNumber: number | null; playerName: string | null; isChecked: boolean;
-  isCancelled: boolean; addedByName: string | null; verifiedByName: string | null;
+  id: number;
+  tournamentId: number;
+  playerGameId: string;
+  round: number;
+  tableNumber: number | null;
+  playerName: string | null;
+  isChecked: boolean;
+  isCancelled: boolean;
+  addedByName: string | null;
+  verifiedByName: string | null;
 };
 
 type PrismaExtension = {
-  id: number; tournamentId: number; roundId: number | null; round: number | null;
-  tableNumber: number; fromMinutes: number | null; toMinutes: number | null;
-  extensionMinutes: number | null; userId: string | null; createdAt: Date; source: string;
+  id: number;
+  tournamentId: number;
+  roundId: number | null;
+  round: number | null;
+  tableNumber: number;
+  fromMinutes: number | null;
+  toMinutes: number | null;
+  extensionMinutes: number | null;
+  userId: string | null;
+  createdAt: Date;
+  source: string;
 };
 
 type PrismaPenalty = {
-  id: number; tournamentId: number; round: number | null; playerGameId: string | null;
-  playerName: string | null; description: string; infraction: string | null;
-  sanction: string | null; createdAt: Date; creatorName: string | null;
+  id: number;
+  tournamentId: number;
+  round: number | null;
+  playerGameId: string | null;
+  playerName: string | null;
+  description: string;
+  infraction: string | null;
+  sanction: string | null;
+  createdAt: Date;
+  creatorName: string | null;
 };
 
 type PrismaCoverage = {
-  id: number; tournamentId: number; round: number | null; tableNumber: number;
-  coveredBy: string; firstSeenAt: Date;
+  id: number;
+  tournamentId: number;
+  round: number | null;
+  tableNumber: number;
+  coveredBy: string;
+  firstSeenAt: Date;
 };
 
 type PrismaJudgeCall = {
-  id: number; tournamentId: number; round: number; tableNumber: number;
-  judge: string | null; judgeResult: string; firstSeenAt: Date;
+  id: number;
+  tournamentId: number;
+  round: number;
+  tableNumber: number;
+  judge: string | null;
+  judgeResult: string;
+  firstSeenAt: Date;
 };
 
 // ─── Serializers ───────────────────────────────────────────────────────────────

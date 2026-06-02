@@ -8,6 +8,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit && tsc --noEmit -p client/tsconfig.json",
     "lint": "eslint src client/src --ext .ts,.tsx",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"client/src/**/*.{ts,tsx,css}\" \"*.json\" \".eslintrc.json\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"client/src/**/*.{ts,tsx,css}\" \"*.json\" \".eslintrc.json\"",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

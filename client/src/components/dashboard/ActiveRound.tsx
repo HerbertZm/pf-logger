@@ -40,8 +40,15 @@ export const ActiveRound = () => {
     const fetch = () =>
       api
         .get<ActiveRoundResponse | null>(url)
-        .then((d) => { setData(d); setLoading(false); setError(null); })
-        .catch((e: Error) => { setError(e.message); setLoading(false); });
+        .then((d) => {
+          setData(d);
+          setLoading(false);
+          setError(null);
+        })
+        .catch((e: Error) => {
+          setError(e.message);
+          setLoading(false);
+        });
 
     fetch();
     const id = setInterval(fetch, POLL_MS);
@@ -53,11 +60,7 @@ export const ActiveRound = () => {
   if (loading) return <div className="active-round__skeleton skeleton" />;
   if (error) return <Banner variant="error" message={error} />;
   if (!data?.round) {
-    return (
-      <div className="active-round__empty">
-        No active round — waiting for first sync.
-      </div>
-    );
+    return <div className="active-round__empty">No active round — waiting for first sync.</div>;
   }
 
   return (
@@ -119,7 +122,10 @@ export const ActiveRound = () => {
                   <td>{e.toMinutes != null ? `${e.toMinutes}m` : '—'}</td>
                   <td className="ext-table__delta">+{e.extensionMinutes ?? '?'}m</td>
                   <td className="ext-table__time">
-                    {new Date(e.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(e.createdAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </td>
                 </tr>
               ))}

@@ -19,8 +19,15 @@ export const CrossRoundSummary = () => {
     const fetch = () =>
       api
         .get<RoundSummary[]>(`/api/insights?tournamentId=${activeTournamentId}`)
-        .then((d) => { setData(d); setLoading(false); setError(null); })
-        .catch((e: Error) => { setError(e.message); setLoading(false); });
+        .then((d) => {
+          setData(d);
+          setLoading(false);
+          setError(null);
+        })
+        .catch((e: Error) => {
+          setError(e.message);
+          setLoading(false);
+        });
     fetch();
     const id = setInterval(fetch, POLL_MS);
     return () => clearInterval(id);
@@ -45,9 +52,17 @@ export const CrossRoundSummary = () => {
   return (
     <div className="cross-round">
       <div className="cross-round__totals">
-        {sources.pf && <span className="cross-round__total"><strong>{totals.drops}</strong> drops</span>}
-        <span className="cross-round__total"><strong>{totals.extensions}</strong> extensions</span>
-        <span className="cross-round__total"><strong>{totals.penalties}</strong> penalties</span>
+        {sources.pf && (
+          <span className="cross-round__total">
+            <strong>{totals.drops}</strong> drops
+          </span>
+        )}
+        <span className="cross-round__total">
+          <strong>{totals.extensions}</strong> extensions
+        </span>
+        <span className="cross-round__total">
+          <strong>{totals.penalties}</strong> penalties
+        </span>
       </div>
 
       <div className="cross-round__table-wrap">
@@ -58,13 +73,19 @@ export const CrossRoundSummary = () => {
               <th>Status</th>
               {sources.pf && <th>Drops</th>}
               <th>Extensions</th>
-              <th title="Tables with outstanding results when the round clock expired">Late Tables</th>
-              <th title="Minutes past timer expiry before last result — requires ingestion worker">Overtime (min)</th>
+              <th title="Tables with outstanding results when the round clock expired">
+                Late Tables
+              </th>
+              <th title="Minutes past timer expiry before last result — requires ingestion worker">
+                Overtime (min)
+              </th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {data.map((s) => <RoundRow key={s.round.id} summary={s} />)}
+            {data.map((s) => (
+              <RoundRow key={s.round.id} summary={s} />
+            ))}
           </tbody>
         </table>
       </div>

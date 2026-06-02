@@ -32,33 +32,37 @@ export async function startWorker(): Promise<void> {
 
 /** Start polling loops for a single tournament. Exported so new tournaments can be wired up. */
 export function spawnTournamentWorker(tournamentId: number): Promise<void> {
-  return prisma.workerState.upsert({
-    where: { tournamentId },
-    create: { tournamentId, isRunning: true },
-    update: { isRunning: true, lastError: null },
-  }).then(() => {
-    console.warn(`[worker] polling started for tournament ${tournamentId}`);
+  return prisma.workerState
+    .upsert({
+      where: { tournamentId },
+      create: { tournamentId, isRunning: true },
+      update: { isRunning: true, lastError: null },
+    })
+    .then(() => {
+      console.warn(`[worker] polling started for tournament ${tournamentId}`);
 
-    setInterval(() => {
+      setInterval(() => {
+        syncCardeRounds(tournamentId).catch((err) => recordError(tournamentId, err));
+      }, CARDE_POLL_INTERVAL_MS);
+
+      setInterval(() => {
+        syncPfData(tournamentId).catch((err) => recordError(tournamentId, err));
+      }, PF_POLL_INTERVAL_MS);
+
+      // Run immediately on startup
       syncCardeRounds(tournamentId).catch((err) => recordError(tournamentId, err));
-    }, CARDE_POLL_INTERVAL_MS);
-
-    setInterval(() => {
       syncPfData(tournamentId).catch((err) => recordError(tournamentId, err));
-    }, PF_POLL_INTERVAL_MS);
-
-    // Run immediately on startup
-    syncCardeRounds(tournamentId).catch((err) => recordError(tournamentId, err));
-    syncPfData(tournamentId).catch((err) => recordError(tournamentId, err));
-  });
+    });
 }
 
 async function recordError(tournamentId: number, err: unknown): Promise<void> {
   console.error(`[worker] tournament ${tournamentId} error:`, err);
-  await prisma.workerState.update({
-    where: { tournamentId },
-    data: { lastError: String(err), updatedAt: new Date() },
-  }).catch(() => {});
+  await prisma.workerState
+    .update({
+      where: { tournamentId },
+      data: { lastError: String(err), updatedAt: new Date() },
+    })
+    .catch(() => {});
 }
 
 // ─── Carde sync ───────────────────────────────────────────────────────────────
@@ -92,9 +96,10 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
 
     // Derive normalized round (write-once semantics for timestamp fields)
     const startedAt = r.started_at ? new Date(r.started_at) : null;
-    const timerEnd = (startedAt && r.timer_duration_minutes != null)
-      ? computeTimerEnd(startedAt, r.timer_duration_minutes)
-      : null;
+    const timerEnd =
+      startedAt && r.timer_duration_minutes != null
+        ? computeTimerEnd(startedAt, r.timer_duration_minutes)
+        : null;
 
     const existing = await prisma.round.findUnique({
       where: { tournamentId_roundNumber: { tournamentId, roundNumber: r.round_number } },
@@ -105,7 +110,7 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
       create: {
         tournamentId,
         roundNumber: r.round_number,
-        phase: 'swiss',         // Top-8 detection deferred to P1
+        phase: 'swiss', // Top-8 detection deferred to P1
         cardeRoundId: r.id,
         cardeStatus: r.status,
         startedAt,
@@ -126,8 +131,8 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
 
     // Fetch in-progress matches for the active round
     if (r.status === 'IN_PROGRESS') {
-      await syncCardeMatches(tournamentId, r.id, r.round_number, mapping).catch(
-        (err) => console.error(`[worker] match sync failed for round ${r.id}:`, err),
+      await syncCardeMatches(tournamentId, r.id, r.round_number, mapping).catch((err) =>
+        console.error(`[worker] match sync failed for round ${r.id}:`, err),
       );
     }
   }
@@ -208,12 +213,16 @@ async function syncCardeMatches(
     });
 
     // Derive normalized match
-    const resultAt = m.result_reported_at
-      ? new Date(m.result_reported_at)
-      : new Date(m.updated_at);
+    const resultAt = m.result_reported_at ? new Date(m.result_reported_at) : new Date(m.updated_at);
 
     await prisma.match.upsert({
-      where: { tournamentId_roundNumber_tableNumber: { tournamentId, roundNumber, tableNumber: m.table_number } },
+      where: {
+        tournamentId_roundNumber_tableNumber: {
+          tournamentId,
+          roundNumber,
+          tableNumber: m.table_number,
+        },
+      },
       create: {
         tournamentId,
         roundId: round.id,
@@ -304,10 +313,12 @@ export async function syncPfData(tournamentId: number): Promise<void> {
   const jwt = getPfJwt();
   if (!jwt) {
     // No JWT in memory — log once and skip silently
-    await prisma.workerState.update({
-      where: { tournamentId },
-      data: { lastError: 'PF JWT not in memory — re-paste required', updatedAt: new Date() },
-    }).catch(() => {});
+    await prisma.workerState
+      .update({
+        where: { tournamentId },
+        data: { lastError: 'PF JWT not in memory — re-paste required', updatedAt: new Date() },
+      })
+      .catch(() => {});
     return;
   }
 
@@ -354,11 +365,23 @@ async function normalizeDrops(
 
     // Normalize with write-once semantics
     const existing = await prisma.drop.findUnique({
-      where: { tournamentId_playerGameId_round: { tournamentId, playerGameId: d.playerGameId, round: d.round } },
+      where: {
+        tournamentId_playerGameId_round: {
+          tournamentId,
+          playerGameId: d.playerGameId,
+          round: d.round,
+        },
+      },
     });
 
     await prisma.drop.upsert({
-      where: { tournamentId_playerGameId_round: { tournamentId, playerGameId: d.playerGameId, round: d.round } },
+      where: {
+        tournamentId_playerGameId_round: {
+          tournamentId,
+          playerGameId: d.playerGameId,
+          round: d.round,
+        },
+      },
       create: {
         tournamentId,
         playerGameId: d.playerGameId,
@@ -367,7 +390,7 @@ async function normalizeDrops(
         playerName: d.playerName,
         isChecked: d.isChecked,
         isCancelled: d.isCancelled,
-        addedByName: d.updated_by_name ?? null,  // write-once: set on first sync
+        addedByName: d.updated_by_name ?? null, // write-once: set on first sync
         updatedBy: d.updated_by ?? null,
         source: 'purplefox',
       },
@@ -380,9 +403,10 @@ async function normalizeDrops(
         // write-once: preserve the name from first sync; don't overwrite
         addedByName: existing?.addedByName ?? d.updated_by_name ?? null,
         // set verified_by_name only when is_checked transitions false → true
-        verifiedByName: (!existing?.isChecked && d.isChecked)
-          ? (d.updated_by_name ?? null)
-          : (existing?.verifiedByName ?? null),
+        verifiedByName:
+          !existing?.isChecked && d.isChecked
+            ? (d.updated_by_name ?? null)
+            : (existing?.verifiedByName ?? null),
       },
     });
   }
@@ -399,9 +423,10 @@ async function normalizeExtensions(
       fromMinutes != null && toMinutes != null ? toMinutes - fromMinutes : null;
 
     // Look up normalized round_id from our rounds table
-    const round = e.round != null
-      ? await prisma.round.findFirst({ where: { tournamentId, roundNumber: e.round } })
-      : null;
+    const round =
+      e.round != null
+        ? await prisma.round.findFirst({ where: { tournamentId, roundNumber: e.round } })
+        : null;
 
     // Append to raw layer
     await prisma.rawPfExtension.create({
@@ -463,7 +488,7 @@ async function normalizePenalties(
         playerGameId: p.playerGameId,
         playerName: p.playerName,
         description: p.description,
-        infraction: p.type,        // PF field is "type"; we store as "infraction"
+        infraction: p.type, // PF field is "type"; we store as "infraction"
         sanction: p.sanction,
         createdAt: new Date(p.createdAt + 'Z'), // no tz suffix from PF — append Z for UTC
         creatorId: p.creator_id,
@@ -524,7 +549,12 @@ async function normalizeJudgeCalls(
     // A table can have multiple judge calls per round (different outcomes), but we don't want
     // duplicates from re-polling the same live snapshot.
     const existing = await prisma.tableJudgeCall.findFirst({
-      where: { tournamentId, tableNumber: jc.tableNumber, round: currentRound, judgeResult: jc.judgeResult },
+      where: {
+        tournamentId,
+        tableNumber: jc.tableNumber,
+        round: currentRound,
+        judgeResult: jc.judgeResult,
+      },
     });
     if (existing) continue;
 

@@ -40,10 +40,21 @@
   color: var(--color-text-secondary);
 }
 
-.session-panel__expiry--ok   { color: var(--color-success); font-weight: 600; }
-.session-panel__expiry--warn { color: var(--color-warning); font-weight: 600; }
-.session-panel__expiry--error { color: var(--color-urgent); font-weight: 600; }
-.session-panel__expiry--none { color: var(--color-text-tertiary); }
+.session-panel__expiry--ok {
+  color: var(--color-success);
+  font-weight: 600;
+}
+.session-panel__expiry--warn {
+  color: var(--color-warning);
+  font-weight: 600;
+}
+.session-panel__expiry--error {
+  color: var(--color-urgent);
+  font-weight: 600;
+}
+.session-panel__expiry--none {
+  color: var(--color-text-tertiary);
+}
 
 .session-panel__textarea {
   width: 100%;
@@ -115,8 +126,12 @@
   list-style: decimal;
 }
 
-.session-panel__devtools-steps li { padding-left: var(--space-1); }
-.session-panel__devtools-steps strong { color: var(--color-text-primary); }
+.session-panel__devtools-steps li {
+  padding-left: var(--space-1);
+}
+.session-panel__devtools-steps strong {
+  color: var(--color-text-primary);
+}
 .session-panel__devtools-steps code {
   font-family: var(--font-mono);
   font-size: var(--text-xs-size);

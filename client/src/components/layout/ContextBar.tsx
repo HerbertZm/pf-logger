@@ -10,7 +10,8 @@ interface ContextBarProps {
 }
 
 export const ContextBar = ({ onSessionClick, sessionActive = false }: ContextBarProps) => {
-  const { activeTournament, tournaments, activeTournamentId, setActiveTournament, sources } = useTournament();
+  const { activeTournament, tournaments, activeTournamentId, setActiveTournament, sources } =
+    useTournament();
   const { isAdmin, isSuperadmin } = useAuth();
   const { lastSync, isRunning, error, isStale, pfJwtExpiresAt } = useWorkerStatus(
     activeTournament?.id ?? null,
@@ -18,7 +19,8 @@ export const ContextBar = ({ onSessionClick, sessionActive = false }: ContextBar
 
   const statusLabel = () => {
     if (error) return { text: '✕ Error', cls: 'context-bar__status--error' };
-    if (isStale && lastSync) return { text: `⚠ Stale · ${formatRelative(lastSync)}`, cls: 'context-bar__status--stale' };
+    if (isStale && lastSync)
+      return { text: `⚠ Stale · ${formatRelative(lastSync)}`, cls: 'context-bar__status--stale' };
     if (isRunning || lastSync) return { text: '● Live', cls: 'context-bar__status--live' };
     return { text: '○ Waiting', cls: 'context-bar__status--waiting' };
   };
@@ -40,15 +42,22 @@ export const ContextBar = ({ onSessionClick, sessionActive = false }: ContextBar
             onChange={(e) => setActiveTournament(Number(e.target.value))}
             aria-label="Select tournament"
           >
-            {!activeTournamentId && <option value="" disabled>Select tournament</option>}
+            {!activeTournamentId && (
+              <option value="" disabled>
+                Select tournament
+              </option>
+            )}
             {tournaments.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.name}{t.isEnded ? ' (ended)' : ''}
+                {t.name}
+                {t.isEnded ? ' (ended)' : ''}
               </option>
             ))}
           </select>
         ) : (
-          <span className={`context-bar__name${!activeTournament ? ' context-bar__name--empty' : ''}`}>
+          <span
+            className={`context-bar__name${!activeTournament ? ' context-bar__name--empty' : ''}`}
+          >
             {activeTournament?.name ?? 'No tournament selected'}
           </span>
         )}

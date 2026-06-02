@@ -1,4 +1,7 @@
-.log-feed { display: flex; flex-direction: column; }
+.log-feed {
+  display: flex;
+  flex-direction: column;
+}
 
 .log-feed__empty {
   color: var(--color-text-tertiary);

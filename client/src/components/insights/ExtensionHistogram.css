@@ -1,4 +1,6 @@
-.ext-histogram { padding: var(--space-3) 0; }
+.ext-histogram {
+  padding: var(--space-3) 0;
+}
 
 .ext-histogram__title {
   font-size: var(--text-xs-size);

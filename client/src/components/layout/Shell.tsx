@@ -17,10 +17,7 @@ export const Shell = ({ tab, onTabChange, logsBadge, dashboardUrgent, children }
 
   return (
     <div className="shell">
-      <ContextBar
-        onSessionClick={handleSessionToggle}
-        sessionActive={tab === 'session'}
-      />
+      <ContextBar onSessionClick={handleSessionToggle} sessionActive={tab === 'session'} />
       <TabBar
         active={tab}
         onChange={onTabChange}

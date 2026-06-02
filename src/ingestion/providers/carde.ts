@@ -17,9 +17,9 @@ interface CardeRound {
   id: number;
   round_number: number;
   started_at: string | null;
-  completed_at: string | null;  // equals next round's started_at for Swiss; never use for duration
-  timer_duration_minutes: number | null;  // NULL for Top-8 and until timer is explicitly set
-  status: string;  // UPCOMING | IN_PROGRESS | COMPLETE
+  completed_at: string | null; // equals next round's started_at for Swiss; never use for duration
+  timer_duration_minutes: number | null; // NULL for Top-8 and until timer is explicitly set
+  status: string; // UPCOMING | IN_PROGRESS | COMPLETE
   pairings_status: string | null;
   standings_status: string | null;
 }
@@ -63,9 +63,7 @@ export async function fetchCardeRounds(cardeEventId: number): Promise<CardeRound
   return Array.isArray(data) ? data : (data.results ?? []);
 }
 
-export async function fetchCardeMatches(
-  cardeRoundId: number,
-): Promise<CardeMatch[]> {
+export async function fetchCardeMatches(cardeRoundId: number): Promise<CardeMatch[]> {
   // status=in_progress confirmed functional; page_size=200 to get all in one call (default is 25)
   const data = await cardeGet<{ results?: CardeMatch[] } | CardeMatch[]>(
     `/v2/organize/tournament-rounds/${cardeRoundId}/matches-list/?status=in_progress&avoid_cache=true&page_size=200`,

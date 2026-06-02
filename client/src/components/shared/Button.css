@@ -13,19 +13,58 @@
   transition: opacity var(--transition-base);
 }
 
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
-.btn--md { height: var(--btn-height); }
-.btn--sm { height: 32px; font-size: var(--text-sm-size); padding: 0 var(--space-3); }
+.btn--md {
+  height: var(--btn-height);
+}
+.btn--sm {
+  height: 32px;
+  font-size: var(--text-sm-size);
+  padding: 0 var(--space-3);
+}
 
-.btn--primary   { background: var(--color-info);       color: #fff;                          border-color: transparent; }
-.btn--secondary { background: var(--color-bg-elevated); color: var(--color-text-secondary);   border-color: var(--color-border-default); }
-.btn--danger    { background: var(--color-urgent-bg);  color: var(--color-urgent);            border-color: var(--color-urgent); }
-.btn--warning   { background: var(--color-warning-bg); color: var(--color-warning);           border-color: var(--color-warning); }
-.btn--ghost     { background: transparent;             color: var(--color-text-secondary);    border-color: var(--color-border-subtle); }
+.btn--primary {
+  background: var(--color-info);
+  color: #fff;
+  border-color: transparent;
+}
+.btn--secondary {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-default);
+}
+.btn--danger {
+  background: var(--color-urgent-bg);
+  color: var(--color-urgent);
+  border-color: var(--color-urgent);
+}
+.btn--warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+}
+.btn--ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-subtle);
+}
 
-.btn--primary:not(:disabled):hover   { background: var(--color-info-hover); }
-.btn--secondary:not(:disabled):hover { background: var(--color-bg-hover); }
-.btn--danger:not(:disabled):hover    { opacity: 0.85; }
-.btn--warning:not(:disabled):hover   { opacity: 0.85; }
-.btn--ghost:not(:disabled):hover     { background: var(--color-bg-elevated); }
+.btn--primary:not(:disabled):hover {
+  background: var(--color-info-hover);
+}
+.btn--secondary:not(:disabled):hover {
+  background: var(--color-bg-hover);
+}
+.btn--danger:not(:disabled):hover {
+  opacity: 0.85;
+}
+.btn--warning:not(:disabled):hover {
+  opacity: 0.85;
+}
+.btn--ghost:not(:disabled):hover {
+  background: var(--color-bg-elevated);
+}

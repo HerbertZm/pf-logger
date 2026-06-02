@@ -33,11 +33,11 @@ const App = () => {
   return (
     <Shell tab={tab} onTabChange={setTab}>
       {tab === 'dashboard' && <ActiveRound />}
-      {tab === 'logs'      && <LogFeed />}
-      {tab === 'insights'  && <CrossRoundSummary />}
-      {tab === 'session'   && <SessionPanel />}
-      {tab === 'data'      && <DataTab />}
-      {tab === 'manage'    && <ComingSoon name="Manage" />}
+      {tab === 'logs' && <LogFeed />}
+      {tab === 'insights' && <CrossRoundSummary />}
+      {tab === 'session' && <SessionPanel />}
+      {tab === 'data' && <DataTab />}
+      {tab === 'manage' && <ComingSoon name="Manage" />}
     </Shell>
   );
 };

@@ -5,17 +5,37 @@
   padding: var(--panel-padding);
 }
 
-.panel--elevated { background: var(--color-bg-elevated); }
+.panel--elevated {
+  background: var(--color-bg-elevated);
+}
 
-.panel--urgent  { background: var(--color-urgent-bg);  border-color: var(--color-urgent); }
-.panel--warning { background: var(--color-warning-bg); border-color: var(--color-warning); }
-.panel--success { background: var(--color-success-bg); border-color: var(--color-success); }
-.panel--pending { background: var(--color-pending-bg); border-color: var(--color-pending); }
+.panel--urgent {
+  background: var(--color-urgent-bg);
+  border-color: var(--color-urgent);
+}
+.panel--warning {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning);
+}
+.panel--success {
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
+}
+.panel--pending {
+  background: var(--color-pending-bg);
+  border-color: var(--color-pending);
+}
 
 /* Glow — only meaningful on urgent/warning/success */
-.panel--urgent.panel--glow  { box-shadow: var(--glow-urgent); }
-.panel--warning.panel--glow { box-shadow: var(--glow-warning); }
-.panel--success.panel--glow { box-shadow: var(--glow-success); }
+.panel--urgent.panel--glow {
+  box-shadow: var(--glow-urgent);
+}
+.panel--warning.panel--glow {
+  box-shadow: var(--glow-warning);
+}
+.panel--success.panel--glow {
+  box-shadow: var(--glow-success);
+}
 
 /* Accent bar — 3px left border, rounded right side only */
 .panel--accent {

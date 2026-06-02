@@ -19,10 +19,17 @@
   font-weight: 600;
 }
 
-.outstanding__header:hover { background: var(--color-bg-hover); }
+.outstanding__header:hover {
+  background: var(--color-bg-hover);
+}
 
-.outstanding__title { color: var(--color-text-primary); }
-.outstanding__chevron { font-size: 10px; opacity: 0.6; }
+.outstanding__title {
+  color: var(--color-text-primary);
+}
+.outstanding__chevron {
+  font-size: 10px;
+  opacity: 0.6;
+}
 
 .outstanding__grid {
   display: flex;

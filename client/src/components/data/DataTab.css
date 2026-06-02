@@ -77,7 +77,9 @@
 }
 
 /* Table */
-.data-tab__table-wrap { overflow-x: auto; }
+.data-tab__table-wrap {
+  overflow-x: auto;
+}
 
 .data-tab__table {
   width: 100%;
@@ -107,7 +109,9 @@
   text-overflow: ellipsis;
 }
 
-.data-tab__table tbody tr:last-child td { border-bottom: none; }
+.data-tab__table tbody tr:last-child td {
+  border-bottom: none;
+}
 
 .data-tab__table tbody tr:hover td {
   background: var(--color-bg-hover);

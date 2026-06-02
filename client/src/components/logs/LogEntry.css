@@ -20,13 +20,25 @@
   width: var(--log-accent-width);
 }
 
-.log-entry--drop       .log-entry__accent { background: var(--color-urgent); }
-.log-entry--extension  .log-entry__accent { background: var(--color-warning); }
-.log-entry--penalty    .log-entry__accent { background: var(--color-penalty); }
-.log-entry--coverage   .log-entry__accent { background: var(--color-info); }
-.log-entry--judge_call .log-entry__accent { background: var(--color-muted); }
+.log-entry--drop .log-entry__accent {
+  background: var(--color-urgent);
+}
+.log-entry--extension .log-entry__accent {
+  background: var(--color-warning);
+}
+.log-entry--penalty .log-entry__accent {
+  background: var(--color-penalty);
+}
+.log-entry--coverage .log-entry__accent {
+  background: var(--color-info);
+}
+.log-entry--judge_call .log-entry__accent {
+  background: var(--color-muted);
+}
 
-.log-entry__gap { /* spacer */ }
+.log-entry__gap {
+  /* spacer */
+}
 
 .log-entry__badge {
   padding: 0 var(--space-2);

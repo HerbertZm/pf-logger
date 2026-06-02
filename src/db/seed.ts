@@ -12,9 +12,14 @@ async function main(): Promise<void> {
     update: {},
   });
 
-  console.warn(`Seeded: ${user.username} (${user.role}) — password: changeme — change this immediately`);
+  console.warn(
+    `Seeded: ${user.username} (${user.role}) — password: changeme — change this immediately`,
+  );
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());

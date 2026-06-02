@@ -14,14 +14,18 @@ export const StatChips = ({ data }: StatChipsProps) => {
   return (
     <div className="stat-chips">
       <div className="stat-chip stat-chip--urgent">
-        <span className={`stat-chip__value${data.outstandingTables.length === 0 ? ' value-zero' : ''}`}>
+        <span
+          className={`stat-chip__value${data.outstandingTables.length === 0 ? ' value-zero' : ''}`}
+        >
           {val(data.outstandingTables.length)}
         </span>
         <span className="stat-chip__label">Outstanding</span>
       </div>
 
       <div className="stat-chip stat-chip--warning">
-        <span className={`stat-chip__value${data.tablesWithExtensions.length === 0 ? ' value-zero' : ''}`}>
+        <span
+          className={`stat-chip__value${data.tablesWithExtensions.length === 0 ? ' value-zero' : ''}`}
+        >
           {val(data.tablesWithExtensions.length)}
         </span>
         <span className="stat-chip__label">w/ Extensions</span>

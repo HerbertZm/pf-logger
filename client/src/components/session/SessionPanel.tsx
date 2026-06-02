@@ -27,7 +27,8 @@ export const SessionPanel = () => {
     if (!pfJwtExpiresAt) return null;
     const minsLeft = (pfJwtExpiresAt.getTime() - Date.now()) / 60_000;
     if (minsLeft < 0) return { label: 'Expired', cls: 'session-panel__expiry--error' };
-    if (minsLeft < 30) return { label: `Expires in ${Math.floor(minsLeft)}m`, cls: 'session-panel__expiry--warn' };
+    if (minsLeft < 30)
+      return { label: `Expires in ${Math.floor(minsLeft)}m`, cls: 'session-panel__expiry--warn' };
     return { label: `Expires in ${Math.floor(minsLeft)}m`, cls: 'session-panel__expiry--ok' };
   };
 
@@ -102,9 +103,15 @@ export const SessionPanel = () => {
         </button>
         {devToolsOpen && (
           <ol className="session-panel__devtools-steps">
-            <li>Open <strong>purplefox.gg</strong> and log in</li>
-            <li>Open DevTools → Application → Local Storage → <code>https://purplefox.gg</code></li>
-            <li>Find the key <code>sb-…-auth-token</code> and copy the <code>access_token</code> value</li>
+            <li>
+              Open <strong>purplefox.gg</strong> and log in
+            </li>
+            <li>
+              Open DevTools → Application → Local Storage → <code>https://purplefox.gg</code>
+            </li>
+            <li>
+              Find the key <code>sb-…-auth-token</code> and copy the <code>access_token</code> value
+            </li>
             <li>Paste it above and click Save</li>
           </ol>
         )}

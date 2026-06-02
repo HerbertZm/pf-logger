@@ -6,8 +6,16 @@ import { useAuth } from '../../context/AuthContext';
 import { Banner } from '../shared/Banner';
 import { Button } from '../shared/Button';
 
-const TABLES = ['rounds', 'matches', 'drops', 'extensions', 'penalties', 'coverage', 'judge_calls'] as const;
-type TableName = typeof TABLES[number];
+const TABLES = [
+  'rounds',
+  'matches',
+  'drops',
+  'extensions',
+  'penalties',
+  'coverage',
+  'judge_calls',
+] as const;
+type TableName = (typeof TABLES)[number];
 
 const PAGE_SIZE = 50;
 
@@ -63,9 +71,7 @@ const TableSection = ({ name, tournamentId }: TableSectionProps) => {
     <div className="data-tab__section">
       <button className="data-tab__section-toggle" onClick={handleToggle}>
         <span className="data-tab__section-name">{name}</span>
-        {data && (
-          <span className="data-tab__section-count">{data.total} rows</span>
-        )}
+        {data && <span className="data-tab__section-count">{data.total} rows</span>}
         <span className="data-tab__section-chevron">{open ? '▲' : '▼'}</span>
       </button>
 
@@ -73,13 +79,9 @@ const TableSection = ({ name, tournamentId }: TableSectionProps) => {
         <div className="data-tab__section-body">
           {error && <Banner variant="error" message={error} />}
 
-          {loading && !data && (
-            <div className="data-tab__skeleton skeleton" />
-          )}
+          {loading && !data && <div className="data-tab__skeleton skeleton" />}
 
-          {data && data.rows.length === 0 && (
-            <p className="data-tab__empty">No rows.</p>
-          )}
+          {data && data.rows.length === 0 && <p className="data-tab__empty">No rows.</p>}
 
           {data && data.rows.length > 0 && (
             <div className="data-tab__table-wrap">
@@ -130,19 +132,11 @@ export const DataTab = () => {
   const { isAdmin } = useAuth();
 
   if (!isAdmin) {
-    return (
-      <div className="data-tab__unauthorized">
-        This section requires admin access.
-      </div>
-    );
+    return <div className="data-tab__unauthorized">This section requires admin access.</div>;
   }
 
   if (!activeTournamentId) {
-    return (
-      <div className="data-tab__unauthorized">
-        No tournament selected.
-      </div>
-    );
+    return <div className="data-tab__unauthorized">No tournament selected.</div>;
   }
 
   const tid: number = activeTournamentId;

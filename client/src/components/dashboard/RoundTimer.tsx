@@ -49,7 +49,9 @@ export const RoundTimer = ({ round, outstandingCount }: RoundTimerProps) => {
           <div className="round-timer__summary-sep" />
           <div className="round-timer__summary-item">
             <span className="round-timer__meta-label">Timer ended</span>
-            <span className="round-timer__summary-value">{formatClock(round.timerEndDatetime)}</span>
+            <span className="round-timer__summary-value">
+              {formatClock(round.timerEndDatetime)}
+            </span>
           </div>
           <div className="round-timer__summary-sep" />
           <div className="round-timer__summary-item">
@@ -76,13 +78,13 @@ export const RoundTimer = ({ round, outstandingCount }: RoundTimerProps) => {
 
   // Live — active countdown
   return (
-    <div className={`round-timer round-timer--${urgency}${isOvertime ? ' round-timer--overtime' : ''}`}>
+    <div
+      className={`round-timer round-timer--${urgency}${isOvertime ? ' round-timer--overtime' : ''}`}
+    >
       <span className={`round-timer__value${isOvertime ? ' timer-overtime' : ''}`}>
         {formatTime(remaining)}
       </span>
-      <span className="round-timer__label">
-        {isOvertime ? 'Overtime' : 'Remaining'}
-      </span>
+      <span className="round-timer__label">{isOvertime ? 'Overtime' : 'Remaining'}</span>
       <TimeMeta round={round} />
     </div>
   );

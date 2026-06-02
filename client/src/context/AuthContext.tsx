@@ -57,7 +57,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (u: string, p: string): Promise<void> => {
-    const { token: t, username: name, role } = await api.post<LoginResponse>('/api/login', {
+    const {
+      token: t,
+      username: name,
+      role,
+    } = await api.post<LoginResponse>('/api/login', {
       username: u,
       password: p,
     });

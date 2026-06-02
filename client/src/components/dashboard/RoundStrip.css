@@ -9,8 +9,20 @@
   font-weight: 600;
 }
 
-.round-strip--success { background: var(--color-success-bg); color: var(--color-success); }
-.round-strip--warning { background: var(--color-warning-bg); color: var(--color-warning); }
-.round-strip--urgent  { background: var(--color-urgent-bg);  color: var(--color-urgent); }
+.round-strip--success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.round-strip--warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+.round-strip--urgent {
+  background: var(--color-urgent-bg);
+  color: var(--color-urgent);
+}
 
-.round-strip__label { text-transform: uppercase; letter-spacing: 0.05em; }
+.round-strip__label {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

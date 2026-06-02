@@ -46,7 +46,10 @@
 }
 
 @media (max-width: 767px) {
-  .tab-bar__item { flex: 1; padding: var(--space-2) 0; }
+  .tab-bar__item {
+    flex: 1;
+    padding: var(--space-2) 0;
+  }
 }
 
 @media (min-width: 768px) {
@@ -62,10 +65,14 @@
   }
 }
 
-.tab-bar__item--active { color: var(--color-info); }
+.tab-bar__item--active {
+  color: var(--color-info);
+}
 
 @media (min-width: 768px) {
-  .tab-bar__item--active { border-bottom-color: var(--color-info); }
+  .tab-bar__item--active {
+    border-bottom-color: var(--color-info);
+  }
 }
 
 @media (max-width: 767px) {
@@ -81,7 +88,11 @@
   }
 }
 
-.tab-bar__icon { position: relative; display: flex; align-items: center; }
+.tab-bar__icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
 
 .tab-bar__label {
   font-size: var(--text-xs-size);
@@ -89,7 +100,9 @@
 }
 
 @media (min-width: 768px) {
-  .tab-bar__label { font-size: var(--text-sm-size); }
+  .tab-bar__label {
+    font-size: var(--text-sm-size);
+  }
 }
 
 /* Dot badge (dashboard urgency) */
@@ -102,8 +115,12 @@
   border-radius: 50%;
   border: 2px solid var(--color-bg-chrome);
 }
-.tab-bar__dot--urgent  { background: var(--color-urgent); }
-.tab-bar__dot--warning { background: var(--color-warning); }
+.tab-bar__dot--urgent {
+  background: var(--color-urgent);
+}
+.tab-bar__dot--warning {
+  background: var(--color-warning);
+}
 
 /* Count badge (logs) */
 .tab-bar__badge {

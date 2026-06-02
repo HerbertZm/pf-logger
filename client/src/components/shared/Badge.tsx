@@ -12,7 +12,9 @@ export const Badge = ({ icon, label, variant, disabled = false }: BadgeProps) =>
     className={`badge badge--${variant}${disabled ? ' badge--disabled' : ''}`}
     aria-label={label}
   >
-    <span className="badge__icon" aria-hidden="true">{icon}</span>
+    <span className="badge__icon" aria-hidden="true">
+      {icon}
+    </span>
     <span className="badge__label">{label}</span>
   </span>
 );

@@ -1,4 +1,7 @@
-.cross-round__skeleton { height: 300px; border-radius: var(--radius-lg); }
+.cross-round__skeleton {
+  height: 300px;
+  border-radius: var(--radius-lg);
+}
 
 .cross-round__empty {
   color: var(--color-text-tertiary);
@@ -20,7 +23,9 @@
   font-weight: 700;
 }
 
-.cross-round__table-wrap { overflow-x: auto; }
+.cross-round__table-wrap {
+  overflow-x: auto;
+}
 
 .cross-round__table {
   width: 100%;
@@ -40,4 +45,6 @@
   white-space: nowrap;
 }
 
-.cross-round__table thead th:nth-child(n+3) { text-align: right; }
+.cross-round__table thead th:nth-child(n + 3) {
+  text-align: right;
+}

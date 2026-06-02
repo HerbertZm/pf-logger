@@ -9,12 +9,30 @@
   font-size: var(--text-sm-size);
 }
 
-.banner--error   { background: var(--color-urgent-bg);  border-color: var(--color-urgent);  color: var(--color-urgent); }
-.banner--warning { background: var(--color-warning-bg); border-color: var(--color-warning); color: var(--color-warning); }
-.banner--success { background: var(--color-success-bg); border-color: var(--color-success); color: var(--color-success); }
-.banner--info    { background: var(--color-info-bg);    border-color: var(--color-info);    color: var(--color-info); }
+.banner--error {
+  background: var(--color-urgent-bg);
+  border-color: var(--color-urgent);
+  color: var(--color-urgent);
+}
+.banner--warning {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+.banner--success {
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+.banner--info {
+  background: var(--color-info-bg);
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
 
-.banner__message { flex: 1; }
+.banner__message {
+  flex: 1;
+}
 
 .banner__dismiss {
   background: none;
@@ -26,4 +44,6 @@
   padding: 0;
   line-height: 1;
 }
-.banner__dismiss:hover { opacity: 1; }
+.banner__dismiss:hover {
+  opacity: 1;
+}

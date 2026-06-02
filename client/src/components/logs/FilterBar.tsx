@@ -18,8 +18,11 @@ interface FilterBarProps {
 
 const ALL_TYPES: LogType[] = ['drop', 'extension', 'penalty', 'coverage', 'judge_call'];
 const LABELS: Record<LogType, string> = {
-  drop: 'Drops', extension: 'Extensions', penalty: 'Penalties',
-  coverage: 'Coverage', judge_call: 'Judge Calls',
+  drop: 'Drops',
+  extension: 'Extensions',
+  penalty: 'Penalties',
+  coverage: 'Coverage',
+  judge_call: 'Judge Calls',
 };
 const PF_ONLY: Set<LogType> = new Set(['coverage', 'judge_call']);
 
@@ -32,13 +35,17 @@ export const FilterBar = ({ filter, onChange }: FilterBarProps) => {
 
   const toggleType = (t: LogType) => {
     const next = new Set(filter.types);
-    if (next.has(t)) next.delete(t); else next.add(t);
+    if (next.has(t)) next.delete(t);
+    else next.add(t);
     onChange({ ...filter, types: next });
   };
 
-  useEffect(() => () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    [],
+  );
 
   const handleSearch = (value: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -64,7 +71,11 @@ export const FilterBar = ({ filter, onChange }: FilterBarProps) => {
   return (
     <div className="filter-bar">
       <div className="filter-bar__chips">
-        <FilterChip label="All" active={isAll} onClick={() => onChange({ ...filter, types: new Set() })} />
+        <FilterChip
+          label="All"
+          active={isAll}
+          onClick={() => onChange({ ...filter, types: new Set() })}
+        />
         {ALL_TYPES.filter((t) => sources.pf || !PF_ONLY.has(t)).map((t) => (
           <FilterChip
             key={t}
@@ -85,7 +96,11 @@ export const FilterBar = ({ filter, onChange }: FilterBarProps) => {
           defaultValue={filter.search}
           onChange={(e) => handleSearch(e.target.value)}
         />
-        {isDirty && <Button variant="danger" size="sm" onClick={clear}>Clear</Button>}
+        {isDirty && (
+          <Button variant="danger" size="sm" onClick={clear}>
+            Clear
+          </Button>
+        )}
       </div>
     </div>
   );
