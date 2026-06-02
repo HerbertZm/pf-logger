@@ -12,11 +12,9 @@ Should existing tournaments automatically get a 1:1 event wrapper when Phase 2.1
 
 ---
 
-## OD-2 — Frontend static split: caching on LAN (blocks Design Phase D.4)
+## OD-2 — Frontend static split: caching on LAN ✅ RESOLVED
 
-With Express serving `static/` files, are there caching concerns for on-site LAN deployment? Specifically: if the server is updated mid-event, will judges' devices continue to serve stale JS from browser cache?
-
-**Options:** `Cache-Control: no-store` (safe but slow), version-query-param on assets (e.g. `?v=1.2.3`), or ETag-based. LAN latency is negligible so `no-store` is simplest.
+Vite generates content-hashed filenames (`index-CIfqoxmd.js`) so cache busting is automatic — old assets are simply unreachable after a redeploy. `index.html` is served with no-cache headers by default in Express static. No additional config needed.
 
 ---
 
@@ -52,3 +50,4 @@ StageTimer logs are UTC. How is the event's local timezone stored for conversion
 | `round_match_snapshots` table design | Resolved in Phase 0 schema: `rounds.missing_tables_json` + `snapshot_captured_at` |
 | `sources JSONB` vs. mapping table | Resolved: `tournament_source_mapping` with `is_enabled` |
 | Carde `status` filter functionality | Resolved: `status=in_progress` confirmed functional |
+| Frontend caching on LAN (OD-2) | Resolved: Vite content-hashed filenames make this automatic |

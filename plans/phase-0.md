@@ -16,11 +16,11 @@
 
 ---
 
-# Phase 0 — Foundation Rewrite
+# Phase 0 — Foundation Rewrite ✅ COMPLETE
 
 **Goal:** Replace the Python/SQLite prototype with a TypeScript + PostgreSQL stack. No new features until this is stable.
 
-**Stack:** Node.js + TypeScript (strict mode), Express, Prisma ORM, PostgreSQL (VPS), dotenv. React 18 + Vite for the frontend — served as a built `dist/` in production, proxied via Vite dev server in development.
+**Stack:** Node.js + TypeScript (strict mode), Express 5, Prisma 7 (adapter-pg), PostgreSQL, dotenv. React 18 + Vite 8 for the frontend — served as a built `dist/` in production, proxied via Vite dev server in development.
 
 **Key architecture decisions:**
 - Source-separated schema: raw layer (verbatim API data) → normalized layer (app queries) → app layer (tool-owned). Full spec in `docs/SCHEMA_DESIGN.md`.
@@ -29,7 +29,7 @@
 - `timer_end_datetime` always computed locally; `completed_at` stored verbatim but never used for any computation.
 - PF staff ≠ players ≠ app users — three distinct identity concepts, three distinct tables.
 - Selective match storage: worker fetches only in-progress matches via `status=in_progress` filter (confirmed functional). Never fetches full match lists.
-- Existing SQLite DB kept at `data/legacy.db` as read-only reference; no migration to new schema.
+- Legacy SQLite DB (`action_logs.db`) migrated directly via `src/db/migrate-legacy.ts`; file is now gitignored.
 
 ---
 
@@ -134,7 +134,7 @@ pf_session            (JWT metadata singleton — token never stored, only expir
 
 ## P0.4 — Background Ingestion Worker
 
-> **Moved to Phase 1.** The stack is functional with manual sync for now. Full worker implementation deferred until Phase 1 operational tooling is in place.
+> **Stub only in P0; full implementation is Phase 1.2.** Polling intervals are wired and `syncCardeRounds` / `syncPfData` functions exist but the actual fetch + upsert logic is TODO. The HTTP server runs independently; a worker crash does not take it down.
 
 Module at `src/ingestion/worker.ts`, same deployment as HTTP server. Runs independently.
 
@@ -185,7 +185,8 @@ All routes return `application/json`. Auth routes require `Authorization: Bearer
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/dashboard/active-round` | Bearer | Active round + outstanding tables + extensions + drop/penalty counts |
+| GET | `/api/rounds` | Bearer | Lightweight round list for selectors (`Round[]`) |
+| GET | `/api/dashboard/active-round` | Bearer | Active or specified round (`?roundNumber=`) + outstanding tables + extensions + drop/penalty counts |
 | GET | `/api/logs` | Bearer | All log entries (drops, extensions, penalties, coverage, judge calls) sorted by time |
 | GET | `/api/insights` | Bearer | Per-round summary stats |
 
@@ -217,37 +218,19 @@ All routes return `application/json`. Auth routes require `Authorization: Bearer
 
 ---
 
-## P0.6 — Legacy Data Export + Server Import
+## P0.6 — Legacy Data Migration ✅ COMPLETE
 
-Two-step migration — local machine never needs direct DB access to the production server.
+Migration runs `src/db/migrate-legacy.ts` directly against the target PostgreSQL DB. The old two-step export→upload approach was scrapped.
 
-**Step 1 — Export (local):**
 ```bash
-npm run db:export-legacy
-# Reads action_logs.db in the project root
-# Writes legacy-export.json (gitignored)
+# Run against local DB (already done):
+npx ts-node --compiler-options '{"module":"CommonJS"}' src/db/migrate-legacy.ts
+
+# Run against VPS DB (first deploy):
+DATABASE_URL=postgresql://... npx ts-node --compiler-options '{"module":"CommonJS"}' src/db/migrate-legacy.ts
 ```
 
-**Step 2 — Upload (to server):**
-```bash
-curl -X POST https://<host>/api/admin/import \
-     -H "Authorization: Bearer <superadmin-token>" \
-     -H "Content-Type: application/json" \
-     -d @legacy-export.json
-```
-
-The import endpoint (`POST /api/admin/import`) is superadmin-gated, idempotent (safe to re-run if interrupted), and returns a verification summary:
-```json
-{
-  "created": { "tournaments": 4, "rounds": 32, "drops": 180, "penalties": 14, "extensions": 27, "coverage": 0, "judgeCalls": 0, "activity": 27 },
-  "skipped": { "tournaments": 0, "rounds": 0, "dropsSkippedNoAppId": 0, "judgeCallsNullRound": 0 },
-  "totalsInExport": { "tournaments": 4, "rounds": 32, "drops": 180, ... }
-}
-```
-
-**Note:** Round pairings and match-level data cannot be migrated from the legacy schema (not stored there). Historical drops, penalties, extensions, coverage, judge calls, and round timing records are all preserved.
-
-**Verification:** `created.*` should equal `totalsInExport.*` for all tables on a clean import. Non-zero `skipped.*` values on a re-run are expected and safe.
+Migrated from `action_logs.db` (3 tournaments, ~2k records). Script is idempotent. `action_logs.db` is now gitignored — keep it locally as a backup until VPS migration is confirmed.
 
 ---
 

@@ -5,7 +5,7 @@ They're already fixed in P0 code; don't regress them.
 
 **Backend:**
 - All Prisma access goes through `src/db/prisma.ts` singleton — never `new PrismaClient()` in a route or middleware file.
-- All async route handlers must be wrapped with `asyncHandler` from `src/middleware/asyncHandler.ts`. Bare `async (req, res)` in Express 4 silently swallows rejections.
+- All async route handlers must be wrapped with `asyncHandler` from `src/middleware/asyncHandler.ts`. (Express 5 propagates async errors natively, but the wrapper is kept for explicitness — do not remove it.)
 - Role values on user create/update must be validated against the `VALID_ROLES` enum — any string is not acceptable.
 - `GET /api/logout` must be `POST` — GET can be triggered by browser prefetch.
 - Admin session list must never return live bearer tokens (`select` must exclude `token` field).
@@ -52,18 +52,21 @@ Ship QoL 6 first — QoL 9 outputs the notes field.
 
 Superadmin-gated endpoints for full tournament and user management:
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/api/health` | Uptime, DB size, session count, worker status — no auth |
-| GET/POST | `/api/admin/tournaments` | List all (incl. inactive) / Create |
-| PATCH/DELETE | `/api/admin/tournaments/:id` | Edit / Soft-delete |
-| PATCH | `/api/admin/tournaments/:id/sources` | Toggle source enabled/disabled, update external IDs |
-| GET/POST | `/api/admin/users` | List (no password_hash) / Create |
-| PATCH/DELETE | `/api/admin/users/:username` | Edit role/password/active / Soft-delete + revoke sessions |
-| GET | `/api/admin/sessions` | Active sessions with IP and expiry |
-| DELETE | `/api/admin/sessions/:token` | Revoke session |
-| GET | `/api/admin/backup` | Stream PostgreSQL dump |
-| GET/PATCH | `/api/admin/config` | Read/set app-level config (default refresh interval, etc.) |
+| Method | Path | Purpose | Status |
+|---|---|---|---|
+| GET | `/api/health` | Uptime, DB liveness — no auth | ✅ done (P0) |
+| GET | `/api/admin/tournaments` | List all incl. soft-deleted | ✅ done (P0) |
+| POST | `/api/admin/tournaments` | Create tournament + source mappings | ⬜ todo |
+| PATCH | `/api/admin/tournaments/:id` | Edit name, external IDs | ⬜ todo |
+| DELETE | `/api/admin/tournaments/:id` | Soft-delete | ✅ done (P0) |
+| PATCH | `/api/admin/tournaments/:id/sources` | Toggle source enabled/disabled, update external IDs | ⬜ todo |
+| GET | `/api/admin/users` | List (no password_hash) | ✅ done (P0) |
+| POST | `/api/admin/users` | Create user | ✅ done (P0) |
+| PATCH | `/api/admin/users/:id` | Edit role / isActive | ✅ done (P0) |
+| GET | `/api/admin/sessions` | Active sessions (IP, expiry — no token) | ✅ done (P0) |
+| DELETE | `/api/admin/sessions/:id` | Revoke session | ✅ done (P0) |
+| GET | `/api/admin/backup` | Stream PostgreSQL dump | ⬜ Phase 3 |
+| GET/PATCH | `/api/admin/config` | App-level config (refresh interval, etc.) | ⬜ todo |
 
 **Guards:**
 - Superadmin cannot deactivate their own account

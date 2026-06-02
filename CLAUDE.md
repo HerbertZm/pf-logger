@@ -1,6 +1,6 @@
 # pf-logger — Agent Entry Point
 
-Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Supabase) and Carde.io, stores in PostgreSQL, serves a real-time dashboard for drops, penalties, extensions, round timing, and judge activity. TypeScript + Express + Prisma backend, React 18 + Vite frontend. **Currently being rewritten from Python/SQLite — see `plans/phase-0.md`.**
+Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Supabase) and Carde.io, stores in PostgreSQL, serves a real-time dashboard for drops, penalties, extensions, round timing, and judge activity. TypeScript + Express 5 + Prisma 7 backend, React 18 + Vite 8 frontend. **Phase 0 complete — active development is Phase 1 (ingestion worker, Manage tab, CI/CD). See `plans/phase-1.md`.**
 
 ---
 
