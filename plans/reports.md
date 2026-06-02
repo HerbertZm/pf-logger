@@ -2,7 +2,7 @@
 
 **Goal:** Post-event and mid-event analysis table for **admin+** staff — one row per Swiss round with timing metrics used for head-judge debriefs and future round-length decisions.
 
-**Status:** Scaffold in place (`Reports` tab, types, stub API). Metric computation and data sources are wired incrementally.
+**Status:** **v1 shipped** (2026-06-01) — admin+ tab, API computation for five columns, UI table, column reference, CSV export. Still blocked on Carde publish timestamp and StageTimer for remaining columns. Tournament timezone display uses `America/New_York` placeholder until P1 §1.2.
 
 **Prerequisites:** Phase 1 timezone (§1.2), ingestion worker capturing `missing_tables_json` at timer expiry. StageTimer import (Phase 2.5) unlocks **Round Time Start** from SK/StageTimer logs.
 
@@ -23,9 +23,11 @@ Future: when Phase 2.1 event permissions land, scope report to tournaments withi
 
 **Tab:** `Reports` (desktop tab bar; admin+ only)
 
-**Layout:** Same shell as Dashboard / Insights — optional `IndicatorsLayout` left pane (round schedule) for cross-reference while reviewing timing.
+**Layout:** Full-width main content only — **no** `IndicatorsLayout` sidebar (same pattern as Session / Data tabs).
 
-**Primary view:** `RoundTimingReportTable` — wide scrollable table, export-friendly (CSV copy in a later QoL item).
+**Primary view:** `RoundTimingReportTable` — full-width scrollable table + **Export CSV** (header action).
+
+**Column reference:** `RoundTimingColumnGuide` below the data table — two-column glossary (label + description) driven by `reportColumns.ts`, left-aligned, full width.
 
 **Empty states:**
 - No tournament selected → prompt via context bar
@@ -132,12 +134,15 @@ Keep computation out of the route handler once logic grows — table-driven colu
 
 ```
 client/src/components/reports/
-  reportColumns.ts           — column metadata (key, label, description)
-  formatReportValue.ts       — format ISO → local tz; format seconds → display string
-  RoundTimingReportTable.tsx — presentational table
-  ReportsTab.tsx             — fetch + state
+  reportColumns.ts            — column metadata (key, label, description)
+  formatReportValue.ts        — format ISO → local tz; format seconds → display string
+  RoundTimingReportTable.tsx  — presentational table
+  RoundTimingColumnGuide.tsx  — column reference table
+  ReportsTab.tsx              — fetch, export, layout
   ReportsTab.css
 ```
+
+`client/src/api/client.ts` — `api.download()` for CSV blob responses.
 
 Types mirrored in `client/src/api/types.ts` and `src/api/types.ts`.
 
@@ -160,12 +165,14 @@ Align with sample spreadsheet from ops — not the same rules as the indicators 
 ## Build order
 
 ```
-1. ✅ Scaffold — tab, types, stub API, empty table with headers
-2. Wire tablesPlayingAfterTime + maxExtension from existing normalized data
-3. Wire scheduled end + play duration from started_at, timer_end, match result_at
-4. Published At — after Carde field confirmed
-5. StageTimer — round time start, seating turnover
-6. CSV export + event-level rollup
+1. ✅ Scaffold — tab, types, API route, table with headers
+2. ✅ tablesPlayingAfterTime + maxExtension from normalized data
+3. ✅ scheduled end + play duration from started_at, timer_end, match result_at
+4. ⬜ Published At — after Carde field confirmed
+5. ⬜ StageTimer — round time start, seating turnover, true play duration
+6. ✅ CSV export (formatted cells for spreadsheets)
+7. ⬜ Event-level rollup (all tournaments under an event)
+8. ⬜ Tournament timezone from P1 §1.2 (replace hardcoded default in UI + export query param)
 ```
 
 ---

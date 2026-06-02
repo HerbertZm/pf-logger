@@ -27,6 +27,9 @@ Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Sup
 - Prisma 7: import from `'../generated/prisma/client'` (not `'@prisma/client'`). `src/generated/` is gitignored — run `npm run db:generate` after install or schema changes. `postinstall` handles it for `npm install`; run manually after `npm ci --omit=dev`.
 - PF table names: `tournament_drops` (not `drops`), `tournament_penalities` (extra 'i' — the correct spelling 404s).
 - `timer_is_running` in Carde does NOT flip false when the round clock expires — detect expiry by comparing `timer_end_datetime` to wall time.
+- Round timing report (`plans/reports.md`): `totalDurationPlaySec` uses `started_at` as play-start proxy until StageTimer import — not judge call time.
+- Tournaments belong to a **game** (`games` table, `game_id` FK) — default round length comes from `games.default_round_length_minutes`.
+- Local `npm run dev`: Vite waits for API (`wait-on`); proxy `PORT` from repo root `.env`. See `docs/DEPLOY.md`.
 
 ---
 
@@ -57,6 +60,7 @@ Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Sup
 | PF + Carde exploration checklist (all items resolved 2026-05-21) | `plans/p0-api-exploration.md` |
 | PurpleFox API quick reference — auth, read/write patterns, gotchas | `docs/pf-api.md` |
 | Carde.io API quick reference — auth, read/write patterns, gotchas | `docs/carde-api.md` |
+| Local dev setup, VPS deploy, CI/CD, troubleshooting | `docs/DEPLOY.md` |
 
 ---
 

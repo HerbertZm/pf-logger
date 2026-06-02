@@ -48,6 +48,23 @@ Ship QoL 6 first — QoL 9 outputs the notes field.
 
 ---
 
+## Shipped ahead of plan (2026-06-01)
+
+Work landed on feature branches before the remaining P1 Manage/CI items. Safe to deploy with `npm run build` + migrations; no new env vars.
+
+| Area | What shipped |
+|---|---|
+| **Games** | `games` table (MTG, Lorcana, Riftbound seeded); `app_tournaments.game_id` FK; `GET /api/games`; game on tournament serialization / admin create |
+| **Reports** | Admin+ **Reports** tab — `GET /api/reports/round-timing`, CSV export, column reference UI. See `plans/reports.md` |
+| **Dashboard UX** | `DashboardRoundProvider` — click a row in the indicators round schedule to select that round in the live panel (synced with Live / R# pills) |
+| **Logs / indicators** | Connected round-group header bar; per-round sticky headers; overtime row styling (default round length + 15m); schedule duration always `Nm` |
+| **Dev ergonomics** | `wait-on` before Vite; `scripts/start-client.cjs`; Vite proxy reads `PORT` from repo root `.env` |
+| **Schema / tooling** | `prisma.config.ts` `datasource.url`; migration folder renames for Windows lexicographic order (`20260521050800_*`, `20260521050900_*`) |
+
+**Deploy note:** run `npx prisma migrate deploy` on the VPS after pull — includes `add_games` migration.
+
+---
+
 ## 1.1 — Admin API Endpoints
 
 Superadmin-gated endpoints for full tournament and user management:
@@ -68,6 +85,9 @@ Superadmin-gated endpoints for full tournament and user management:
 | PATCH | `/api/admin/users/:id` | Edit role / isActive | ✅ done (P0) |
 | GET | `/api/admin/sessions` | Active sessions (IP, expiry — no token) | ✅ done (P0) |
 | DELETE | `/api/admin/sessions/:id` | Revoke session | ✅ done (P0) |
+| GET | `/api/games` | List games (id, name, default round length) | ✅ done (2026-06-01) |
+| GET | `/api/reports/round-timing` | Round timing report rows (admin+) | ✅ done — see `plans/reports.md` |
+| GET | `/api/reports/round-timing/export` | CSV export (admin+) | ✅ done |
 | GET | `/api/admin/backup` | Stream PostgreSQL dump | ⬜ Phase 3 |
 | GET/PATCH | `/api/admin/config` | App-level config (refresh interval, etc.) | ⬜ todo |
 
@@ -316,7 +336,8 @@ See `docs/DEPLOY.md` — the "CI/CD access" section covers generating the key pa
     "lint": "eslint src client/src",
     "build": "tsc -p tsconfig.build.json && vite build --root client",
     "start": "node dist/server.js",
-    "dev": "concurrently \"ts-node-dev src/server.ts\" \"vite --root client\""
+    "dev": "concurrently -k -n api,web \"npm run dev:api\" \"node scripts/start-client.cjs\"",
+    "dev:api": "ts-node-dev --respawn --transpile-only src/server.ts"
   }
 }
 ```

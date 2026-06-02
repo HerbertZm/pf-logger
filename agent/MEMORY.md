@@ -91,6 +91,26 @@ _Consolidated session entries appear below. Most recent first._
 
 <!-- entries appended by consolidation skill -->
 
+### 2026-06-01 (session 2)
+**Asked:** Dep upgrades (Prisma 7, Express 5, Vite 8); UI fixes (logs judge info, insights columns, dashboard round selector, past-round timer); PF staff profiles sync; test tournament seed + `isTestTournament` flag; dead code removal; plan doc sync.
+**Learned:** Prisma 7 changes import path to generated file (not `@prisma/client`); Prisma 7 JSON columns need `JSON.parse(JSON.stringify(x))` for `InputJsonValue` compat; Express 5 wildcard routes require regex; `jwtStore` is now a global singleton (no per-tournament); PF `profiles` table: `{ id, firstname, lastname }` global ~2k rows; advisory lock times out when dev server holds a Prisma connection.
+**Decisions made:** `isTestTournament` excluded at worker startup + guarded in sync functions; `npm run db:seed-test` is the local dev fixture; pf_staff sync via `POST /api/admin/staff-sync`; all legacy code (serve.py, scripts/, action_logs.db, archive plans) removed.
+
+### 2026-06-01 (session 1)
+**Asked:** Reports tab (API v1, UI, CSV, column reference); games table; indicators/logs UI polish; dashboard click-to-select round; dev `ECONNREFUSED` fix; plans + deploy doc wrap-up.
+**Learned:** Vite can proxy before API is up — `wait-on` + repo-root `PORT` in `vite.config.ts`; Prisma shadow DB fails if migration folder names sort before their dependencies (Windows); `<th scope="row">` defaults to centered text.
+**Decisions made:** Reports has no indicators sidebar (admin+ only); `DashboardRoundProvider` on dashboard tab only; round timing play duration uses `started_at` until StageTimer; `games` + `game_id` on tournaments shipped.
+
+### 2026-05-20
+**Asked:** Rewrite UI docs for TS experts; Figma sync protocol; design critique fixes; P0 code review and fixes.
+**Learned:** Mobile layout traps (LogEntry grid, stat chips min-width); Results Pending urgency state; `completedAt` must never drive overtime; Express needs `asyncHandler`; JWT was wrongly in DB metadata (fixed to `jwtStore.ts`); auth/tournament context race fixed via `auth:login` event.
+**Decisions made:** `tokens.css` = visual truth, `ui-implementation.md` = behavioral truth; transitions near-zero for ops tool; `ui-code-patterns.md` split from implementation plan; `overtimeMinutes` stays null until worker snapshot.
+
+### 2026-05-18
+**Asked:** Full UI/UX redesign in Figma + design tokens and four screen wireframes.
+**Learned:** Bottom nav mobile / top tabs desktop; dark-only MVP; timer as hero; badge (pill) vs CTA (rect) must never mix; five log types including Coverage and Judge Call (PF-only).
+**Decisions made:** CSS custom properties only (no Tailwind/MUI); `TournamentContext.sources` drives all source-conditional UI; Figma file `czEoZNIW8dHjbiea6OwlOi`.
+
 ### 2026-05-21
 **Asked:**
 - PF and Carde.io API exploration via Claude in Chrome prompts + HAR file analysis on a test tournament

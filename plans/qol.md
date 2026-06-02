@@ -6,6 +6,8 @@ Day-of-event UX improvements. Each item is self-contained and can be shipped ind
 
 **Design Phase note:** The Design Phase (before Phase 1) implements the design system and component library. QoL items that touch the UI should use those classes and tokens — no new inline styles.
 
+**Already shipped (not numbered QoL items):** Round timing **CSV export** lives on the admin Reports tab (`plans/reports.md`). Dashboard **indicators row → live round** selection via `DashboardRoundContext` (2026-06-01).
+
 ---
 
 ## Shipping Schedule

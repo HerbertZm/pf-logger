@@ -93,8 +93,9 @@ Delete Vite boilerplate: `App.css`, `assets/`, contents of `App.tsx` and `index.
 ```json
 {
   "scripts": {
-    "dev":       "concurrently \"ts-node-dev --respawn src/server.ts\" \"vite --root client\"",
-    "build":     "tsc -p tsconfig.build.json && vite build --root client",
+    "dev":       "concurrently -k -n api,web \"npm run dev:api\" \"node scripts/start-client.cjs\"",
+    "dev:api":   "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build":     "tsc -p tsconfig.build.json && vite build client",
     "start":     "node dist/server.js",
     "typecheck": "tsc --noEmit && tsc --noEmit -p client/tsconfig.json",
     "lint":      "eslint src client/src --ext .ts,.tsx"
@@ -102,23 +103,25 @@ Delete Vite boilerplate: `App.css`, `assets/`, contents of `App.tsx` and `index.
 }
 ```
 
+`scripts/start-client.cjs` runs `wait-on tcp:127.0.0.1:$PORT` (from `.env`) then `vite client`. See `docs/DEPLOY.md` § Local dev.
+
 ### `client/vite.config.ts`
 
 ```typescript
-import { defineConfig } from 'vite';
+import path from 'path';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    proxy: {
-      '/api': {
-        target: `http://localhost:${process.env.PORT ?? 8080}`,
-        changeOrigin: true,
-      },
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, path.join(__dirname, '..'), '');
+  const apiPort = env['PORT'] ?? process.env['PORT'] ?? '8080';
+  return {
+    plugins: [react()],
+    server: {
+      proxy: { '/api': { target: `http://127.0.0.1:${apiPort}`, changeOrigin: true } },
     },
-  },
-  build: { outDir: '../dist/client' },
+    build: { outDir: '../dist/client', emptyOutDir: true },
+  };
 });
 ```
 
@@ -159,7 +162,21 @@ export default defineConfig({
 
 `.prettierrc`: `{ "semi": true, "singleQuote": true, "trailingComma": "all" }`
 
-**Checkpoint:** `npm run dev` → Vite at :5173, Express at :8080, `/api/*` proxies correctly. `npm run typecheck` clean.
+**Checkpoint:** `npm run dev` → `[api]` prints `pf-logger running on port …`, then `[web]` prints Vite `Local:` URL; `/api/*` proxies correctly. `npm run typecheck` clean.
+
+---
+
+## Post–Phase 0 UI additions (2026-06-01)
+
+Documented here so `ui-implementation.md` stays the UI index; details in linked plans.
+
+| Feature | Location | Notes |
+|---|---|---|
+| **Reports tab** | `client/src/components/reports/`, `plans/reports.md` | Admin+ only; no `IndicatorsLayout`; CSV via `api.download()` |
+| **Dashboard round pick from sidebar** | `context/DashboardRoundContext.tsx` | Provider wraps dashboard tab only; `RoundSchedulePane` rows clickable when provider present |
+| **Round schedule pane** | `indicators/RoundSchedulePane.tsx` | Shared sidebar on Dashboard / Logs / Insights |
+| **Logs round groups** | `logs/RoundGroup.css` | Connected header bar, sticky per-round headers |
+| **Tab type** | `TabBar.tsx` | Includes `'reports'` when `showReports` |
 
 ---
 
@@ -415,7 +432,7 @@ Centered overlay, `z-index: var(--z-modal)`. Not dismissible. Controlled form: `
 Tab routing via `useState` — no router library:
 
 ```typescript
-type Tab = 'dashboard' | 'logs' | 'insights' | 'session' | 'data' | 'manage';
+type Tab = 'dashboard' | 'logs' | 'insights' | 'reports' | 'session' | 'data' | 'manage';
 
 function App() {
   const auth = useAuth();

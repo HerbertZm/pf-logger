@@ -66,7 +66,16 @@ npm run db:migrate    # creates and applies migrations
 npm run dev
 ```
 
-This starts both the Express API (`:8080`) and the Vite dev server (`:5173`) concurrently. All `/api/*` requests from the React app proxy to Express automatically.
+This runs two processes:
+
+1. **API** — `ts-node-dev` on `PORT` from `.env` (default **8080**). Wait until you see `pf-logger running on port …` in the `[api]` log line.
+2. **Client** — Vite starts only after the API accepts TCP on that port (`wait-on`), then serves the React app (default **5173**; Vite picks the next free port if 5173 is busy — check the `[web]` log for `Local:`).
+
+Open the Vite URL in the browser (not `:8080` directly in dev). All `/api/*` requests proxy to Express. The Vite config reads `PORT` from the **repo root** `.env` so the proxy target always matches the API.
+
+**If you see `ECONNREFUSED` on `/api/*`:** the API is not listening yet (still compiling) or `PORT` in `.env` does not match what you expect. Do not run `vite client` alone without the API.
+
+**Scripts:** `npm run dev:api` (API only) · `node scripts/start-client.cjs` (wait + Vite only, after API is up).
 
 ---
 
@@ -149,7 +158,7 @@ npm run db:migrate    # creates and applies migrations
 npm run dev
 ```
 
-This starts both the Express API (`:8080`) and the Vite dev server (`:5173`) concurrently. All `/api/*` requests from the React app proxy to Express automatically.
+Same as Windows (see §5 above): API on `PORT` (default 8080), Vite after `wait-on`, browser on the Vite `Local:` URL. Proxy uses repo-root `.env` `PORT`.
 
 ---
 
@@ -536,7 +545,7 @@ cd /opt/pf-logger
 git pull origin main
 npm ci --omit=dev
 npm run db:generate        # Prisma 7: postinstall skips on --omit=dev; must run explicitly
-npx prisma migrate deploy
+npx prisma migrate deploy  # e.g. games table + game_id on tournaments (2026-06-01+)
 npm run build
 sudo systemctl restart pf-logger
 ```
