@@ -1,0 +1,32 @@
+.logs-diff {
+    margin-bottom: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border-subtle);
+}
+
+.logs-diff__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.logs-diff__toggle {
+    flex: 1;
+    text-align: left;
+    font-size: var(--text-sm-size);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.logs-diff__hint {
+    margin: var(--space-2) 0 0;
+    font-size: var(--text-xs-size);
+    color: var(--color-text-tertiary);
+}

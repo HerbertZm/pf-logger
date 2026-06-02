@@ -1,6 +1,7 @@
 import './TabBar.css';
+import { getVisibleTabs } from './tabBarUtils';
 
-export type Tab = 'dashboard' | 'logs' | 'insights' | 'reports' | 'session' | 'data' | 'manage';
+export type Tab = 'dashboard' | 'logs' | 'insights' | 'guide' | 'reports' | 'session' | 'data' | 'manage';
 
 interface TabBarProps {
     active: Tab;
@@ -9,6 +10,7 @@ interface TabBarProps {
     dashboardUrgent?: boolean;
     sessionWarning?: boolean;
     showReports?: boolean;
+    showManage?: boolean;
 }
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -43,6 +45,16 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
                 <rect x="2" y="12" width="5" height="10" rx="1" fill="currentColor" />
                 <rect x="9" y="6" width="5" height="16" rx="1" fill="currentColor" />
                 <rect x="16" y="2" width="5" height="20" rx="1" fill="currentColor" />
+            </svg>
+        ),
+    },
+    {
+        id: 'guide',
+        label: 'Guide',
+        icon: (
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <circle cx="11" cy="11" r="9" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M11 10v6M11 7h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
         ),
     },
@@ -95,8 +107,10 @@ export const TabBar = ({
     logsBadge = 0,
     dashboardUrgent = false,
     showReports = false,
+    showManage = false,
 }: TabBarProps) => {
-    const tabs = showReports ? TABS : TABS.filter((t) => t.id !== 'reports');
+    const visibleIds = getVisibleTabs(showReports, showManage);
+    const tabs = TABS.filter((t) => visibleIds.includes(t.id));
 
     return (
         <nav className="tab-bar" aria-label="Main navigation">

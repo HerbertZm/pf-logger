@@ -60,6 +60,14 @@ npm install
 npm run db:migrate    # creates and applies migrations
 ```
 
+**If `prisma migrate` times out (P1002 advisory lock):** stop `npm run dev` first, then run `npx prisma migrate deploy`. While the API is still running you can apply pending folders with:
+
+```powershell
+npm run db:apply-pending
+```
+
+That script applies SQL from `src/db/migrations/*` and records `_prisma_migrations` without taking the advisory lock.
+
 ### 5 — Start the dev server
 
 ```powershell
@@ -436,7 +444,10 @@ curl -I https://analysis.heidy.tools/api/me
 # Expected: HTTP/2 401
 
 curl https://analysis.heidy.tools/api/health
-# Expected: JSON with uptime, DB status, worker status
+# Expected: { ok, uptime, db } — public liveness only
+
+# Full worker/JWT checklist (superadmin, authenticated):
+# GET /api/admin/health
 ```
 
 Open `https://analysis.heidy.tools` in a browser — login modal over HTTPS.

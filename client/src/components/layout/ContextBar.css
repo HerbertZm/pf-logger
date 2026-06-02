@@ -31,6 +31,12 @@
     color: var(--color-text-tertiary);
 }
 
+.context-bar__tz {
+    font-weight: 500;
+    color: var(--color-text-tertiary);
+    font-size: var(--text-xs-size);
+}
+
 .context-bar__select {
     background: var(--color-bg-chrome);
     border: none;

@@ -1,0 +1,209 @@
+.manage-tab {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: var(--space-4);
+}
+
+.manage-tab__panels {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.manage-tab__denied {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40vh;
+    color: var(--color-text-tertiary);
+    font-size: var(--text-body-size);
+}
+
+.manage-section__title {
+    font-size: var(--text-h3-size);
+    font-weight: 700;
+    margin: 0 0 var(--space-4);
+    color: var(--color-text-primary);
+}
+
+.manage-section__header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.manage-section__header-row .manage-section__title {
+    margin-bottom: 0;
+}
+
+.manage-form__checkbox {
+    flex-direction: row !important;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 44px;
+}
+
+.manage-form__checkbox input {
+    min-height: auto;
+    width: 20px;
+    height: 20px;
+}
+
+.manage-table-wrap {
+    overflow-x: auto;
+}
+
+.manage-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm-size);
+}
+
+.manage-table th,
+.manage-table td {
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--color-border-subtle);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.manage-table th {
+    font-size: var(--text-xs-size);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-secondary);
+}
+
+.manage-table__muted {
+    color: var(--color-text-tertiary);
+    font-size: var(--text-xs-size);
+}
+
+.manage-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: flex-end;
+    margin-bottom: var(--space-4);
+}
+
+.manage-form label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    font-size: var(--text-xs-size);
+    color: var(--color-text-secondary);
+}
+
+.manage-form input,
+.manage-form select {
+    min-height: 44px;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-raised);
+    color: var(--color-text-primary);
+    font-size: var(--text-body-size);
+}
+
+.manage-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    min-height: 44px;
+    align-items: center;
+}
+
+.manage-tournament-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.ops-checklist__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.ops-checklist__header .manage-section__title {
+    margin-bottom: 0;
+}
+
+.ops-checklist__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.ops-checklist__item {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    grid-template-rows: auto auto;
+    column-gap: var(--space-3);
+    row-gap: var(--space-1);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-elevated);
+    min-height: 44px;
+    align-items: center;
+}
+
+.ops-checklist__item--ok {
+    border-color: var(--color-success);
+}
+
+.ops-checklist__mark {
+    grid-row: 1 / span 2;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+}
+
+.ops-checklist__item--ok .ops-checklist__mark {
+    color: var(--color-success);
+}
+
+.ops-checklist__label {
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.ops-checklist__detail {
+    grid-column: 2;
+    font-size: var(--text-sm-size);
+    color: var(--color-text-secondary);
+}
+
+.ops-checklist__summary {
+    margin-top: var(--space-4);
+    font-size: var(--text-body-size);
+    color: var(--color-warning);
+}
+
+.ops-checklist__summary--ok {
+    color: var(--color-success);
+}
+
+.manage-config__note {
+    font-size: var(--text-sm-size);
+    color: var(--color-text-secondary);
+    margin-top: var(--space-2);
+}
+
+.manage-activity__detail {
+    max-width: 280px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: var(--text-xs-size);
+    color: var(--color-text-secondary);
+}

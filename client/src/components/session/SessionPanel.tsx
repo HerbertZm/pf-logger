@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './SessionPanel.css';
 import { api } from '../../api/client';
 import { useTournament } from '../../context/TournamentContext';
@@ -6,14 +6,28 @@ import { useWorkerStatus } from '../../hooks/useWorkerStatus';
 import { Button } from '../shared/Button';
 import { Banner } from '../shared/Banner';
 
+interface PfJwtStatus {
+    status: 'valid' | 'expired' | 'missing';
+    expiresAt: string | null;
+    setBy: string | null;
+    inMemory: boolean;
+}
+
 export const SessionPanel = () => {
     const { activeTournament, sources } = useTournament();
-    // useWorkerStatus for pfJwtExpiresAt — JWT is global but expiry is surfaced per tournament poll
     const { pfJwtExpiresAt } = useWorkerStatus(activeTournament?.id ?? null);
     const [jwt, setJwt] = useState('');
     const [saving, setSaving] = useState(false);
     const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
     const [devToolsOpen, setDevToolsOpen] = useState(false);
+    const [jwtStatus, setJwtStatus] = useState<PfJwtStatus | null>(null);
+
+    useEffect(() => {
+        if (!sources.pf) return;
+        api.get<PfJwtStatus>('/api/session/pf-jwt')
+            .then(setJwtStatus)
+            .catch(() => setJwtStatus(null));
+    }, [sources.pf, result]);
 
     if (!sources.pf) {
         return (
@@ -38,7 +52,6 @@ export const SessionPanel = () => {
         setSaving(true);
         setResult(null);
         try {
-            // POST global JWT — not per-tournament; one JWT credential serves all PF tournaments
             await api.post('/api/session/pf-jwt', { jwt: jwt.trim() });
             setResult({ ok: true, msg: 'Token saved. Worker will use it on next cycle.' });
             setJwt('');
@@ -51,6 +64,13 @@ export const SessionPanel = () => {
 
     return (
         <div className="session-panel">
+            {jwtStatus !== null && !jwtStatus.inMemory && (
+                <Banner
+                    variant="warning"
+                    message="JWT metadata is on disk but not loaded in memory — re-paste after a server restart (even if expiry has not passed)."
+                />
+            )}
+
             <div className="session-panel__card">
                 <h2 className="session-panel__heading">PurpleFox JWT</h2>
 
@@ -62,6 +82,13 @@ export const SessionPanel = () => {
                         <span className="session-panel__expiry--none">No token stored</span>
                     )}
                 </div>
+
+                {jwtStatus?.setBy && (
+                    <p className="session-panel__meta">
+                        Set by {jwtStatus.setBy}
+                        {jwtStatus.inMemory ? ' · loaded in memory' : ' · not in memory'}
+                    </p>
+                )}
 
                 <textarea
                     className="session-panel__textarea"
@@ -101,7 +128,7 @@ export const SessionPanel = () => {
             </div>
 
             <div className="session-panel__devtools">
-                <button className="session-panel__devtools-toggle" onClick={() => setDevToolsOpen((o) => !o)}>
+                <button className="session-panel__devtools-toggle" type="button" onClick={() => setDevToolsOpen((o) => !o)}>
                     {devToolsOpen ? '▲' : '▼'} How to get the JWT from DevTools
                 </button>
                 {devToolsOpen && (

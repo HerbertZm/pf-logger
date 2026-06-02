@@ -15,3 +15,12 @@ export const loginRateLimit = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many login attempts, please try again later.' },
 });
+
+/** Manual sync/backfill — admin-only but still bounded. */
+export const syncRateLimit = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many sync requests, please wait a minute.' },
+});

@@ -5,6 +5,12 @@
     margin-bottom: var(--space-4);
 }
 
+.filter-bar__presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
 .filter-bar__chips {
     display: flex;
     flex-wrap: wrap;

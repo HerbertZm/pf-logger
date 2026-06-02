@@ -39,7 +39,7 @@
 - DB migration runner: Prisma migrations already handle this; add a `migrate:prod` script and document the runbook in `DEPLOY.md`
 - Graceful shutdown: drain in-flight worker cycles, close DB connections cleanly on SIGTERM
 - Connection retry with exponential backoff for Supabase and Carde failures; surface persistent errors in UI
-- Expanded `/api/health`: per-tournament last sync time, worker cycle duration, PF JWT expiry, DB connection pool stats
+- Ops health already on `GET /api/admin/health` (P1); optional: DB pool stats on public liveness or dedicated metrics endpoint
 - Audit access log: who viewed which tournament and when (separate from `app_activity` which tracks writes)
 - `CARDE_API_TOKEN` rotation runbook documented in `DEPLOY.md`
 - DB vacuum + analyze on a weekly schedule

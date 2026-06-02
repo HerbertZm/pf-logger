@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { Prisma } from '../generated/prisma/client';
 import { prisma } from '../db/prisma';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { AuthenticatedRequest } from '../middleware/auth';
+import { AuthenticatedRequest, requireAdmin } from '../middleware/auth';
 import type { Tournament, ActiveRoundResponse, LogsResponse, RoundSummary, WorkerStatus, Game } from '../api/types';
 import {
     serializeRound,
@@ -14,8 +14,43 @@ import {
     serializeGame,
     serializeTournament,
 } from './serializers';
+import { stopTournamentWorker } from '../ingestion/worker';
+import { auditFromRequest } from '../services/auditLog';
+import { rejectTestTournamentInProduction } from '../utils/tournamentAccess';
 
 const router = Router();
+
+// POST /api/end-tournament — admin+; freezes is_ended (never reset by sync)
+router.post(
+    '/end-tournament',
+    requireAdmin,
+    asyncHandler(async (req: Request, res: Response) => {
+        const body = req.body as { tournamentId?: number };
+        const tid = Number(body.tournamentId ?? req.query['tournamentId']);
+        if (!tid) {
+            res.status(400).json({ error: 'tournamentId required' });
+            return;
+        }
+        if (await rejectTestTournamentInProduction(tid, res)) {
+            return;
+        }
+        try {
+            await prisma.appTournament.update({
+                where: { id: tid },
+                data: { isEnded: true, isActive: false },
+            });
+        } catch (err: unknown) {
+            if ((err as { code?: string }).code === 'P2025') {
+                res.status(404).json({ error: 'Tournament not found' });
+                return;
+            }
+            throw err;
+        }
+        stopTournamentWorker(tid);
+        void auditFromRequest(req, 'tournament_ended', `tournamentId=${tid}`);
+        res.json({ ok: true });
+    }),
+);
 
 // GET /api/games
 router.get(
@@ -31,9 +66,13 @@ router.get(
 router.get(
     '/tournaments',
     asyncHandler(async (_req: Request, res: Response) => {
+        const isProduction = process.env['NODE_ENV'] === 'production';
         const tournaments = await prisma.appTournament.findMany({
-            where: { deletedAt: null },
-            include: { sourceMappings: true, game: true },
+            where: {
+                deletedAt: null,
+                ...(isProduction ? { isTestTournament: false } : {}),
+            },
+            include: { sourceMappings: true, game: true, event: true },
             orderBy: { createdAt: 'desc' },
         });
 
@@ -52,6 +91,9 @@ router.get(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
+        if (await rejectTestTournamentInProduction(tid, res)) {
+            return;
+        }
         const rounds = await prisma.round.findMany({
             where: { tournamentId: tid },
             orderBy: { roundNumber: 'asc' },
@@ -68,6 +110,9 @@ router.get(
         const tid = Number(req.query['tournamentId']);
         if (!tid) {
             res.status(400).json({ error: 'tournamentId required' });
+            return;
+        }
+        if (await rejectTestTournamentInProduction(tid, res)) {
             return;
         }
 
@@ -138,6 +183,9 @@ router.get(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
+        if (await rejectTestTournamentInProduction(tid, res)) {
+            return;
+        }
 
         const [rounds, drops, extensions, penalties, coverage, judgeCalls] = await Promise.all([
             prisma.round.findMany({ where: { tournamentId: tid }, orderBy: { roundNumber: 'asc' } }),
@@ -190,6 +238,9 @@ router.get(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
+        if (await rejectTestTournamentInProduction(tid, res)) {
+            return;
+        }
 
         const rounds = await prisma.round.findMany({
             where: { tournamentId: tid },
@@ -231,6 +282,72 @@ router.get(
     }),
 );
 
+const MAX_OPERATOR_NOTES_LEN = 2000;
+
+// PATCH /api/rounds/:id/notes — admin+; operator notes are never synced externally
+router.patch(
+    '/rounds/:id/notes',
+    requireAdmin,
+    asyncHandler(async (req: Request, res: Response) => {
+        const id = Number(req.params['id']);
+        if (!id) {
+            res.status(400).json({ error: 'invalid id' });
+            return;
+        }
+
+        const roundRow = await prisma.round.findUnique({
+            where: { id },
+            select: { tournamentId: true },
+        });
+        if (roundRow === null) {
+            res.status(404).json({ error: 'Round not found' });
+            return;
+        }
+        if (await rejectTestTournamentInProduction(roundRow.tournamentId, res)) {
+            return;
+        }
+
+        const body = req.body as { notes?: unknown };
+        if (!('notes' in body)) {
+            res.status(400).json({ error: 'notes is required (string or null)' });
+            return;
+        }
+        const { notes } = body;
+        if (notes !== null && typeof notes !== 'string') {
+            res.status(400).json({ error: 'notes must be a string or null' });
+            return;
+        }
+        if (typeof notes === 'string' && notes.length > MAX_OPERATOR_NOTES_LEN) {
+            res.status(400).json({ error: `notes must be at most ${MAX_OPERATOR_NOTES_LEN} characters` });
+            return;
+        }
+
+        let operatorNotes: string | null;
+        if (notes === null || notes === undefined) {
+            operatorNotes = null;
+        } else {
+            const trimmed = notes.trim();
+            operatorNotes = trimmed === '' ? null : trimmed;
+        }
+
+        let round;
+        try {
+            round = await prisma.round.update({
+                where: { id },
+                data: { operatorNotes },
+            });
+        } catch (err: unknown) {
+            if ((err as { code?: string }).code === 'P2025') {
+                res.status(404).json({ error: 'Round not found' });
+                return;
+            }
+            throw err;
+        }
+
+        res.json(serializeRound(round));
+    }),
+);
+
 // GET /api/worker-status?tournamentId=:id
 router.get(
     '/worker-status',
@@ -238,6 +355,9 @@ router.get(
         const tid = Number(req.query['tournamentId']);
         if (!tid) {
             res.status(400).json({ error: 'tournamentId required' });
+            return;
+        }
+        if (await rejectTestTournamentInProduction(tid, res)) {
             return;
         }
 
@@ -300,6 +420,9 @@ router.get(
         const tid = Number(req.query['tournamentId']);
         if (!tid) {
             res.status(400).json({ error: 'tournamentId required' });
+            return;
+        }
+        if (await rejectTestTournamentInProduction(tid, res)) {
             return;
         }
 

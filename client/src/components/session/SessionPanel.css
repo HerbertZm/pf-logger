@@ -40,6 +40,12 @@
     color: var(--color-text-secondary);
 }
 
+.session-panel__meta {
+    margin: 0;
+    font-size: var(--text-xs-size);
+    color: var(--color-text-tertiary);
+}
+
 .session-panel__expiry--ok {
     color: var(--color-success);
     font-weight: 600;

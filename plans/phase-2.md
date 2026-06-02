@@ -2,7 +2,7 @@
 
 **Goal:** Multi-event management with per-event permissions, real-time data push, manual entry, and the first round timing analysis features.
 
-**Prerequisites:** Phase 1 complete (admin API, manage tab, operational tooling).
+**Prerequisites:** Phase 1 wrapped (2026-06-02) — admin API, Manage tab, CI deploy, public vs admin health, backfill parity, test tournament fixtures.
 
 ---
 

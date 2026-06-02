@@ -127,7 +127,7 @@ _carde_running = set()      # tournament_ids currently being bg-fetched
 
 **Worker:** `GET /api/worker-status` — `{ isRunning, lastSyncAt, currentRound, lastError }` per tournament
 
-**System:** `GET /api/health` (no auth) · `GET /api/data?table=&limit=&offset=` (admin+)
+**System:** `GET /api/health` (public liveness: `ok`, `uptime`, `db`) · `GET /api/admin/health` (superadmin: workers, PF JWT) · `GET /api/data?table=&limit=&offset=` (admin+)
 
 **Admin (superadmin):** `/api/admin/tournaments` · `/api/admin/users` · `/api/admin/sessions` · `/api/admin/backup` — see `plans/phase-1.md` § 1.1 for full spec.
 

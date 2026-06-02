@@ -1,9 +1,12 @@
 import './LogEntry.css';
 import { Badge } from '../shared/Badge';
 import type { LogEntry as LogEntryType } from '../../api/types';
+import { formatInTournamentTz } from '../../utils/time';
 
 interface LogEntryProps {
     entry: LogEntryType;
+    timeZone: string;
+    isNew?: boolean;
 }
 
 const BADGE_MAP = {
@@ -45,17 +48,17 @@ const entryStaff = (e: LogEntryType): string | null => {
     return null;
 };
 
-const entryTime = (e: LogEntryType): string => {
-    const d = 'createdAt' in e ? new Date(e.createdAt) : 'firstSeenAt' in e ? new Date(e.firstSeenAt) : null;
-    if (!d) return '';
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const entryTimeIso = (e: LogEntryType): string | null => {
+    if ('createdAt' in e) return e.createdAt;
+    if ('firstSeenAt' in e) return e.firstSeenAt;
+    return null;
 };
 
-export const LogEntry = ({ entry }: LogEntryProps) => {
+export const LogEntry = ({ entry, timeZone, isNew = false }: LogEntryProps) => {
     const badge = BADGE_MAP[entry.type];
 
     return (
-        <div className={`log-entry log-entry--${entry.type}`}>
+        <div className={`log-entry log-entry--${entry.type}${isNew ? ' log-entry--new' : ''}`}>
             <div className="log-entry__accent" />
             <div className="log-entry__gap" />
             <div className="log-entry__badge">
@@ -66,7 +69,7 @@ export const LogEntry = ({ entry }: LogEntryProps) => {
                 <span className="log-entry__sub">{entrySub(entry)}</span>
                 {entryStaff(entry) && <span className="log-entry__staff">{entryStaff(entry)}</span>}
             </div>
-            <span className="log-entry__time">{entryTime(entry)}</span>
+            <span className="log-entry__time">{formatInTournamentTz(entryTimeIso(entry), timeZone)}</span>
         </div>
     );
 };

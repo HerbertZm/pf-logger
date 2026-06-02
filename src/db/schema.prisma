@@ -22,11 +22,29 @@ model Game {
   @@map("games")
 }
 
+model AppEvent {
+  id        Int       @id @default(autoincrement())
+  name      String
+  shortName String    @map("short_name")
+  timezone  String
+  venue     String?
+  startsAt  DateTime? @db.Timestamptz() @map("starts_at")
+  endsAt    DateTime? @db.Timestamptz() @map("ends_at")
+  isActive  Boolean   @default(true) @map("is_active")
+
+  tournaments AppTournament[]
+
+  @@map("app_events")
+}
+
 model AppTournament {
   id        Int      @id @default(autoincrement())
   name      String
   shortName String   @map("short_name")
   gameId    Int      @map("game_id")
+  eventId   Int?     @map("event_id")
+  timezone  String   @default("America/New_York")
+  venue     String?
   isActive         Boolean   @default(true) @map("is_active")
   isEnded          Boolean   @default(false) @map("is_ended")
   isTestTournament Boolean   @default(false) @map("is_test_tournament")
@@ -34,6 +52,7 @@ model AppTournament {
   createdAt        DateTime  @default(now()) @db.Timestamptz() @map("created_at")
 
   game            Game                     @relation(fields: [gameId], references: [id])
+  event           AppEvent?                @relation(fields: [eventId], references: [id])
   sourceMappings  TournamentSourceMapping[]
   workerState     WorkerState?
   rounds          Round[]
@@ -120,6 +139,17 @@ model AppActivity {
   @@map("app_activity")
 }
 
+// Singleton (id=1). Runtime settings adjustable from Manage without redeploy.
+model AppConfig {
+  id                             Int      @id @default(1)
+  cardePollIntervalMs            Int      @default(30000) @map("carde_poll_interval_ms")
+  pfPollIntervalMs               Int      @default(15000) @map("pf_poll_interval_ms")
+  extensionLogisticsThresholdMin   Int      @default(50) @map("extension_logistics_threshold_min")
+  updatedAt                      DateTime @default(now()) @updatedAt @db.Timestamptz() @map("updated_at")
+
+  @@map("app_config")
+}
+
 model WorkerState {
   tournamentId         Int       @id @map("tournament_id")
   lastRoundsFetchedAt  DateTime? @db.Timestamptz() @map("last_rounds_fetched_at")
@@ -150,6 +180,7 @@ model Round {
   completedAt        DateTime? @db.Timestamptz() @map("completed_at") // verbatim from Carde; never use for duration
   missingTablesJson  Json?     @map("missing_tables_json")
   snapshotCapturedAt DateTime? @db.Timestamptz() @map("snapshot_captured_at")
+  operatorNotes      String?   @map("operator_notes")
 
   tournament AppTournament @relation(fields: [tournamentId], references: [id])
   matches    Match[]

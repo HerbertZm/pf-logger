@@ -1,4 +1,5 @@
 import type { Round } from '../../api/types';
+import { formatInTournamentTz } from '../../utils/time';
 
 /** Break between Swiss rounds — used to estimate when the next round starts. */
 export const BREAK_BETWEEN_ROUNDS_MIN = 15;
@@ -86,9 +87,9 @@ export function buildRoundSchedule(rounds: Round[], gameDefaultMinutes?: number)
     });
 }
 
-export function formatScheduleTime(time: ScheduleTime | null): string {
+export function formatScheduleTime(time: ScheduleTime | null, timeZone: string): string {
     if (time === null) return '—';
-    return time.at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatInTournamentTz(time.at.toISOString(), timeZone);
 }
 
 export function formatDuration(minutes: number | null): string {

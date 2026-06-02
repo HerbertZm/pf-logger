@@ -6,6 +6,7 @@ import { loginRateLimit } from '../middleware/rateLimit';
 import { authMiddleware, requireAdmin, AuthenticatedRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { setPfJwt, getPfJwtEntry, clearPfJwt, isPfJwtInMemory } from '../ingestion/jwtStore';
+import { auditFromRequest, auditPublicRequest } from '../services/auditLog';
 
 const router = Router();
 
@@ -25,12 +26,14 @@ router.post(
 
         const user = await prisma.appUser.findUnique({ where: { username } });
         if (!user?.isActive) {
+            void auditPublicRequest(req, 'login_failed', username, 'inactive or unknown');
             res.status(401).json({ error: 'Invalid credentials' });
             return;
         }
 
         const valid = await bcrypt.compare(password + PEPPER, user.passwordHash);
         if (!valid) {
+            void auditPublicRequest(req, 'login_failed', username, 'bad password');
             res.status(401).json({ error: 'Invalid credentials' });
             return;
         }
@@ -122,9 +125,7 @@ router.post(
       expires_at = EXCLUDED.expires_at
   `;
 
-        await prisma.appActivity.create({
-            data: { eventType: 'pf_jwt_set', username: user.username, ip: req.ip ?? null },
-        });
+        void auditFromRequest(req, 'pf_jwt_set', `expiresAt=${expiresAt ?? 'unknown'}`);
 
         res.json({ ok: true, expiresAt });
     }),
@@ -171,15 +172,12 @@ router.delete(
     requireAdmin,
     asyncHandler(async (req: Request, res: Response) => {
         clearPfJwt();
-        const user = (req as AuthenticatedRequest).user;
         // Null out the pf_session metadata row so a subsequent GET (or restart) returns
         // status: 'missing' rather than showing the previous token's expiry.
         await prisma.$executeRaw`
     UPDATE pf_session SET expires_at = NULL, set_by = NULL, set_at = NULL WHERE id = 1
   `;
-        await prisma.appActivity.create({
-            data: { eventType: 'pf_jwt_cleared', username: user.username, ip: req.ip ?? null },
-        });
+        void auditFromRequest(req, 'pf_jwt_cleared', null);
         res.json({ ok: true });
     }),
 );

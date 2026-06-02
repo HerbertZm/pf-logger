@@ -26,3 +26,9 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
+
+.round-strip__badges {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}

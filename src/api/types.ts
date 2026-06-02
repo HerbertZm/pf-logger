@@ -21,6 +21,7 @@ export interface Round {
     timerEndDatetime: string | null;
     missingTablesJson: number[] | null;
     snapshotCapturedAt: string | null;
+    operatorNotes: string | null;
 }
 
 export interface Drop {
@@ -90,12 +91,23 @@ export interface Game {
     notes: Record<string, unknown> | null;
 }
 
+export interface AppEventNested {
+    id: number;
+    name: string;
+    shortName: string;
+    timezone: string;
+}
+
 export interface Tournament {
     id: number;
     name: string;
     shortName: string;
     gameId: number;
     game: Game;
+    eventId: number | null;
+    event: AppEventNested | null;
+    timezone: string;
+    venue: string | null;
     isActive: boolean;
     isEnded: boolean;
     isTestTournament: boolean;

@@ -12,6 +12,7 @@
  * Run: npx ts-node --compiler-options '{"module":"CommonJS"}' src/db/seed-test-tournament.ts
  */
 import 'dotenv/config';
+import { logger } from '../lib/logger';
 import { prisma } from './prisma';
 
 // ─── Config ────────────────────────────────────────────────────────────────────
@@ -110,16 +111,42 @@ function tables(n: number): number[] {
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
 
-async function main(): Promise<void> {
-    console.log('Seeding test tournament...');
+export type TestSeedScenario = 'default' | 'late' | 'overtime' | 'top8';
+
+/** Remove tournament and all dependent rows (test reset / re-seed). */
+export async function deleteTournamentCascade(tournamentId: number): Promise<void> {
+    await prisma.$transaction([
+        prisma.match.deleteMany({ where: { tournamentId } }),
+        prisma.drop.deleteMany({ where: { tournamentId } }),
+        prisma.extension.deleteMany({ where: { tournamentId } }),
+        prisma.penalty.deleteMany({ where: { tournamentId } }),
+        prisma.tableCoverage.deleteMany({ where: { tournamentId } }),
+        prisma.tableJudgeCall.deleteMany({ where: { tournamentId } }),
+        prisma.round.deleteMany({ where: { tournamentId } }),
+        prisma.rawCardeMatch.deleteMany({ where: { tournamentId } }),
+        prisma.rawCardeRound.deleteMany({ where: { tournamentId } }),
+        prisma.rawPfDrop.deleteMany({ where: { tournamentId } }),
+        prisma.rawPfPenalty.deleteMany({ where: { tournamentId } }),
+        prisma.rawPfExtension.deleteMany({ where: { tournamentId } }),
+        prisma.rawPfCoverage.deleteMany({ where: { tournamentId } }),
+        prisma.rawPfJudgeCall.deleteMany({ where: { tournamentId } }),
+        prisma.tournamentSourceMapping.deleteMany({ where: { tournamentId } }),
+        prisma.workerState.deleteMany({ where: { tournamentId } }),
+        prisma.appTournament.delete({ where: { id: tournamentId } }),
+    ]);
+}
+
+/** Idempotent test tournament seed. Returns the new tournament id. */
+export async function seedTestTournament(scenario: TestSeedScenario = 'default'): Promise<number> {
+    logger.info(`Seeding test tournament (scenario=${scenario})...`);
 
     // --- Wipe existing test tournament(s) ---
     const existing = await prisma.appTournament.findMany({
         where: { isTestTournament: true },
     });
     for (const t of existing) {
-        await prisma.appTournament.delete({ where: { id: t.id } });
-        console.log(`  Deleted existing test tournament: ${t.name} (id=${t.id})`);
+        await deleteTournamentCascade(t.id);
+        logger.info(`  Deleted existing test tournament: ${t.name} (id=${t.id})`);
     }
 
     // --- Verify game exists ---
@@ -132,13 +159,14 @@ async function main(): Promise<void> {
             name: TOURNAMENT_NAME,
             shortName: SHORT_NAME,
             gameId: GAME_ID,
+            timezone: 'America/New_York',
             isActive: true,
             isEnded: false,
             isTestTournament: true,
         },
     });
     const tid = tourn.id;
-    console.log(`  Created tournament id=${tid}`);
+    logger.info(`  Created tournament id=${tid}`);
 
     // --- Source mappings (both enabled with fake IDs) ---
     await prisma.tournamentSourceMapping.createMany({
@@ -297,14 +325,34 @@ async function main(): Promise<void> {
             });
         }
 
-        console.log(
+        logger.info(
             `  Round ${roundNum} (COMPLETE): ${extTables.length} ext, ${dropPlayers.length} drops, ${penCount} penalties`,
         );
     }
 
-    // ─── Round 5 (IN_PROGRESS) ────────────────────────────────────────────────────
-    const r5StartedAt = minsAgo(20);
-    const r5TimerEnd = minsFromNow(40);
+    // ─── Round 5 (live) ───────────────────────────────────────────────────────────
+    let r5StartedAt = minsAgo(20);
+    let r5TimerEnd = minsFromNow(40);
+    let r5Status = 'IN_PROGRESS';
+    let r5Snapshot: Date | null = null;
+    let r5Missing: number[] | null = null;
+
+    if (scenario === 'late') {
+        r5StartedAt = minsAgo(58);
+        r5TimerEnd = minsFromNow(2);
+    } else if (scenario === 'overtime') {
+        r5StartedAt = minsAgo(70);
+        r5TimerEnd = minsAgo(10);
+        r5Missing = [3, 17, 42, 88, 102];
+        r5Snapshot = minsAgo(10);
+        r5Status = 'IN_PROGRESS';
+    } else if (scenario === 'top8') {
+        r5StartedAt = minsAgo(90);
+        r5TimerEnd = minsAgo(30);
+        r5Status = 'COMPLETE';
+        r5Snapshot = minsAgo(28);
+        r5Missing = [12, 55];
+    }
 
     const r5 = await prisma.round.create({
         data: {
@@ -312,12 +360,13 @@ async function main(): Promise<void> {
             roundNumber: 5,
             phase: 'swiss',
             cardeRoundId: 999005,
-            cardeStatus: 'IN_PROGRESS',
+            cardeStatus: r5Status,
             startedAt: r5StartedAt,
             timerDurationMin: ROUND_DURATION_MIN,
             timerEndDatetime: r5TimerEnd,
-            completedAt: null,
-            snapshotCapturedAt: null,
+            completedAt: scenario === 'top8' ? minsAgo(30) : null,
+            snapshotCapturedAt: r5Snapshot,
+            ...(r5Missing !== null && { missingTablesJson: r5Missing }),
         },
     });
     createdRounds.push(r5.id);
@@ -344,15 +393,47 @@ async function main(): Promise<void> {
         });
     }
 
-    console.log(`  Round 5 (IN_PROGRESS): ${liveExtTables.length} extensions, timer has ~40 min remaining`);
-    console.log(`\n✓ Test tournament "${TOURNAMENT_NAME}" created (id=${tid})`);
-    console.log(`  Game: ${game.name} | Rounds: 4 COMPLETE + 1 IN_PROGRESS | Tables: ${TABLE_COUNT}`);
-    console.log(`  Reload the app and select "${SHORT_NAME}" to see live data.`);
+    if (scenario === 'top8') {
+        const r6 = await prisma.round.create({
+            data: {
+                tournamentId: tid,
+                roundNumber: 6,
+                phase: 'top8',
+                cardeRoundId: 999006,
+                cardeStatus: 'IN_PROGRESS',
+                startedAt: minsAgo(15),
+                timerDurationMin: null,
+                timerEndDatetime: null,
+                completedAt: null,
+                snapshotCapturedAt: null,
+            },
+        });
+        createdRounds.push(r6.id);
+        await prisma.workerState.update({
+            where: { tournamentId: tid },
+            data: { currentRound: 6 },
+        });
+        logger.info('  Round 6 (TOP8 IN_PROGRESS): no timer_duration — pace badge should be hidden');
+    } else {
+        logger.info(`  Round 5 (${r5Status}): ${liveExtTables.length} extensions — scenario=${scenario}`);
+    }
 
+    logger.info(`\n✓ Test tournament "${TOURNAMENT_NAME}" created (id=${tid}, scenario=${scenario})`);
+    logger.info(`  Game: ${game.name} | Rounds: 4 COMPLETE + 1 IN_PROGRESS | Tables: ${TABLE_COUNT}`);
+    logger.info(`  Reload the app and select "${SHORT_NAME}" to see live data.`);
+
+    return tid;
+}
+
+async function main(): Promise<void> {
+    const arg = process.argv[2];
+    const allowed = new Set(['default', 'late', 'overtime', 'top8']);
+    const scenario = (arg && allowed.has(arg) ? arg : 'default') as TestSeedScenario;
+    await seedTestTournament(scenario);
     await prisma.$disconnect();
 }
 
 main().catch((e) => {
-    console.error(e);
+    logger.error('seed-test-tournament failed', e);
     process.exit(1);
 });

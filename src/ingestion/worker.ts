@@ -3,13 +3,72 @@ import { prisma } from '../db/prisma';
 import { fetchCardeRounds, fetchCardeMatches } from './providers/carde';
 import { fetchPfData, fetchPfProfiles, parseExtensionAction, type PfData } from './providers/purplefox';
 import { getPfJwt } from './jwtStore';
+import { getAppConfig } from '../services/appConfig';
+import { logger } from '../lib/logger';
+import { inferRoundPhase } from '../utils/roundPhase';
 
 function jsonPayload(value: unknown): Prisma.InputJsonValue {
     return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
-const CARDE_POLL_INTERVAL_MS = 30_000;
-const PF_POLL_INTERVAL_MS = 15_000;
+interface TournamentPollTimers {
+    carde?: ReturnType<typeof setTimeout>;
+    pf?: ReturnType<typeof setTimeout>;
+}
+
+const pollTimers = new Map<number, TournamentPollTimers>();
+
+function clearTournamentPolls(tournamentId: number): void {
+    const timers = pollTimers.get(tournamentId);
+    if (timers === undefined) return;
+    if (timers.carde !== undefined) clearTimeout(timers.carde);
+    if (timers.pf !== undefined) clearTimeout(timers.pf);
+    pollTimers.delete(tournamentId);
+}
+
+function scheduleCardePoll(tournamentId: number): void {
+    const ms = getAppConfig().cardePollIntervalMs;
+    const timer = setTimeout(() => {
+        void syncCardeRounds(tournamentId)
+            .catch((err) => recordError(tournamentId, err))
+            .finally(() => scheduleCardePoll(tournamentId));
+    }, ms);
+    const entry = pollTimers.get(tournamentId) ?? {};
+    entry.carde = timer;
+    pollTimers.set(tournamentId, entry);
+}
+
+function schedulePfPoll(tournamentId: number): void {
+    const ms = getAppConfig().pfPollIntervalMs;
+    const timer = setTimeout(() => {
+        void syncPfData(tournamentId)
+            .catch((err) => recordError(tournamentId, err))
+            .finally(() => schedulePfPoll(tournamentId));
+    }, ms);
+    const entry = pollTimers.get(tournamentId) ?? {};
+    entry.pf = timer;
+    pollTimers.set(tournamentId, entry);
+}
+
+/** Re-schedule all running tournament pollers (e.g. after app_config patch). */
+export function rescheduleActiveTournamentPolls(): void {
+    for (const tournamentId of pollTimers.keys()) {
+        clearTournamentPolls(tournamentId);
+        scheduleCardePoll(tournamentId);
+        schedulePfPoll(tournamentId);
+    }
+}
+
+/** Stop polling for a tournament (deactivate, end, or soft-delete). */
+export function stopTournamentWorker(tournamentId: number): void {
+    clearTournamentPolls(tournamentId);
+    void prisma.workerState
+        .update({
+            where: { tournamentId },
+            data: { isRunning: false, updatedAt: new Date() },
+        })
+        .catch(() => undefined);
+}
 
 /**
  * Starts the background ingestion worker for all active tournaments.
@@ -21,7 +80,7 @@ const PF_POLL_INTERVAL_MS = 15_000;
  * - At timer_end_datetime, immediately snapshots outstanding matches into rounds.missing_tables_json
  */
 export async function startWorker(): Promise<void> {
-    console.warn('[worker] starting ingestion worker');
+    logger.info('starting ingestion worker');
 
     const activeTournaments = await prisma.appTournament.findMany({
         where: { isActive: true, isEnded: false, deletedAt: null, isTestTournament: false },
@@ -30,13 +89,13 @@ export async function startWorker(): Promise<void> {
 
     for (const tournament of activeTournaments) {
         spawnTournamentWorker(tournament.id).catch((err) => {
-            console.error(`[worker] tournament ${tournament.id} failed to start:`, err);
+            logger.error(`tournament ${tournament.id} failed to start`, err);
         });
     }
 
     // Sync global PF staff profiles once on startup (not per-tournament)
     syncPfStaff().catch((err) => {
-        console.warn('[worker] staff sync skipped on startup (JWT not yet in memory):', String(err).slice(0, 120));
+        logger.warn(`staff sync skipped on startup: ${String(err).slice(0, 120)}`);
     });
 }
 
@@ -65,7 +124,7 @@ export async function syncPfStaff(): Promise<{ upserted: number }> {
         upserted++;
     }
 
-    console.warn(`[worker] synced ${upserted} PF staff profiles into pf_staff`);
+    logger.info(`synced ${upserted} PF staff profiles into pf_staff`);
     return { upserted };
 }
 
@@ -78,24 +137,19 @@ export function spawnTournamentWorker(tournamentId: number): Promise<void> {
             update: { isRunning: true, lastError: null },
         })
         .then(() => {
-            console.warn(`[worker] polling started for tournament ${tournamentId}`);
+            clearTournamentPolls(tournamentId);
+            logger.info(`polling started for tournament ${tournamentId}`);
 
-            setInterval(() => {
-                syncCardeRounds(tournamentId).catch((err) => recordError(tournamentId, err));
-            }, CARDE_POLL_INTERVAL_MS);
+            scheduleCardePoll(tournamentId);
+            schedulePfPoll(tournamentId);
 
-            setInterval(() => {
-                syncPfData(tournamentId).catch((err) => recordError(tournamentId, err));
-            }, PF_POLL_INTERVAL_MS);
-
-            // Run immediately on startup
-            syncCardeRounds(tournamentId).catch((err) => recordError(tournamentId, err));
-            syncPfData(tournamentId).catch((err) => recordError(tournamentId, err));
+            void syncCardeRounds(tournamentId).catch((err) => recordError(tournamentId, err));
+            void syncPfData(tournamentId).catch((err) => recordError(tournamentId, err));
         });
 }
 
 async function recordError(tournamentId: number, err: unknown): Promise<void> {
-    console.error(`[worker] tournament ${tournamentId} error:`, err);
+    logger.error(`tournament ${tournamentId} error`, err);
     await prisma.workerState
         .update({
             where: { tournamentId },
@@ -155,7 +209,7 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
             create: {
                 tournamentId,
                 roundNumber: r.round_number,
-                phase: 'swiss', // Top-8 detection deferred to P1
+                phase: inferRoundPhase(r.timer_duration_minutes ?? null, existing?.phase ?? null),
                 cardeRoundId: r.id,
                 cardeStatus: r.status,
                 startedAt,
@@ -177,7 +231,7 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
         // Fetch in-progress matches for the active round
         if (r.status === 'IN_PROGRESS') {
             await syncCardeMatches(tournamentId, r.id, r.round_number, mapping).catch((err) =>
-                console.error(`[worker] match sync failed for round ${r.id}:`, err),
+                logger.error(`match sync failed for round ${r.id}`, err),
             );
         }
     }
@@ -342,7 +396,9 @@ async function maybeSnapshotOutstanding(
         },
     });
 
-    console.warn(`[worker] snapshot captured for round ${round.roundNumber}: ${outstanding.length} outstanding tables`);
+    logger.warn(
+        `snapshot captured for round ${round.roundNumber}: ${outstanding.length} outstanding tables`,
+    );
 }
 
 // ─── PurpleFox sync ───────────────────────────────────────────────────────────

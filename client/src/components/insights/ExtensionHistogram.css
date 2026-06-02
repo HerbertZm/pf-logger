@@ -44,3 +44,10 @@
     font-size: var(--text-xs-size);
     color: var(--color-text-tertiary);
 }
+
+.ext-histogram__logistics-note,
+.ext-histogram__logistics-only {
+    font-size: var(--text-xs-size);
+    color: var(--color-text-tertiary);
+    margin-bottom: var(--space-2);
+}

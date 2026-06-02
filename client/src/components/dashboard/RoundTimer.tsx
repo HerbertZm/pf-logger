@@ -1,29 +1,30 @@
 import './RoundTimer.css';
 import { useRoundTimer } from '../../hooks/useRoundTimer';
-import { formatTime, formatClock } from '../../utils/time';
+import { formatTime, formatInTournamentTz } from '../../utils/time';
 import type { Round } from '../../api/types';
 
 interface RoundTimerProps {
     round: Round;
     outstandingCount: number;
+    timeZone: string;
 }
 
 /** Start / planned-end row shown on live and pending rounds */
-const TimeMeta = ({ round }: { round: Round }) => (
+const TimeMeta = ({ round, timeZone }: { round: Round; timeZone: string }) => (
     <div className="round-timer__meta">
         <span className="round-timer__meta-item">
             <span className="round-timer__meta-label">Started</span>
-            <span className="round-timer__meta-value">{formatClock(round.startedAt)}</span>
+            <span className="round-timer__meta-value">{formatInTournamentTz(round.startedAt, timeZone)}</span>
         </span>
         <span className="round-timer__meta-sep" />
         <span className="round-timer__meta-item">
             <span className="round-timer__meta-label">Ends at</span>
-            <span className="round-timer__meta-value">{formatClock(round.timerEndDatetime)}</span>
+            <span className="round-timer__meta-value">{formatInTournamentTz(round.timerEndDatetime, timeZone)}</span>
         </span>
     </div>
 );
 
-export const RoundTimer = ({ round, outstandingCount }: RoundTimerProps) => {
+export const RoundTimer = ({ round, outstandingCount, timeZone }: RoundTimerProps) => {
     const { remaining, isOvertime, isTopEight, urgency } = useRoundTimer(round, outstandingCount);
 
     // Top 8 — no timer data
@@ -44,12 +45,14 @@ export const RoundTimer = ({ round, outstandingCount }: RoundTimerProps) => {
                 <div className="round-timer__summary">
                     <div className="round-timer__summary-item">
                         <span className="round-timer__meta-label">Started</span>
-                        <span className="round-timer__summary-value">{formatClock(round.startedAt)}</span>
+                        <span className="round-timer__summary-value">{formatInTournamentTz(round.startedAt, timeZone)}</span>
                     </div>
                     <div className="round-timer__summary-sep" />
                     <div className="round-timer__summary-item">
                         <span className="round-timer__meta-label">Timer ended</span>
-                        <span className="round-timer__summary-value">{formatClock(round.timerEndDatetime)}</span>
+                        <span className="round-timer__summary-value">
+                            {formatInTournamentTz(round.timerEndDatetime, timeZone)}
+                        </span>
                     </div>
                     <div className="round-timer__summary-sep" />
                     <div className="round-timer__summary-item">
@@ -69,7 +72,7 @@ export const RoundTimer = ({ round, outstandingCount }: RoundTimerProps) => {
             <div className={`round-timer round-timer--${urgency}`}>
                 <span className="round-timer__value">COLLECTING</span>
                 <span className="round-timer__label">Results pending</span>
-                <TimeMeta round={round} />
+                <TimeMeta round={round} timeZone={timeZone} />
             </div>
         );
     }
@@ -79,7 +82,7 @@ export const RoundTimer = ({ round, outstandingCount }: RoundTimerProps) => {
         <div className={`round-timer round-timer--${urgency}${isOvertime ? ' round-timer--overtime' : ''}`}>
             <span className={`round-timer__value${isOvertime ? ' timer-overtime' : ''}`}>{formatTime(remaining)}</span>
             <span className="round-timer__label">{isOvertime ? 'Overtime' : 'Remaining'}</span>
-            <TimeMeta round={round} />
+            <TimeMeta round={round} timeZone={timeZone} />
         </div>
     );
 };

@@ -1,5 +1,16 @@
 import type { Prisma } from '../generated/prisma/client';
-import type { Round, Drop, Extension, Penalty, Coverage, JudgeCall, Game, Tournament } from '../api/types';
+import type {
+    Round,
+    Drop,
+    Extension,
+    Penalty,
+    Coverage,
+    JudgeCall,
+    Game,
+    Tournament,
+    AppEventNested,
+} from '../api/types';
+import type { AppEventSummary } from '../api/eventTypes';
 
 // ─── Prisma model shapes (input side) ─────────────────────────────────────────
 // These are the minimal fields each serializer needs from the Prisma model.
@@ -16,6 +27,7 @@ interface PrismaRound {
     timerEndDatetime: Date | null;
     missingTablesJson: Prisma.JsonValue;
     snapshotCapturedAt: Date | null;
+    operatorNotes: string | null;
 }
 
 interface PrismaDrop {
@@ -86,7 +98,15 @@ interface PrismaGame {
 
 interface PrismaSourceMapping {
     source: string;
+    externalId: string;
     isEnabled: boolean;
+}
+
+interface PrismaEventNested {
+    id: number;
+    name: string;
+    shortName: string;
+    timezone: string;
 }
 
 interface PrismaTournamentWithGame {
@@ -94,11 +114,25 @@ interface PrismaTournamentWithGame {
     name: string;
     shortName: string;
     gameId: number;
+    eventId: number | null;
+    timezone: string;
+    venue: string | null;
     isActive: boolean;
     isEnded: boolean;
     isTestTournament: boolean;
     game: PrismaGame;
+    event?: PrismaEventNested | null;
     sourceMappings: PrismaSourceMapping[];
+}
+
+interface PrismaEventWithCount {
+    id: number;
+    name: string;
+    shortName: string;
+    timezone: string;
+    venue: string | null;
+    isActive: boolean;
+    _count: { tournaments: number };
 }
 
 // ─── Serializers ───────────────────────────────────────────────────────────────
@@ -112,6 +146,58 @@ export function serializeGame(g: PrismaGame): Game {
     };
 }
 
+function serializeEventNested(e: PrismaEventNested): AppEventNested {
+    return {
+        id: e.id,
+        name: e.name,
+        shortName: e.shortName,
+        timezone: e.timezone,
+    };
+}
+
+export function serializeAppEvent(e: PrismaEventWithCount): AppEventSummary {
+    return {
+        id: e.id,
+        name: e.name,
+        shortName: e.shortName,
+        timezone: e.timezone,
+        venue: e.venue,
+        isActive: e.isActive,
+        tournamentCount: e._count.tournaments,
+    };
+}
+
+export interface AdminSourceMapping {
+    source: string;
+    externalId: string;
+    isEnabled: boolean;
+}
+
+export type AdminTournament = Tournament & {
+    createdAt?: string;
+    deletedAt?: string | null;
+    sourceMappings: AdminSourceMapping[];
+};
+
+export function serializeAdminTournament(
+    t: PrismaTournamentWithGame & { deletedAt?: Date | null; createdAt?: Date },
+): AdminTournament {
+    const base = serializeTournament(t);
+    const admin: AdminTournament = {
+        ...base,
+        deletedAt: t.deletedAt?.toISOString() ?? null,
+        sourceMappings: t.sourceMappings.map((m) => ({
+            source: m.source,
+            externalId: m.externalId,
+            isEnabled: m.isEnabled,
+        })),
+    };
+    if (t.createdAt !== undefined) {
+        admin.createdAt = t.createdAt.toISOString();
+    }
+    return admin;
+}
+
 export function serializeTournament(t: PrismaTournamentWithGame): Tournament {
     return {
         id: t.id,
@@ -119,6 +205,10 @@ export function serializeTournament(t: PrismaTournamentWithGame): Tournament {
         shortName: t.shortName,
         gameId: t.gameId,
         game: serializeGame(t.game),
+        eventId: t.eventId,
+        event: t.event ? serializeEventNested(t.event) : null,
+        timezone: t.timezone,
+        venue: t.venue,
         isActive: t.isActive,
         isEnded: t.isEnded,
         isTestTournament: t.isTestTournament,
@@ -141,6 +231,7 @@ export function serializeRound(r: PrismaRound): Round {
         timerEndDatetime: r.timerEndDatetime?.toISOString() ?? null,
         missingTablesJson: r.missingTablesJson as number[] | null,
         snapshotCapturedAt: r.snapshotCapturedAt?.toISOString() ?? null,
+        operatorNotes: r.operatorNotes,
     };
 }
 

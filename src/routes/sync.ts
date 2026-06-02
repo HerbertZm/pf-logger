@@ -1,9 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { requireAdmin } from '../middleware/auth';
+import { syncRateLimit } from '../middleware/rateLimit';
+import { backfillTournamentFromRaw } from '../ingestion/backfillFromRaw';
 import { syncCardeRounds, syncPfData } from '../ingestion/worker';
 import { prisma } from '../db/prisma';
+import { auditFromRequest } from '../services/auditLog';
+import { rejectTestTournamentInProduction } from '../utils/tournamentAccess';
 
 const router = Router();
+router.use(requireAdmin);
+router.use(syncRateLimit);
 
 // POST /api/sync  — manual trigger; worker normally handles this automatically
 // Body: { tournamentId: number, sources?: ('carde' | 'purplefox')[] }
@@ -17,6 +24,9 @@ router.post(
         };
         if (!tournamentId) {
             res.status(400).json({ error: 'tournamentId required' });
+            return;
+        }
+        if (await rejectTestTournamentInProduction(tournamentId, res)) {
             return;
         }
 
@@ -59,6 +69,12 @@ router.post(
                 : Promise.resolve(),
         ]);
 
+        void auditFromRequest(
+            req,
+            'manual_sync',
+            `tournamentId=${tournamentId} sources=${toSync.join(',')}${errors.length > 0 ? ` errors=${errors.join(';')}` : ''}`,
+        );
+
         res.json({
             ok: errors.length === 0,
             synced: toSync,
@@ -67,18 +83,29 @@ router.post(
     }),
 );
 
-// POST /api/backfill  — re-process raw records into normalized tables
+// POST /api/backfill  — re-process raw records into normalized tables (no API calls)
 router.post(
     '/backfill',
-    asyncHandler((req: Request, res: Response): Promise<void> => {
+    asyncHandler(async (req: Request, res: Response) => {
         const { tournamentId } = req.body as { tournamentId?: number };
         if (tournamentId === undefined || tournamentId === null) {
             res.status(400).json({ error: 'tournamentId required' });
-            return Promise.resolve();
+            return;
         }
-        // TODO: P0.5 — re-derive normalized tables from raw layer
-        res.status(501).json({ error: 'Not implemented' });
-        return Promise.resolve();
+
+        const tournament = await prisma.appTournament.findUnique({ where: { id: tournamentId } });
+        if (!tournament) {
+            res.status(404).json({ error: 'Tournament not found' });
+            return;
+        }
+        if (await rejectTestTournamentInProduction(tournamentId, res)) {
+            return;
+        }
+
+        const result = await backfillTournamentFromRaw(tournamentId);
+        void auditFromRequest(req, 'tournament_backfill', `tournamentId=${tournamentId} ${JSON.stringify(result)}`);
+
+        res.json({ ok: true, tournamentId, ...result });
     }),
 );
 

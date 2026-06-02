@@ -29,12 +29,10 @@ They're already fixed in P0 code; don't regress them.
 
 | Item | Description | Est. |
 |---|---|---|
-| QoL 6 — Operator Notes Per Round | `PATCH /api/rounds/:id/notes` + `rounds.operator_notes` column; editable inline by admin+ | 2 hrs |
-| QoL 9 — Copy-to-Clipboard Round Summary | Paste-ready round summary for Discord/Slack; include operator notes if set | 1 hr |
+| QoL 6 — Operator Notes Per Round | `PATCH /api/rounds/:id/notes` + `rounds.operator_notes` column; editable inline by admin+ | ✅ done |
+| QoL 9 — Copy-to-Clipboard Round Summary | Paste-ready round summary for Discord/Slack; include operator notes if set | ✅ done |
 
 Ship QoL 6 first — QoL 9 outputs the notes field.
-
-**Total: ~3 hrs.**
 
 ---
 
@@ -60,8 +58,48 @@ Work landed on feature branches before the remaining P1 Manage/CI items. Safe to
 | **Logs / indicators** | Connected round-group header bar; per-round sticky headers; overtime row styling (default round length + 15m); schedule duration always `Nm` |
 | **Dev ergonomics** | `wait-on` before Vite; `scripts/start-client.cjs`; Vite proxy reads `PORT` from repo root `.env` |
 | **Schema / tooling** | `prisma.config.ts` `datasource.url`; migration folder renames for Windows lexicographic order (`20260521050800_*`, `20260521050900_*`) |
+| **QoL 6 + 9** | `rounds.operator_notes`, `PATCH /api/rounds/:id/notes`, Insights inline notes + Copy round summary |
+| **Manage tab** | Superadmin-only: tournaments (create, end, reactivate, source toggles), users (incl. last login), sessions, events, config, tools, checklist, activity |
+| **Admin API** | `PATCH /api/admin/tournaments/:id`; deactivate user revokes sessions; `POST` rejects `isTestTournament`; prod hides test tournaments |
+| **Health + CI** | Public `GET /api/health` (liveness); full ops `GET /api/admin/health`; `.github/workflows/deploy.yml` |
+| **Events + timezone (§1.2)** | `app_events` + tournament `timezone`/`venue`/`event_id`; admin events CRUD; TZ inherit on create/link; `formatInTournamentTz` wired in logs, schedule, timer, reports |
+| **Manage ops** | Pre-event checklist panel; `POST /api/admin/reset-test-tournament` (non-prod); Events panel |
+| **Config + audit** | `app_config` singleton; `GET/PATCH /api/admin/config`; audit log on admin actions; Activity panel |
+| **QoL 1 (partial)** | Logistics extension filter in Insights (threshold from config) |
+| **Ops** | `LOG_LEVEL` logger module; `/api/sync` + `/api/backfill` admin-only; username/password/source ID validation |
+| **Backfill** | `src/ingestion/backfillFromRaw.ts` + `POST /api/backfill` re-derives normalized rows from raw layer |
+| **Manage tools** | Ingestion tools panel — manual sync + backfill per tournament |
+| **QoL 5 + 11** | Logs tab badge (`useLogsBadge`); shortcuts `1–N` main tabs, `F`, `Ctrl+Enter`, `Esc`; **Guide** tab |
+| **QoL 3–4, 7–8, 12–13** | Round pace badges; extension histogram (2+ ops); collapsible logs; filter presets; per-tournament filter persistence; diff banner |
+| **Users** | Admin password reset via `PATCH /api/admin/users/:id` + Manage UI |
+| **QoL 2** | Insights round compare (A vs B + deltas; **duration/overtime `n/a`** until Phase 2) |
+| **QoL 12** | Log poll interval selector; highlight-new entries off-tab |
+| **Test fixtures** | Seed scenarios (`late` / `overtime` / `top8`); hide TEST in selector |
+| **Session** | In-memory JWT warning after server restart |
 
-**Deploy note:** run `npx prisma migrate deploy` on the VPS after pull — includes `add_games` migration.
+**Deploy note:** run `npx prisma migrate deploy` on the VPS after pull — includes `add_games`, `add_operator_notes`, `add_test_tournament_flag`, `events_and_timezone`, and `app_config` migrations. If migrate times out locally, use `npm run db:apply-pending` (see `docs/DEPLOY.md`).
+
+**Phase 1 status: WRAPPED (2026-06-02).** All §1.1–1.6 scope shipped except `GET /api/admin/backup` (Phase 3). QoL 1–13 shipped; QoL 2/10 duration columns stay `n/a` until Phase 2.
+
+### Wrap-up checklist (operator)
+
+| Step | Command / action |
+|------|------------------|
+| Migrations | `npx prisma migrate deploy` on VPS (or `npm run db:apply-pending` if P1002 locally) |
+| Verify build | `npm run typecheck && npm run lint && npm run build` |
+| Smoke | `curl /api/health` → `{ ok, uptime, db }`; Manage → Pre-event checklist (`/api/admin/health`) |
+| Secrets | `PF_PASSWORD_PEPPER` required in production; Carde + Supabase in `.env` |
+| PF JWT | Paste in Session after deploy/restart (`inMemory: false` until set) |
+
+### Deferred to Phase 2+ (not P1 blockers)
+
+| Item | Target |
+|------|--------|
+| Inline tournament game/event link in Manage | Phase 2 Manage redesign |
+| Event TZ cascade on link (default-TZ-only) | Phase 2 events UX |
+| Authenticated CI smoke (`/api/admin/health`) | Phase 2 CI |
+| Compare duration / overtime columns | Phase 2 (`result_at`, StageTimer) |
+| `GET /api/admin/backup` | Phase 3 |
 
 ---
 
@@ -71,25 +109,36 @@ Superadmin-gated endpoints for full tournament and user management:
 
 | Method | Path | Purpose | Status |
 |---|---|---|---|
-| GET | `/api/health` | Uptime, DB liveness — no auth | ✅ done (P0) |
-| GET | `/api/admin/events` | List events (timezone, linked tournament count) | ⬜ todo (§1.2) |
-| POST | `/api/admin/events` | Create event with timezone | ⬜ todo (§1.2) |
-| PATCH | `/api/admin/events/:id` | Edit event; optional timezone cascade | ⬜ todo (§1.2) |
+| GET | `/api/health` | Public liveness `{ ok, uptime, db }` — no auth | ✅ done |
+| GET | `/api/admin/health` | Full ops status (workers, PF JWT) — superadmin | ✅ done |
+| POST | `/api/admin/staff-sync` | Upsert PF staff profiles | ✅ done |
+| POST | `/api/sync` | Manual ingestion (admin+) | ✅ done |
+| POST | `/api/backfill` | Rebuild normalized from raw (admin+) | ✅ done |
+| POST | `/api/admin/reset-test-tournament` | Dev test fixture reset (non-prod) | ✅ done |
+| GET | `/api/admin/events` | List events (timezone, linked tournament count) | ✅ done (§1.2) |
+| POST | `/api/admin/events` | Create event with timezone | ✅ done (§1.2) |
+| PATCH | `/api/admin/events/:id` | Edit event; optional timezone cascade | ✅ done (§1.2) |
+| DELETE | `/api/admin/events/:id` | Deactivate (blocked if active tournaments) | ✅ done (§1.2) |
 | GET | `/api/admin/tournaments` | List all incl. soft-deleted | ✅ done (P0) |
-| POST | `/api/admin/tournaments` | Create tournament + source mappings; inherit tz from event | ⬜ todo |
-| PATCH | `/api/admin/tournaments/:id` | Edit name, game, event, timezone, external IDs | ⬜ todo |
+| POST | `/api/admin/tournaments` | Create tournament + source mappings; inherit tz from event | ✅ done |
+| PATCH | `/api/admin/tournaments/:id` | Edit name, game, event, timezone, venue | ✅ done (sources via `/sources`) |
 | DELETE | `/api/admin/tournaments/:id` | Soft-delete | ✅ done (P0) |
-| PATCH | `/api/admin/tournaments/:id/sources` | Toggle source enabled/disabled, update external IDs | ⬜ todo |
+| PATCH | `/api/admin/tournaments/:id/sources` | Toggle source enabled/disabled, update external IDs | ✅ done |
 | GET | `/api/admin/users` | List (no password_hash) | ✅ done (P0) |
 | POST | `/api/admin/users` | Create user | ✅ done (P0) |
-| PATCH | `/api/admin/users/:id` | Edit role / isActive | ✅ done (P0) |
+| PATCH | `/api/admin/users/:id` | Edit role / isActive / password reset | ✅ done |
 | GET | `/api/admin/sessions` | Active sessions (IP, expiry — no token) | ✅ done (P0) |
 | DELETE | `/api/admin/sessions/:id` | Revoke session | ✅ done (P0) |
 | GET | `/api/games` | List games (id, name, default round length) | ✅ done (2026-06-01) |
 | GET | `/api/reports/round-timing` | Round timing report rows (admin+) | ✅ done — see `plans/reports.md` |
 | GET | `/api/reports/round-timing/export` | CSV export (admin+) | ✅ done |
+| PATCH | `/api/admin/tournaments/:id` | Edit name, shortName, gameId, isActive, isEnded | ✅ done |
+| PATCH | `/api/rounds/:id/notes` | Operator notes (admin+) | ✅ done |
 | GET | `/api/admin/backup` | Stream PostgreSQL dump | ⬜ Phase 3 |
-| GET/PATCH | `/api/admin/config` | App-level config (refresh interval, etc.) | ⬜ todo |
+| GET/PATCH | `/api/admin/config` | Poll intervals + logistics threshold | ✅ done |
+| GET | `/api/config` | Client config (logistics threshold) | ✅ done |
+| GET | `/api/admin/activity` | Audit log (last 100) | ✅ done |
+| POST | `/api/end-tournament` | Admin+ freeze tournament | ✅ done |
 
 **Guards:**
 - Superadmin cannot deactivate their own account
@@ -105,7 +154,7 @@ Superadmin-gated endpoints for full tournament and user management:
 - Timezone: valid IANA identifier (e.g. `America/New_York`) — required on create; validated server-side
 - Venue: optional display string, max 256 chars — not used for time math
 
-**Audit logging** to `app_activity`: `tournament_created`, `tournament_updated`, `tournament_deactivated`, `source_toggled`, `user_created`, `user_updated`, `user_deactivated`, `session_revoked`, `login_failed`, `backup_downloaded`.
+**Audit logging** to `app_activity` (see `AuditEventType` in `src/services/auditLog.ts`): `login`, `login_failed`, `logout`, `pf_jwt_set`, `pf_jwt_cleared`, `tournament_*`, `event_*`, `source_toggled`, `user_*`, `session_revoked`, `config_updated`, `manual_sync`, `tournament_backfill`, `staff_sync`, `test_tournament_reset`. Phase 3: `backup_downloaded`.
 
 ---
 
@@ -211,8 +260,8 @@ Module at `src/ingestion/worker.ts`, same deployment as HTTP server. Runs indepe
 - Polls Carde on a configurable interval per active tournament using `status=in_progress` — never fetches full match lists
 - At `timer_end_datetime`, immediately fetches in-progress matches and stores result as `rounds.missing_tables_json` with `snapshot_captured_at` timestamp
 - For PF: polls on the same interval (Supabase real-time not used — too complex relative to the polling interval we need). PF fetches are skipped if `jwtStore` has no valid token.
-- PF JWT lifecycle: ~48h validity, no refresh token. When JWT expires mid-event, worker logs the failure, sets `last_error` in `worker_state`, and continues Carde-only until a new JWT is pasted. The `/api/health` endpoint surfaces JWT expiry status so staff can see it without checking logs.
-- Writes to raw tables only; triggers normalized layer update after each raw write
+- PF JWT lifecycle: ~48h validity, no refresh token. When JWT expires mid-event, worker logs the failure, sets `last_error` in `worker_state`, and continues Carde-only until a new JWT is pasted. **`GET /api/admin/health`** (Manage checklist) surfaces JWT expiry; public **`GET /api/health`** is liveness only.
+- Appends to **raw** tables, then **upserts normalized** rows in the same sync pass (not raw-only).
 - Stores per-tournament state in `worker_state` table — survives restarts
 - `is_ghost_match` flag from Carde is informational only — ghost marking may happen outside Carde
 
@@ -232,7 +281,7 @@ New tab in the UI with three panels, lazy-loaded:
 - Ended tournaments sorted to bottom of the tournament selector
 
 **Users panel**
-- Table with color-coded role badge, last login, active status
+- Table with color-coded role badge, **last login** (from latest session), active status — ✅
 - Inline role edit, Reset Password, Deactivate/Reactivate
 - Create user form
 - Own row: role and deactivate buttons disabled
@@ -249,9 +298,9 @@ New tab in the UI with three panels, lazy-loaded:
 
 ## 1.5 — Operational Tooling
 
-- Structured logging via a logger module (replaces scattered `console.log`) — log level from env var
-- `/api/health` expanded: last successful sync time per tournament, worker running status, PF JWT expiry, DB connection status
-- Pre-event checklist visible in Manage tab: health endpoint all-green + PF JWT valid + at least one tournament configured + test sync succeeds
+- Structured logging via `src/lib/logger.ts` — `LOG_LEVEL` env var (`debug`|`info`|`warn`|`error`); worker + server use it — ✅ done (seed scripts still use console)
+- **`GET /api/admin/health`**: per-tournament worker sync timestamps, running flag, PF JWT metadata — ✅ done
+- Pre-event checklist (Manage): DB, active tournaments, PF JWT, workers, optional manual-sync reminder — ✅ done
 - `DEPLOY.md` updated with full env var list, PostgreSQL setup, and systemd service configuration
 
 ---
@@ -379,15 +428,23 @@ See `docs/DEPLOY.md` — the "CI/CD access" section covers generating the key pa
 - Test data is **local only** — never deployed to the VPS. The VPS never has `isTestTournament=true` rows.
 - `npm run db:seed-test` is safe to re-run at any time — it deletes and recreates all test data atomically.
 - The "Live" round timer will drift after the seed runs (round 5 started 20 min ago, ends in 40 min). Re-run the seed if you need a fresh countdown.
-- Test tournaments appear in the tournament selector alongside real ones — prefix `[TEST]` in the name makes them identifiable. Future: hide them behind a dev-only toggle in the Manage tab.
+- Test tournaments appear in the tournament selector by default — prefix `[TEST]` in the name. Manage → App config → **Hide [TEST] tournaments** removes them from the selector (localStorage).
 
 ### Phase 1 additions
 
-- [ ] `POST /api/admin/tournaments` should default `isTestTournament` to false and validate it's not settable via the API (test tournaments are seed-only, not creatable from the UI)
-- [ ] Manage tab: show a `TEST` badge on test tournaments; add a "Reset test data" button that calls `POST /api/admin/reset-test-tournament` (re-runs the seed logic server-side)
-- [ ] `GET /api/tournaments` in production (`NODE_ENV=production`) should filter out `isTestTournament=true` rows — they must never appear to real event staff
+- [x] `POST /api/admin/tournaments` rejects `isTestTournament` in body (seed-only)
+- [x] Manage tab: `TEST` badge on test tournaments
+- [x] Manage tab: "Reset test data" button → `POST /api/admin/reset-test-tournament` (non-prod only)
+- [x] `GET /api/tournaments` in production filters out `isTestTournament=true`
+
+### Phase 1.x additions (2026-06-01)
+
+- [x] Seed scenarios: `npm run db:seed-test:late|overtime|top8` or Manage reset with scenario dropdown
+- [x] Hide [TEST] tournaments in selector (Manage → App config → Display)
+- [x] Tournament list sort: active first, ended last
+- [x] Source toggle refreshes client tournament context (`tournaments:refresh`)
+- [x] Admin tournament list includes `sourceMappings` for external ID edit
 
 ### Phase 2 additions
 
-- [ ] Seed script gains a `--scenario` flag: `--scenario late` (timer at 2 min), `--scenario overtime` (timer expired, outstanding tables), `--scenario top8` (Top 8 brackets with null timer_duration)
 - [ ] CI pipeline runs the seed and smoke-tests the API responses before each deploy

@@ -4,6 +4,8 @@ import type { ActiveRoundResponse, Round } from '../../api/types';
 import { useDashboardRoundRequired } from '../../context/DashboardRoundContext';
 import { useTournament } from '../../context/TournamentContext';
 import { useRoundTimer } from '../../hooks/useRoundTimer';
+import { useRoundPace } from '../../hooks/useRoundPace';
+import { formatInTournamentTz } from '../../utils/time';
 import { Banner } from '../shared/Banner';
 import { RoundStrip } from './RoundStrip';
 import { RoundTimer } from './RoundTimer';
@@ -14,7 +16,8 @@ import './ActiveRound.css';
 const POLL_MS = 15_000;
 
 export const ActiveRound = () => {
-    const { activeTournamentId } = useTournament();
+    const { activeTournamentId, activeTournament } = useTournament();
+    const tz = activeTournament?.timezone ?? 'America/New_York';
     const { selectedRoundNumber, setSelectedRoundNumber } = useDashboardRoundRequired();
     const [rounds, setRounds] = useState<Round[]>([]);
     const [data, setData] = useState<ActiveRoundResponse | null>(null);
@@ -58,6 +61,9 @@ export const ActiveRound = () => {
     }, [activeTournamentId, selectedRoundNumber]);
 
     const { urgency } = useRoundTimer(data?.round ?? null, data?.outstandingTables.length ?? 0);
+    const pace = useRoundPace(data?.round ?? null);
+    const showPaceAlert =
+        selectedRoundNumber === null && pace !== null && pace.level === 'significantly_over';
 
     if (loading) return <div className="active-round__skeleton skeleton" />;
     if (error) return <Banner variant="error" message={error} />;
@@ -67,6 +73,12 @@ export const ActiveRound = () => {
 
     return (
         <div className="active-round">
+            {showPaceAlert && (
+                <Banner
+                    variant="error"
+                    message={`Round ${data.round.roundNumber} is ${pace.overMinutes} minutes past time called — check outstanding tables.`}
+                />
+            )}
             {/* Round selector — shown when historical data is available */}
             {rounds.length > 0 && (
                 <div className="active-round__selector">
@@ -93,7 +105,11 @@ export const ActiveRound = () => {
                 urgency={urgency}
                 isPendingResults={data.round.cardeStatus === 'pending_results'}
             />
-            <RoundTimer round={data.round} outstandingCount={data.outstandingTables.length} />
+            <RoundTimer
+                round={data.round}
+                outstandingCount={data.outstandingTables.length}
+                timeZone={tz}
+            />
             <StatChips data={data} />
             <OutstandingTables tables={data.outstandingTables} withExtensions={data.tablesWithExtensions} />
 
@@ -118,12 +134,7 @@ export const ActiveRound = () => {
                                     <td>{e.fromMinutes !== null ? `${e.fromMinutes}m` : '—'}</td>
                                     <td>{e.toMinutes !== null ? `${e.toMinutes}m` : '—'}</td>
                                     <td className="ext-table__delta">+{e.extensionMinutes ?? '?'}m</td>
-                                    <td className="ext-table__time">
-                                        {new Date(e.createdAt).toLocaleTimeString([], {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                        })}
-                                    </td>
+                                    <td className="ext-table__time">{formatInTournamentTz(e.createdAt, tz)}</td>
                                 </tr>
                             ))}
                         </tbody>

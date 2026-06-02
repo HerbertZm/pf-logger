@@ -48,6 +48,7 @@ export const RoundSchedulePane = () => {
         return () => clearInterval(id);
     }, [activeTournamentId]);
 
+    const tz = activeTournament?.timezone ?? 'America/New_York';
     const defaultLength = activeTournament?.game.defaultRoundLengthMinutes ?? defaultRoundLengthMinutes(rounds);
     const overtimeThreshold = defaultLength + BREAK_BETWEEN_ROUNDS_MIN;
 
@@ -118,13 +119,13 @@ export const RoundSchedulePane = () => {
                                             className={`round-schedule__time${row.start?.estimated ? ' round-schedule__time--est' : ''}`}
                                             title={row.start?.estimated ? 'Estimated start' : undefined}
                                         >
-                                            {formatScheduleTime(row.start ?? null)}
+                                            {formatScheduleTime(row.start ?? null, tz)}
                                         </td>
                                         <td
                                             className={`round-schedule__time${row.end?.estimated ? ' round-schedule__time--est' : ''}`}
                                             title={row.end?.estimated ? 'Estimated end' : undefined}
                                         >
-                                            {formatScheduleTime(row.end ?? null)}
+                                            {formatScheduleTime(row.end ?? null, tz)}
                                         </td>
                                         <td
                                             className={`round-schedule__duration${row.durationEstimated ? ' round-schedule__time--est' : ''}`}

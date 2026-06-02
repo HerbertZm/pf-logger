@@ -13,10 +13,14 @@
         "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"client/src/**/*.{ts,tsx,css}\" \"*.json\" \".eslintrc.json\"",
         "db:generate": "prisma generate",
         "db:migrate": "prisma migrate dev",
+        "db:apply-pending": "node scripts/apply-pending-migrations.cjs",
         "db:push": "prisma db push",
         "db:seed": "prisma db seed",
         "db:studio": "prisma studio",
         "db:seed-test": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" src/db/seed-test-tournament.ts",
+        "db:seed-test:late": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" src/db/seed-test-tournament.ts late",
+        "db:seed-test:overtime": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" src/db/seed-test-tournament.ts overtime",
+        "db:seed-test:top8": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" src/db/seed-test-tournament.ts top8",
         "postinstall": "prisma generate"
     },
     "dependencies": {

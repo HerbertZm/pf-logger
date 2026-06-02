@@ -23,6 +23,12 @@
     font-weight: 700;
 }
 
+.cross-round__logistics-note {
+    font-size: var(--text-xs-size);
+    color: var(--color-text-tertiary);
+    font-weight: 400;
+}
+
 .cross-round__table-wrap {
     overflow-x: auto;
 }

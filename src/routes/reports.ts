@@ -6,6 +6,7 @@ import {
     csvFilename,
     roundTimingReportToCsv,
 } from '../services/roundTimingReport';
+import { rejectTestTournamentInProduction } from '../utils/tournamentAccess';
 
 const router = Router();
 
@@ -26,6 +27,9 @@ router.get(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
+        if (await rejectTestTournamentInProduction(tid, res)) {
+            return;
+        }
 
         const report = await buildRoundTimingReport(tid);
         if (report === null) {
@@ -44,6 +48,9 @@ router.get(
         const tid = parseTournamentId(req.query);
         if (tid === null) {
             res.status(400).json({ error: 'tournamentId required' });
+            return;
+        }
+        if (await rejectTestTournamentInProduction(tid, res)) {
             return;
         }
 

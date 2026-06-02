@@ -129,7 +129,7 @@ _Consolidated session entries appear below. Most recent first._
 **Decisions made:**
 - PF JWT stored in memory (`jwtStore.ts`) only; `pf_session` table stores only metadata (expires_at, set_by, set_at) — token never written to DB
 - `GET /api/session/pf-jwt` returns `inMemory: boolean` to distinguish expired vs. needs-repaste-after-restart
-- Worker degrades to Carde-only on JWT expiry and surfaces error via `worker_state.last_error` and `/api/health`
+- Worker degrades to Carde-only on JWT expiry and surfaces error via `worker_state.last_error` and `GET /api/admin/health` (public `/api/health` is liveness only)
 - `SUPABASE_URL` + `SUPABASE_ANON_KEY` go in `.env`; PF JWT never does
 - Full TypeScript API contract documented in `plans/phase-0.md` § P0.5
 

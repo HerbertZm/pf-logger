@@ -4,15 +4,28 @@ import { api } from '../../api/client';
 import type { RoundSummary } from '../../api/types';
 import { useTournament } from '../../context/TournamentContext';
 import { Banner } from '../shared/Banner';
+import { RoundComparePanel } from './RoundComparePanel';
 import { RoundRow } from './RoundRow';
+import { operationalExtensionCount } from '../../utils/extensions';
 
 const POLL_MS = 30_000;
+
+interface PublicConfig {
+    extensionLogisticsThresholdMin: number;
+}
 
 export const CrossRoundSummary = () => {
     const { activeTournamentId, sources } = useTournament();
     const [data, setData] = useState<RoundSummary[]>([]);
+    const [logisticsThreshold, setLogisticsThreshold] = useState(50);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        api.get<PublicConfig>('/api/config')
+            .then((c) => setLogisticsThreshold(c.extensionLogisticsThresholdMin))
+            .catch(() => undefined);
+    }, []);
 
     useEffect(() => {
         if (!activeTournamentId) return;
@@ -41,15 +54,23 @@ export const CrossRoundSummary = () => {
         return <p className="cross-round__empty">No rounds yet — waiting for first sync.</p>;
     }
 
-    // Totals
+    let logisticsExcludedTotal = 0;
     const totals = data.reduce(
-        (acc, s) => ({
-            drops: acc.drops + s.dropCount,
-            extensions: acc.extensions + s.extensionCount,
-            penalties: acc.penalties + s.penaltyCount,
-        }),
+        (acc, s) => {
+            const opsExt = operationalExtensionCount(s.extensions, logisticsThreshold);
+            logisticsExcludedTotal += s.extensions.length - opsExt;
+            return {
+                drops: acc.drops + s.dropCount,
+                extensions: acc.extensions + opsExt,
+                penalties: acc.penalties + s.penaltyCount,
+            };
+        },
         { drops: 0, extensions: 0, penalties: 0 },
     );
+
+    const handleRoundUpdated = (roundId: number, round: RoundSummary['round']): void => {
+        setData((prev) => prev.map((s) => (s.round.id === roundId ? { ...s, round } : s)));
+    };
 
     return (
         <div className="cross-round">
@@ -61,11 +82,19 @@ export const CrossRoundSummary = () => {
                 )}
                 <span className="cross-round__total">
                     <strong>{totals.extensions}</strong> extensions
+                    {logisticsExcludedTotal > 0 && (
+                        <span className="cross-round__logistics-note">
+                            {' '}
+                            ({logisticsExcludedTotal} logistics ≥{logisticsThreshold}m excluded)
+                        </span>
+                    )}
                 </span>
                 <span className="cross-round__total">
                     <strong>{totals.penalties}</strong> penalties
                 </span>
             </div>
+
+            <RoundComparePanel summaries={data} logisticsThresholdMin={logisticsThreshold} showPf={sources.pf} />
 
             <div className="cross-round__table-wrap">
                 <table className="cross-round__table">
@@ -79,12 +108,19 @@ export const CrossRoundSummary = () => {
                             <th title="Minutes past timer expiry before last result — requires ingestion worker">
                                 Overtime (min)
                             </th>
-                            <th />
+                            <th aria-label="Actions" />
                         </tr>
                     </thead>
                     <tbody>
                         {data.map((s) => (
-                            <RoundRow key={s.round.id} summary={s} />
+                            <RoundRow
+                                key={s.round.id}
+                                summary={s}
+                                logisticsThresholdMin={logisticsThreshold}
+                                onRoundUpdated={(round) => {
+                                    handleRoundUpdated(s.round.id, round);
+                                }}
+                            />
                         ))}
                     </tbody>
                 </table>

@@ -25,6 +25,25 @@
     font-weight: 700;
     width: 40px;
 }
+.round-row__pace {
+    display: block;
+    margin-top: var(--space-1);
+    font-size: var(--text-xs-size);
+    font-weight: 600;
+}
+
+.round-row__pace--on_track {
+    color: var(--color-success);
+}
+
+.round-row__pace--over {
+    color: var(--color-warning);
+}
+
+.round-row__pace--significantly_over {
+    color: var(--color-urgent);
+}
+
 .round-row__status {
     color: var(--color-text-secondary);
     font-size: var(--text-xs-size);
@@ -33,11 +52,22 @@
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
-.round-row__expand {
+.round-row__actions {
     text-align: right;
-    width: 24px;
+    width: 1%;
+    white-space: nowrap;
+}
+
+.round-row__copy {
+    min-height: 44px;
+}
+
+.round-row__expand {
+    display: inline-block;
+    margin-left: var(--space-2);
     opacity: 0.4;
     font-size: 9px;
+    vertical-align: middle;
 }
 
 .round-row__detail td {

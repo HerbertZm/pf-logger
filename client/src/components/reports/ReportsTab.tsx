@@ -8,8 +8,6 @@ import { Button } from '../shared/Button';
 import { RoundTimingColumnGuide } from './RoundTimingColumnGuide';
 import { RoundTimingReportTable } from './RoundTimingReportTable';
 
-const DEFAULT_TIMEZONE = 'America/New_York';
-
 export const ReportsTab = () => {
     const { activeTournamentId, activeTournament } = useTournament();
     const [rows, setRows] = useState<RoundTimingReportRow[]>([]);
@@ -18,7 +16,7 @@ export const ReportsTab = () => {
     const [error, setError] = useState<string | null>(null);
     const [exportError, setExportError] = useState<string | null>(null);
 
-    const timeZone = DEFAULT_TIMEZONE;
+    const timeZone = activeTournament?.timezone ?? 'America/New_York';
 
     useEffect(() => {
         if (activeTournamentId === null) {

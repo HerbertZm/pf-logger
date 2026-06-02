@@ -1,7 +1,7 @@
 import './ContextBar.css';
 import { useTournament } from '../../context/TournamentContext';
 import { useWorkerStatus } from '../../hooks/useWorkerStatus';
-import { formatRelative } from '../../utils/time';
+import { formatRelative, formatTzAbbrev } from '../../utils/time';
 import { useAuth } from '../../context/AuthContext';
 
 interface ContextBarProps {
@@ -47,13 +47,19 @@ export const ContextBar = ({ onSessionClick, sessionActive = false }: ContextBar
                         {tournaments.map((t) => (
                             <option key={t.id} value={t.id}>
                                 {t.name}
-                                {t.isEnded ? ' (ended)' : ''}
+                                {t.isEnded ? ' (ended)' : ''} · {formatTzAbbrev(t.timezone)}
                             </option>
                         ))}
                     </select>
                 ) : (
                     <span className={`context-bar__name${!activeTournament ? ' context-bar__name--empty' : ''}`}>
                         {activeTournament?.name ?? 'No tournament selected'}
+                        {activeTournament && (
+                            <span className="context-bar__tz" title={activeTournament.timezone}>
+                                {' '}
+                                · {formatTzAbbrev(activeTournament.timezone)}
+                            </span>
+                        )}
                     </span>
                 )}
             </div>

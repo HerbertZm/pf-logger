@@ -8,10 +8,11 @@ interface ShellProps {
     logsBadge?: number;
     dashboardUrgent?: boolean;
     showReports?: boolean;
+    showManage?: boolean;
     children: React.ReactNode;
 }
 
-export const Shell = ({ tab, onTabChange, logsBadge, dashboardUrgent, showReports, children }: ShellProps) => {
+export const Shell = ({ tab, onTabChange, logsBadge, dashboardUrgent, showReports, showManage, children }: ShellProps) => {
     const handleSessionToggle = () => {
         onTabChange(tab === 'session' ? 'dashboard' : 'session');
     };
@@ -25,6 +26,7 @@ export const Shell = ({ tab, onTabChange, logsBadge, dashboardUrgent, showReport
                 {...(logsBadge !== undefined && { logsBadge })}
                 {...(dashboardUrgent !== undefined && { dashboardUrgent })}
                 {...(showReports !== undefined && { showReports })}
+                {...(showManage !== undefined && { showManage })}
             />
             <main className="shell__content">{children}</main>
         </div>
