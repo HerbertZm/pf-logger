@@ -39,6 +39,7 @@ export interface Extension {
     toMinutes: number | null;
     extensionMinutes: number | null;
     userId: string | null;
+    staffName: string | null; // resolved from pf_staff at query time; null in active-round/insights
     createdAt: string;
     source: 'purplefox' | 'carde';
 }
@@ -75,10 +76,19 @@ export interface JudgeCall {
     firstSeenAt: string;
 }
 
+export interface Game {
+    id: number;
+    name: string;
+    defaultRoundLengthMinutes: number;
+    notes: Record<string, unknown> | null;
+}
+
 export interface Tournament {
     id: number;
     name: string;
     shortName: string;
+    gameId: number;
+    game: Game;
     isActive: boolean;
     isEnded: boolean;
     sources: { pf: boolean; carde: boolean };

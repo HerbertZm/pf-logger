@@ -1,5 +1,5 @@
 import type { Prisma } from '../generated/prisma/client';
-import type { Round, Drop, Extension, Penalty, Coverage, JudgeCall } from '../api/types';
+import type { Round, Drop, Extension, Penalty, Coverage, JudgeCall, Game, Tournament } from '../api/types';
 
 // ─── Prisma model shapes (input side) ─────────────────────────────────────────
 // These are the minimal fields each serializer needs from the Prisma model.
@@ -77,7 +77,55 @@ interface PrismaJudgeCall {
     firstSeenAt: Date;
 }
 
+interface PrismaGame {
+    id: number;
+    name: string;
+    defaultRoundLengthMin: number;
+    notes: Prisma.JsonValue;
+}
+
+interface PrismaSourceMapping {
+    source: string;
+    isEnabled: boolean;
+}
+
+interface PrismaTournamentWithGame {
+    id: number;
+    name: string;
+    shortName: string;
+    gameId: number;
+    isActive: boolean;
+    isEnded: boolean;
+    game: PrismaGame;
+    sourceMappings: PrismaSourceMapping[];
+}
+
 // ─── Serializers ───────────────────────────────────────────────────────────────
+
+export function serializeGame(g: PrismaGame): Game {
+    return {
+        id: g.id,
+        name: g.name,
+        defaultRoundLengthMinutes: g.defaultRoundLengthMin,
+        notes: g.notes === null || g.notes === undefined ? null : (g.notes as Record<string, unknown>),
+    };
+}
+
+export function serializeTournament(t: PrismaTournamentWithGame): Tournament {
+    return {
+        id: t.id,
+        name: t.name,
+        shortName: t.shortName,
+        gameId: t.gameId,
+        game: serializeGame(t.game),
+        isActive: t.isActive,
+        isEnded: t.isEnded,
+        sources: {
+            pf: t.sourceMappings.some((m) => m.source === 'purplefox' && m.isEnabled),
+            carde: t.sourceMappings.some((m) => m.source === 'carde' && m.isEnabled),
+        },
+    };
+}
 
 export function serializeRound(r: PrismaRound): Round {
     return {
@@ -120,6 +168,7 @@ export function serializeExtension(e: PrismaExtension): Extension {
         toMinutes: e.toMinutes,
         extensionMinutes: e.extensionMinutes,
         userId: e.userId,
+        staffName: null, // resolved at query time in /api/logs via pf_staff lookup
         createdAt: e.createdAt.toISOString(),
         source: e.source as 'purplefox' | 'carde',
     };

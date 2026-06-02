@@ -10,7 +10,9 @@
 
 A Regional Weekend has multiple simultaneous tournaments. This groups them under a named event and lets staff be scoped to specific tournaments.
 
-**New tables:** `app_events` (id, name, short, starts_at, ends_at, is_active), `event_tournaments` (event → tournament with ordering), `event_roles` (per-event role overrides per user).
+**Prerequisite from P1:** `app_events` already exists with `name`, `short_name`, `timezone`, optional `venue`, and `app_tournaments.event_id`. P1 handles timezone inheritance; this phase adds permissions and UX polish — do not reintroduce a second event table.
+
+**New in P2:** `event_roles` (per-event role overrides per user). Tournament ordering within an event can use `event_tournaments.sort_order` if we outgrow the simple `app_tournaments.event_id` FK (optional — only add if needed).
 
 **Behavior:**
 - Non-admin users see only tournaments in their assigned events
@@ -69,7 +71,7 @@ StageTimer is an optional broadcast timer used at some events. Its logs are UTC 
 - Parser: extract start, stop, reset events per round; identify actual clock starts and stops
 - Store parsed data in `stagetimer_logs` table (`tournament_id`, `round`, `event_type`, `event_at TIMESTAMPTZ`)
 - Use in Insights tab to populate actual timer start/stop times where StageTimer data is available
-- Timezone: StageTimer logs are UTC; tournament timezone is configurable per tournament in `app_tournaments` (see Open Decisions)
+- Timezone: StageTimer logs are UTC; convert using `app_tournaments.timezone` from Phase 1 §1.2
 - Coverage is partial on large events — UI notes when StageTimer data covers only a subset of tables
 
 ---

@@ -55,9 +55,12 @@ Superadmin-gated endpoints for full tournament and user management:
 | Method | Path | Purpose | Status |
 |---|---|---|---|
 | GET | `/api/health` | Uptime, DB liveness — no auth | ✅ done (P0) |
+| GET | `/api/admin/events` | List events (timezone, linked tournament count) | ⬜ todo (§1.2) |
+| POST | `/api/admin/events` | Create event with timezone | ⬜ todo (§1.2) |
+| PATCH | `/api/admin/events/:id` | Edit event; optional timezone cascade | ⬜ todo (§1.2) |
 | GET | `/api/admin/tournaments` | List all incl. soft-deleted | ✅ done (P0) |
-| POST | `/api/admin/tournaments` | Create tournament + source mappings | ⬜ todo |
-| PATCH | `/api/admin/tournaments/:id` | Edit name, external IDs | ⬜ todo |
+| POST | `/api/admin/tournaments` | Create tournament + source mappings; inherit tz from event | ⬜ todo |
+| PATCH | `/api/admin/tournaments/:id` | Edit name, game, event, timezone, external IDs | ⬜ todo |
 | DELETE | `/api/admin/tournaments/:id` | Soft-delete | ✅ done (P0) |
 | PATCH | `/api/admin/tournaments/:id/sources` | Toggle source enabled/disabled, update external IDs | ⬜ todo |
 | GET | `/api/admin/users` | List (no password_hash) | ✅ done (P0) |
@@ -79,12 +82,109 @@ Superadmin-gated endpoints for full tournament and user management:
 - Role: enum (`user` | `admin` | `superadmin`)
 - Tournament name/short: non-empty, max 128 chars, stripped
 - External IDs: positive integer (Carde) or UUID format (PF) if provided
+- Timezone: valid IANA identifier (e.g. `America/New_York`) — required on create; validated server-side
+- Venue: optional display string, max 256 chars — not used for time math
 
 **Audit logging** to `app_activity`: `tournament_created`, `tournament_updated`, `tournament_deactivated`, `source_toggled`, `user_created`, `user_updated`, `user_deactivated`, `session_revoked`, `login_failed`, `backup_downloaded`.
 
 ---
 
-## 1.2 — Background Ingestion Worker (moved from P0.4)
+## 1.2 — Event + tournament timezone (display)
+
+**Goal:** All user-facing timestamps render in the tournament's local timezone. Storage stays UTC (`TIMESTAMPTZ`) everywhere — conversion happens only at display time.
+
+Set timezone **once per event** (e.g. a Regional Weekend); tournaments under that event inherit it automatically. Tournaments can still override individually when needed.
+
+Resolves **OD-4** (was blocking StageTimer work in Phase 2; ship the config in P1 so logs, dashboard, and round schedule are correct before StageTimer import lands).
+
+Introduces a **minimal `app_events` shell in P1** (timezone + naming only). Phase 2.1 adds permissions, staff scoping, and the Events-first Manage layout on top of this — see `plans/phase-2.md` §2.1.
+
+### Schema
+
+**`app_events`** (new — P1 subset of full event model)
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | serial PK | |
+| `name` | `TEXT NOT NULL` | e.g. "Atlanta Regional Weekend" |
+| `short_name` | `TEXT NOT NULL` | Selector label |
+| `timezone` | `TEXT NOT NULL` | IANA identifier — **canonical tz for the weekend** |
+| `venue` | `TEXT NULL` | Optional display label for the whole event |
+| `starts_at` / `ends_at` | `TIMESTAMPTZ NULL` | Optional; full scheduling in P2 if needed |
+| `is_active` | `BOOLEAN` | Default true |
+
+**`app_tournaments`** (additions)
+
+| Column | Type | Notes |
+|---|---|---|
+| `event_id` | `INT NULL` FK → `app_events` | Nullable — standalone tournaments remain valid (OD-1) |
+| `timezone` | `TEXT NOT NULL` | IANA identifier used for display — **denormalized copy** from event at link/create time |
+| `venue` | `TEXT NULL` | Optional; may copy from event or be tournament-specific |
+
+Do **not** use event location as the primary timezone input — geocoding is ambiguous and still resolves to an IANA id under the hood. Store the timezone on the event; tournaments get a copied value.
+
+**Inheritance rules (server-side):**
+
+| Action | Behavior |
+|---|---|
+| Create tournament with `eventId` | Copy `event.timezone` (+ `venue` if tournament venue omitted) onto the new tournament row |
+| Link existing tournament to event (`PATCH` set `eventId`) | Autopopulate tournament `timezone` from event **only if** tournament still has the migration default / was never explicitly set; otherwise leave as-is unless user checks "Apply event timezone" |
+| Create tournament without `eventId` | Require `timezone` on the request body (same as today) |
+| `PATCH` event `timezone` | Optional `applyTimezoneToTournaments: true` — bulk-update all linked tournaments' `timezone` to match (audit log: `event_timezone_cascaded`) |
+
+Display code always reads **`tournament.timezone`** (no join required per request). Event timezone is the setup convenience, not the runtime lookup path.
+
+Migrations: backfill orphan tournaments to a sensible default tz (e.g. `America/New_York`) or require superadmin to set on first edit. No forced 1:1 event wrapper for existing data (OD-1).
+
+### API
+
+**Events (superadmin):**
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/admin/events` | List events with timezone |
+| POST | `/api/admin/events` | Create event (`name`, `shortName`, `timezone`, optional `venue`) |
+| PATCH | `/api/admin/events/:id` | Edit event; optional `applyTimezoneToTournaments` on timezone change |
+| DELETE | `/api/admin/events/:id` | Soft-delete or deactivate (only if no active tournaments, or detach first) |
+
+**Tournaments (extend existing admin routes):**
+
+- `Tournament` response includes `timezone`, optional `venue`, optional `eventId` + nested `event: { id, name, shortName, timezone }`
+- `POST /api/admin/tournaments` — `eventId` optional; if set, inherit tz from event (body `timezone` ignored unless `timezoneOverride` flag); if unset, require `timezone`
+- `PATCH /api/admin/tournaments/:id` — allow `eventId`, `timezone`, `venue`; re-linking to event can offer inherit-from-event
+- Validate all `timezone` values with `Intl.DateTimeFormat` / known IANA list; reject invalid strings with 400
+
+### Frontend
+
+- **`TournamentContext`:** expose `activeTournament.timezone` (and `venue` if needed for UI)
+- **`formatInTournamentTz(isoUtc, timezone, options?)`** — shared helper using `Intl.DateTimeFormat` with `timeZone`
+- Wire into: round schedule pane (indicators), log feed entry times, dashboard timer labels, insights tables — anywhere a wall-clock time is shown to staff
+- Context bar: show active tournament name + short tz hint (e.g. `EDT` or `UTC-4`) so judges know what clock they're reading
+
+### Manage tab
+
+**Events panel (new, above tournaments):**
+
+- List events with name, timezone, tournament count
+- Create/edit event: name, short name, timezone picker, optional venue
+- Changing event timezone → confirm dialog if cascading to linked tournaments
+
+**Tournaments panel (updated):**
+
+- "Event" dropdown on create — selecting an event **autofills** timezone (+ venue) as read-only unless "Override timezone" is checked
+- Standalone tournament: timezone picker required (no event)
+- Edit: show linked event; button to re-apply event timezone
+
+### Ingestion (unchanged principle)
+
+- Carde/PF timestamps continue to normalize to UTC at ingestion (see `SCHEMA_DESIGN.md`)
+- Tournament timezone is **never** written onto raw/normalized rows — display-layer only
+
+**Est.:** ~6 hrs (events table + CRUD + tournament inherit logic + migration + display helper + Manage UI).
+
+---
+
+## 1.3 — Background Ingestion Worker (moved from P0.4)
 
 Module at `src/ingestion/worker.ts`, same deployment as HTTP server. Runs independently on startup.
 
@@ -98,7 +198,7 @@ Module at `src/ingestion/worker.ts`, same deployment as HTTP server. Runs indepe
 
 ---
 
-## 1.3 — Manage Tab (Superadmin-only)
+## 1.4 — Manage Tab (Superadmin-only)
 
 > **Detailed implementation plan:** `plans/ui-implementation.md` Step 12 — covers `ManageTab.tsx`, `TournamentPanel`, `UsersPanel`, `SessionsPanel`, form components, badge vs. CTA visual rules, and the superadmin guard. Requires P1.1 admin API endpoints to be complete first.
 
@@ -106,9 +206,9 @@ New tab in the UI with three panels, lazy-loaded:
 
 **Tournaments panel**
 - List of all tournaments (active + inactive), with source badges showing which providers are enabled
-- Edit: name, short name, external IDs, source enabled/disabled toggles
+- Edit: name, short name, game, timezone, optional venue, external IDs, source enabled/disabled toggles
 - Deactivate / Reactivate
-- Add new tournament form
+- Add new tournament form (game + timezone required)
 - Ended tournaments sorted to bottom of the tournament selector
 
 **Users panel**
@@ -127,7 +227,7 @@ New tab in the UI with three panels, lazy-loaded:
 
 ---
 
-## 1.3 — Operational Tooling
+## 1.5 — Operational Tooling
 
 - Structured logging via a logger module (replaces scattered `console.log`) — log level from env var
 - `/api/health` expanded: last successful sync time per tournament, worker running status, PF JWT expiry, DB connection status
@@ -136,7 +236,7 @@ New tab in the UI with three panels, lazy-loaded:
 
 ---
 
-## 1.4 — CI/CD Pipeline (GitHub Actions)
+## 1.6 — CI/CD Pipeline (GitHub Actions)
 
 Automate type-checking, linting, building, and deploying to the VPS on every push to `main`. No manual SSH required after initial setup.
 
@@ -225,7 +325,11 @@ See `docs/DEPLOY.md` — the "CI/CD access" section covers generating the key pa
 
 ## Verification Checklist
 
-- Superadmin creates tournament from UI → appears in selector immediately
+- Superadmin creates event with timezone → creating a tournament under that event autofills timezone (no manual re-entry)
+- Superadmin creates standalone tournament with game + timezone → appears in selector immediately
+- Log feed and round schedule times match venue wall clock (not browser local / not raw UTC)
+- Invalid timezone rejected on create (400)
+- Event timezone cascade updates all linked tournaments when confirmed
 - Toggle PF source to disabled → judge-facing UI hides drops/coverage columns without page reload
 - New user created, can log in with that password
 - Admin role cannot reach `/api/admin/users` (403)

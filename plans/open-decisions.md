@@ -10,6 +10,8 @@ Should existing tournaments automatically get a 1:1 event wrapper when Phase 2.1
 
 **Recommendation:** Eventless by default. Forced wrapping creates noise for single-tournament deployments and forces superadmin cleanup.
 
+**P1 update:** Minimal `app_events` ships in Phase 1 §1.2 for timezone only. `app_tournaments.event_id` is nullable; orphans stay eventless until superadmin groups them.
+
 ---
 
 ## OD-2 — Frontend static split: caching on LAN ✅ RESOLVED
@@ -29,23 +31,11 @@ For round duration calculations, which is the primary source when both are avail
 
 ---
 
-## OD-4 — StageTimer timezone config (blocks Phase 2.5)
-
-StageTimer logs are UTC. How is the event's local timezone stored for conversion?
-
-**Options:**
-1. Per-tournament config field in `app_tournaments` (most flexible)
-2. Inferred from Carde `started_at` UTC offset (fragile — depends on Carde's tz handling)
-3. Manually entered at import time (simplest, no schema change)
-
-**Recommendation:** Option 1 — add `timezone TEXT` to `app_tournaments`. One-time setup per tournament, no guesswork.
-
----
-
 ## Resolved / No Longer Applicable
 
 | Decision | Resolution |
 |---|---|
+| OD-4 — Tournament timezone | **Phase 1 §1.2** — `timezone` on `app_events` (canonical) + denormalized on `app_tournaments`; inherit on create/link; UTC in DB, convert at display only |
 | psycopg3 install method | Moot — rewriting to TypeScript + Prisma |
 | `round_match_snapshots` table design | Resolved in Phase 0 schema: `rounds.missing_tables_json` + `snapshot_captured_at` |
 | `sources JSONB` vs. mapping table | Resolved: `tournament_source_mapping` with `is_enabled` |

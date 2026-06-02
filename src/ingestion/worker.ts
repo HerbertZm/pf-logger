@@ -1,6 +1,6 @@
 import { prisma } from '../db/prisma';
 import { fetchCardeRounds, fetchCardeMatches } from './providers/carde';
-import { fetchPfData, parseExtensionAction, type PfData } from './providers/purplefox';
+import { fetchPfData, fetchPfProfiles, parseExtensionAction, type PfData } from './providers/purplefox';
 import { getPfJwt } from './jwtStore';
 
 const CARDE_POLL_INTERVAL_MS = 30_000;
@@ -28,6 +28,40 @@ export async function startWorker(): Promise<void> {
             console.error(`[worker] tournament ${tournament.id} failed to start:`, err);
         });
     }
+
+    // Sync global PF staff profiles once on startup (not per-tournament)
+    syncPfStaff().catch((err) => {
+        console.warn('[worker] staff sync skipped on startup (JWT not yet in memory):', String(err).slice(0, 120));
+    });
+}
+
+/**
+ * Fetch all PurpleFox staff profiles and upsert into pf_staff.
+ * Uses whichever in-memory JWT is available. Safe to call repeatedly — idempotent.
+ * Called on worker startup and can be triggered manually via the admin API.
+ */
+export async function syncPfStaff(): Promise<{ upserted: number }> {
+    const jwt = getPfJwt();
+    if (!jwt) {
+        throw new Error('No PF JWT in memory — paste one via the Session panel first');
+    }
+
+    const profiles = await fetchPfProfiles(jwt);
+    const now = new Date();
+    let upserted = 0;
+
+    for (const p of profiles) {
+        const displayName = [p.firstname, p.lastname].filter(Boolean).join(' ').trim() || p.id;
+        await prisma.pfStaff.upsert({
+            where: { pfUserId: p.id },
+            create: { pfUserId: p.id, displayName, lastSeenAt: now },
+            update: { displayName, lastSeenAt: now },
+        });
+        upserted++;
+    }
+
+    console.warn(`[worker] synced ${upserted} PF staff profiles into pf_staff`);
+    return { upserted };
 }
 
 /** Start polling loops for a single tournament. Exported so new tournaments can be wired up. */
@@ -90,7 +124,7 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
                 timerDurationMin: r.timer_duration_minutes ?? null,
                 cardeStatus: r.status,
                 pairingsStatus: r.pairings_status ?? null,
-                rawPayload: r,
+                rawPayload: JSON.parse(JSON.stringify(r)),
             },
         });
 
@@ -208,7 +242,7 @@ async function syncCardeMatches(
                 p2UserId: m.p2_user_id,
                 p2Name: m.p2_name,
                 winningPlayerId: m.winning_player_id,
-                rawPayload: m,
+                rawPayload: JSON.parse(JSON.stringify(m)),
             },
         });
 
@@ -353,7 +387,7 @@ async function normalizeDrops(tournamentId: number, pfTournamentId: string, data
                 isChecked: d.isChecked,
                 isCancelled: d.isCancelled,
                 updatedBy: d.updated_by,
-                rawPayload: d,
+                rawPayload: JSON.parse(JSON.stringify(d)),
             },
         });
 
@@ -429,7 +463,7 @@ async function normalizeExtensions(tournamentId: number, pfTournamentId: string,
                 toMinutes,
                 userId: e.userId,
                 createdAt: new Date(e.createdAt),
-                rawPayload: e,
+                rawPayload: JSON.parse(JSON.stringify(e)),
             },
         });
 
@@ -476,7 +510,7 @@ async function normalizePenalties(tournamentId: number, pfTournamentId: string, 
                 createdAt: new Date(p.createdAt + 'Z'), // no tz suffix from PF — append Z for UTC
                 creatorId: p.creator_id,
                 creatorName: p.creator_name,
-                rawPayload: p,
+                rawPayload: JSON.parse(JSON.stringify(p)),
             },
         });
 
@@ -520,7 +554,7 @@ async function normalizeJudgeCalls(tournamentId: number, pfTournamentId: string,
                 round: currentRound,
                 judgeResult: jc.judgeResult,
                 firstSeenAt: new Date(),
-                rawPayload: jc,
+                rawPayload: JSON.parse(JSON.stringify(jc)),
             },
         });
 

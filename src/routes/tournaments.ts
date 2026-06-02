@@ -3,7 +3,7 @@ import { Prisma } from '../generated/prisma/client';
 import { prisma } from '../db/prisma';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { AuthenticatedRequest } from '../middleware/auth';
-import type { Tournament, ActiveRoundResponse, LogsResponse, RoundSummary, WorkerStatus } from '../api/types';
+import type { Tournament, ActiveRoundResponse, LogsResponse, RoundSummary, WorkerStatus, Game } from '../api/types';
 import {
     serializeRound,
     serializeDrop,
@@ -11,9 +11,21 @@ import {
     serializePenalty,
     serializeCoverage,
     serializeJudgeCall,
+    serializeGame,
+    serializeTournament,
 } from './serializers';
 
 const router = Router();
+
+// GET /api/games
+router.get(
+    '/games',
+    asyncHandler(async (_req: Request, res: Response) => {
+        const games = await prisma.game.findMany({ orderBy: { name: 'asc' } });
+        const body: Game[] = games.map(serializeGame);
+        res.json(body);
+    }),
+);
 
 // GET /api/tournaments
 router.get(
@@ -21,21 +33,11 @@ router.get(
     asyncHandler(async (_req: Request, res: Response) => {
         const tournaments = await prisma.appTournament.findMany({
             where: { deletedAt: null },
-            include: { sourceMappings: true },
+            include: { sourceMappings: true, game: true },
             orderBy: { createdAt: 'desc' },
         });
 
-        const body: Tournament[] = tournaments.map((t) => ({
-            id: t.id,
-            name: t.name,
-            shortName: t.shortName,
-            isActive: t.isActive,
-            isEnded: t.isEnded,
-            sources: {
-                pf: t.sourceMappings.some((m) => m.source === 'purplefox' && m.isEnabled),
-                carde: t.sourceMappings.some((m) => m.source === 'carde' && m.isEnabled),
-            },
-        }));
+        const body: Tournament[] = tournaments.map(serializeTournament);
 
         res.json(body);
     }),
@@ -152,9 +154,20 @@ router.get(
             }),
         ]);
 
+        // Resolve PF staff UUIDs → display names for extension entries
+        const extUserIds = [...new Set(extensions.map((e) => e.userId).filter((id): id is string => id !== null))];
+        const staffRows = extUserIds.length > 0
+            ? await prisma.pfStaff.findMany({ where: { pfUserId: { in: extUserIds } } })
+            : [];
+        const staffMap = new Map(staffRows.map((s) => [s.pfUserId, s.displayName]));
+
         const entries: LogsResponse['entries'] = [
             ...drops.map((d) => ({ type: 'drop' as const, ...serializeDrop(d) })),
-            ...extensions.map((e) => ({ type: 'extension' as const, ...serializeExtension(e) })),
+            ...extensions.map((e) => ({
+                type: 'extension' as const,
+                ...serializeExtension(e),
+                staffName: e.userId ? (staffMap.get(e.userId) ?? null) : null,
+            })),
             ...penalties.map((p) => ({ type: 'penalty' as const, ...serializePenalty(p) })),
             ...coverage.map((c) => ({ type: 'coverage' as const, ...serializeCoverage(c) })),
             ...judgeCalls.map((j) => ({ type: 'judge_call' as const, ...serializeJudgeCall(j) })),

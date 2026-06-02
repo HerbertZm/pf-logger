@@ -41,10 +41,7 @@ const entryStaff = (e: LogEntryType): string | null => {
         if (e.verifiedByName) parts.push(`Checked: ${e.verifiedByName}`);
         return parts.length ? parts.join(' · ') : null;
     }
-    if (e.type === 'extension') {
-        // TODO: add actual name
-        return e.userId ? `Judge: ${e.userId}` : null;
-    }
+    if (e.type === 'extension' && e.staffName) return `Judge: ${e.staffName}`;
     return null;
 };
 

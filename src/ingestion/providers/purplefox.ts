@@ -22,7 +22,47 @@ function getSupabase(jwt: string): ReturnType<typeof createClient> {
     });
 }
 
-// ─── PF data shapes (snake_case matches actual API response) ──────────────────
+// ─── PF data shapes ────────────────────────────────────────────────────────────
+
+export interface PfProfile {
+  id: string;           // Supabase auth UUID
+  firstname: string | null;
+  lastname: string | null;
+}
+
+// ─── Staff profiles fetch ──────────────────────────────────────────────────────
+
+const PROFILES_PAGE_SIZE = 1000;
+
+/**
+ * Fetch all PurpleFox staff profiles with pagination.
+ * The profiles table is global (not per-tournament) and contains ~2k rows.
+ * Uses the provided staff JWT; anon key alone is insufficient.
+ */
+export async function fetchPfProfiles(jwt: string): Promise<PfProfile[]> {
+  const sb = getSupabase(jwt);
+  const all: PfProfile[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await sb
+      .from('profiles')
+      .select('id,firstname,lastname')
+      .range(from, from + PROFILES_PAGE_SIZE - 1)
+      .order('firstname');
+
+    if (error) throw new Error(`PF profiles fetch failed: ${error.message}`);
+    if (!data || data.length === 0) break;
+
+    all.push(...(data as PfProfile[]));
+    if (data.length < PROFILES_PAGE_SIZE) break; // last page
+    from += PROFILES_PAGE_SIZE;
+  }
+
+  return all;
+}
+
+// ─── PF event data shapes (snake_case matches actual API response) ─────────────
 
 export interface PfDrop {
     tournamentId: string;

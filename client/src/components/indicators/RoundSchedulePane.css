@@ -1,0 +1,97 @@
+.round-schedule {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+}
+
+.round-schedule__title {
+    margin: 0 0 var(--space-3);
+    font-size: var(--text-sm-size);
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.round-schedule__empty {
+    margin: 0;
+    font-size: var(--text-sm-size);
+    color: var(--color-text-tertiary);
+}
+
+.round-schedule__table-wrap {
+    overflow-x: auto;
+}
+
+.round-schedule__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-xs-size);
+    font-variant-numeric: tabular-nums;
+}
+
+.round-schedule__table thead th {
+    padding: var(--space-1) var(--space-2);
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-tertiary);
+    border-bottom: 1px solid var(--color-border-default);
+    white-space: nowrap;
+}
+
+.round-schedule__table thead th:nth-child(n + 2) {
+    text-align: right;
+}
+
+.round-schedule__row td {
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--color-border-subtle);
+    color: var(--color-text-secondary);
+}
+
+.round-schedule__row:last-child td {
+    border-bottom: none;
+}
+
+.round-schedule__rd {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    width: 2rem;
+}
+
+.round-schedule__time,
+.round-schedule__duration {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.round-schedule__time--est {
+    color: var(--color-text-tertiary);
+    font-style: italic;
+}
+
+.round-schedule__row--active td {
+    background: var(--color-info-subtle);
+}
+
+.round-schedule__row--active .round-schedule__rd {
+    color: var(--color-info);
+}
+
+.round-schedule__row--complete .round-schedule__rd {
+    color: var(--color-text-secondary);
+}
+
+.round-schedule__row--overtime .round-schedule__rd,
+.round-schedule__row--overtime .round-schedule__duration {
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-color: var(--color-warning);
+    text-underline-offset: 2px;
+}
+
+.round-schedule__row--overtime .round-schedule__duration {
+    color: var(--color-warning);
+}

@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from '../db/prisma';
 import { requireSuperadmin, AuthenticatedRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { spawnTournamentWorker } from '../ingestion/worker';
+import { spawnTournamentWorker, syncPfStaff } from '../ingestion/worker';
 
 const router = Router();
 const PEPPER = process.env['PF_PASSWORD_PEPPER'] ?? '';
@@ -174,18 +174,23 @@ router.delete(
 );
 
 // POST /api/admin/tournaments
-// Body: { name, shortName, sources: [{ source: 'carde'|'purplefox', externalId }] }
+// Body: { name, shortName, gameId, sources: [{ source: 'carde'|'purplefox', externalId }] }
 router.post(
     '/tournaments',
     asyncHandler(async (req: Request, res: Response) => {
-        const { name, shortName, sources } = req.body as {
+        const { name, shortName, gameId, sources } = req.body as {
             name?: string;
             shortName?: string;
+            gameId?: number;
             sources?: Array<{ source: string; externalId: string }>;
         };
 
         if (!name || !shortName) {
             res.status(400).json({ error: 'name and shortName are required' });
+            return;
+        }
+        if (gameId === undefined || gameId === null || Number.isNaN(Number(gameId))) {
+            res.status(400).json({ error: 'gameId is required' });
             return;
         }
         if (!Array.isArray(sources) || sources.length === 0) {
@@ -205,10 +210,16 @@ router.post(
             }
         }
 
+        const game = await prisma.game.findUnique({ where: { id: Number(gameId) } });
+        if (game === null) {
+            res.status(404).json({ error: 'game not found' });
+            return;
+        }
+
         // Create tournament + source mappings + worker_state in a transaction
         const tournament = await prisma.$transaction(async (tx) => {
             const created = await tx.appTournament.create({
-                data: { name, shortName },
+                data: { name, shortName, gameId: game.id },
             });
 
             await tx.tournamentSourceMapping.createMany({
@@ -225,7 +236,7 @@ router.post(
 
             return tx.appTournament.findUniqueOrThrow({
                 where: { id: created.id },
-                include: { sourceMappings: true, workerState: true },
+                include: { sourceMappings: true, workerState: true, game: true },
             });
         });
 
@@ -289,6 +300,17 @@ router.patch(
         }
 
         res.json(mapping);
+    }),
+);
+
+// POST /api/admin/staff-sync
+// Fetch all PF staff profiles and upsert into pf_staff.
+// Requires a PF JWT to be in memory (set via Session panel first).
+router.post(
+    '/staff-sync',
+    asyncHandler(async (_req: Request, res: Response) => {
+        const result = await syncPfStaff();
+        res.json(result);
     }),
 );
 

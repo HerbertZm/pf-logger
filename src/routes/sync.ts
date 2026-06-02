@@ -70,7 +70,7 @@ router.post(
 // POST /api/backfill  — re-process raw records into normalized tables
 router.post(
     '/backfill',
-    asyncHandler((req: Request, res: Response) => {
+    asyncHandler(async (req: Request, res: Response) => {
         const { tournamentId } = req.body as { tournamentId?: number };
         if (!tournamentId) {
             res.status(400).json({ error: 'tournamentId required' });

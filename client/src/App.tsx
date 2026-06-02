@@ -4,6 +4,7 @@ import { LoginModal } from './components/layout/LoginModal';
 import { Shell } from './components/layout/Shell';
 import { type Tab } from './components/layout/TabBar';
 import { ActiveRound } from './components/dashboard/ActiveRound';
+import { IndicatorsLayout } from './components/indicators/IndicatorsLayout';
 import { LogFeed } from './components/logs/LogFeed';
 import { CrossRoundSummary } from './components/insights/CrossRoundSummary';
 import { SessionPanel } from './components/session/SessionPanel';
@@ -32,9 +33,21 @@ const App = () => {
 
     return (
         <Shell tab={tab} onTabChange={setTab}>
-            {tab === 'dashboard' && <ActiveRound />}
-            {tab === 'logs' && <LogFeed />}
-            {tab === 'insights' && <CrossRoundSummary />}
+            {tab === 'dashboard' && (
+                <IndicatorsLayout>
+                    <ActiveRound />
+                </IndicatorsLayout>
+            )}
+            {tab === 'logs' && (
+                <IndicatorsLayout>
+                    <LogFeed />
+                </IndicatorsLayout>
+            )}
+            {tab === 'insights' && (
+                <IndicatorsLayout>
+                    <CrossRoundSummary />
+                </IndicatorsLayout>
+            )}
             {tab === 'session' && <SessionPanel />}
             {tab === 'data' && <DataTab />}
             {tab === 'manage' && <ComingSoon name="Manage" />}

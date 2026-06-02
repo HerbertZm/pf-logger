@@ -418,6 +418,19 @@ No source dependency. Owned entirely by this tool.
 
 ---
 
+### `games`
+
+TCG catalog — default round length and optional per-game metadata for scheduling and display.
+
+```sql
+id                       SERIAL PRIMARY KEY
+name                     TEXT NOT NULL
+default_round_length_min INT NOT NULL
+notes                    JSONB
+```
+
+---
+
 ### `app_tournaments`
 
 Display info and lifecycle state only. All source bindings in `tournament_source_mapping`.
@@ -426,6 +439,7 @@ Display info and lifecycle state only. All source bindings in `tournament_source
 id          SERIAL PRIMARY KEY
 name        TEXT NOT NULL
 short_name  TEXT NOT NULL
+game_id     INT NOT NULL REFERENCES games(id)
 is_active   BOOLEAN NOT NULL DEFAULT TRUE
 is_ended    BOOLEAN NOT NULL DEFAULT FALSE
 created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
