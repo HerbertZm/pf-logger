@@ -55,8 +55,9 @@ NODE_ENV=development
 
 ```powershell
 npm install
-npm run db:generate   # generates Prisma client
-npm run db:migrate    # creates and applies the first migration
+# postinstall runs db:generate automatically — Prisma 7 generates TypeScript
+# client files to src/generated/prisma/ (gitignored; must exist before starting)
+npm run db:migrate    # creates and applies migrations
 ```
 
 ### 5 — Start the dev server
@@ -138,8 +139,8 @@ NODE_ENV=development
 
 ```bash
 npm install
-npm run db:generate   # generates Prisma client
-npm run db:migrate    # creates and applies the first migration
+# postinstall runs db:generate automatically (Prisma 7 — generates client to src/generated/prisma/)
+npm run db:migrate    # creates and applies migrations
 ```
 
 ### 7 — Start the dev server
@@ -264,19 +265,25 @@ NODE_ENV=production
 
 ---
 
-## Step 6 — Run Prisma migrations and build
+## Step 6 — Generate Prisma client, run migrations, and build
 
 ```bash
 cd /opt/pf-logger
 
-# Apply database schema
+# Generate the Prisma client (Prisma 7 — outputs TS files to src/generated/prisma/, gitignored)
+# postinstall does this automatically after npm ci, but run explicitly to be sure
+sudo -u deploy npm run db:generate
+
+# Apply database schema migrations
 sudo -u deploy npx prisma migrate deploy
 
 # Build the TypeScript API + React frontend
 sudo -u deploy npm run build
 ```
 
-`npm run build` compiles the Express API to `dist/server.js` and builds the React app to `client/dist/`. Express serves `client/dist/` as static files with a SPA fallback.
+`npm run build` compiles the Express API to `dist/server.js` and builds the React app to `dist/client/`. Express serves `dist/client/` as static files with a SPA fallback.
+
+> **Prisma 7 note:** `src/generated/prisma/` is gitignored — it must be (re)generated after every `npm ci` or schema change. The `postinstall` script handles this automatically for `npm install`, but `npm ci --omit=dev` skips lifecycle scripts, so run `db:generate` explicitly after production installs.
 
 ---
 
@@ -528,12 +535,13 @@ See `plans/phase-1.md` — section 1.4 for the full workflow YAML and required `
 cd /opt/pf-logger
 git pull origin main
 npm ci --omit=dev
+npm run db:generate        # Prisma 7: postinstall skips on --omit=dev; must run explicitly
 npx prisma migrate deploy
 npm run build
 sudo systemctl restart pf-logger
 ```
 
-`npm ci --omit=dev` installs only production dependencies. Prisma migrations are applied before the build — if a migration fails, the restart is skipped and the old version stays running.
+`npm ci --omit=dev` installs only production dependencies. `db:generate` must be run explicitly after it because `--omit=dev` causes npm to skip lifecycle scripts. Prisma migrations are applied before the build — if a migration fails, the restart is skipped and the old version stays running.
 
 ### Allowing deploy to restart the service without a password
 
@@ -560,6 +568,7 @@ ssh deploy@<VPS-IP>
 cd /opt/pf-logger
 git pull origin main
 npm ci --omit=dev
+npm run db:generate        # Prisma 7: regenerate client after install
 npx prisma migrate deploy
 npm run build
 sudo systemctl restart pf-logger

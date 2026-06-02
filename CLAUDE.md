@@ -24,6 +24,7 @@ Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Sup
 - PF users are **staff** (judges/scorekeepers), not players. Player names come from Carde match records and are denormalized — no separate players table.
 - `status=in_progress` on `matches-list/` is confirmed functional — use it in the ingestion worker; never fetch full match lists.
 - PF JWT is never stored in the DB or `.env` — lives in memory (`jwtStore.ts`) only. `pf_session` table stores only metadata (expires_at, set_by). On server restart, `inMemory: false` is returned and the UI must prompt re-paste.
+- Prisma 7: import from `'../generated/prisma/client'` (not `'@prisma/client'`). `src/generated/` is gitignored — run `npm run db:generate` after install or schema changes. `postinstall` handles it for `npm install`; run manually after `npm ci --omit=dev`.
 - PF table names: `tournament_drops` (not `drops`), `tournament_penalities` (extra 'i' — the correct spelling 404s).
 - `timer_is_running` in Carde does NOT flip false when the round clock expires — detect expiry by comparing `timer_end_datetime` to wall time.
 
