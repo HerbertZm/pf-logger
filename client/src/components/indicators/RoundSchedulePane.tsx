@@ -39,15 +39,14 @@ export const RoundSchedulePane = () => {
                 })
                 .catch((e: Error) => setError(e.message));
 
-        fetch();
+        void fetch();
         const id = setInterval(() => {
             void fetch();
         }, POLL_MS);
         return () => clearInterval(id);
     }, [activeTournamentId]);
 
-    const defaultLength =
-        activeTournament?.game.defaultRoundLengthMinutes ?? defaultRoundLengthMinutes(rounds);
+    const defaultLength = activeTournament?.game.defaultRoundLengthMinutes ?? defaultRoundLengthMinutes(rounds);
     const overtimeThreshold = defaultLength + BREAK_BETWEEN_ROUNDS_MIN;
 
     const rows = useMemo(
@@ -84,8 +83,7 @@ export const RoundSchedulePane = () => {
                             {rows.map((row) => {
                                 const state = rowState(row);
                                 const isOvertime =
-                                    row.durationMinutes !== null &&
-                                    row.durationMinutes > overtimeThreshold;
+                                    row.durationMinutes !== null && row.durationMinutes > overtimeThreshold;
                                 return (
                                     <tr
                                         key={row.round.id}

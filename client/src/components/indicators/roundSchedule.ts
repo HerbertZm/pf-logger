@@ -39,11 +39,7 @@ function diffMinutes(start: Date, end: Date): number {
 }
 
 function hasStarted(round: Round): boolean {
-    return (
-        round.startedAt !== null ||
-        round.cardeStatus === 'IN_PROGRESS' ||
-        round.cardeStatus === 'COMPLETE'
-    );
+    return round.startedAt !== null || round.cardeStatus === 'IN_PROGRESS' || round.cardeStatus === 'COMPLETE';
 }
 
 export function buildRoundSchedule(rounds: Round[], gameDefaultMinutes?: number): RoundScheduleRow[] {

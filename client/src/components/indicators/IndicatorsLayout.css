@@ -20,9 +20,7 @@
         flex: 0 0 280px;
         position: sticky;
         top: calc(var(--space-context-bar) + var(--space-tab-bar-desktop) + var(--space-5));
-        max-height: calc(
-            100vh - var(--space-context-bar) - var(--space-tab-bar-desktop) - var(--space-5) * 2
-        );
+        max-height: calc(100vh - var(--space-context-bar) - var(--space-tab-bar-desktop) - var(--space-5) * 2);
         overflow-y: auto;
     }
 }

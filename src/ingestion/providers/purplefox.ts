@@ -25,9 +25,9 @@ function getSupabase(jwt: string): ReturnType<typeof createClient> {
 // ─── PF data shapes ────────────────────────────────────────────────────────────
 
 export interface PfProfile {
-  id: string;           // Supabase auth UUID
-  firstname: string | null;
-  lastname: string | null;
+    id: string; // Supabase auth UUID
+    firstname: string | null;
+    lastname: string | null;
 }
 
 // ─── Staff profiles fetch ──────────────────────────────────────────────────────
@@ -40,26 +40,28 @@ const PROFILES_PAGE_SIZE = 1000;
  * Uses the provided staff JWT; anon key alone is insufficient.
  */
 export async function fetchPfProfiles(jwt: string): Promise<PfProfile[]> {
-  const sb = getSupabase(jwt);
-  const all: PfProfile[] = [];
-  let from = 0;
+    const sb = getSupabase(jwt);
+    const all: PfProfile[] = [];
+    let from = 0;
+    let pageLength = PROFILES_PAGE_SIZE;
 
-  while (true) {
-    const { data, error } = await sb
-      .from('profiles')
-      .select('id,firstname,lastname')
-      .range(from, from + PROFILES_PAGE_SIZE - 1)
-      .order('firstname');
+    while (pageLength === PROFILES_PAGE_SIZE) {
+        const { data, error } = await sb
+            .from('profiles')
+            .select('id,firstname,lastname')
+            .range(from, from + PROFILES_PAGE_SIZE - 1)
+            .order('firstname');
 
-    if (error) throw new Error(`PF profiles fetch failed: ${error.message}`);
-    if (!data || data.length === 0) break;
+        if (error) throw new Error(`PF profiles fetch failed: ${error.message}`);
+        if (!data || data.length === 0) break;
 
-    all.push(...(data as PfProfile[]));
-    if (data.length < PROFILES_PAGE_SIZE) break; // last page
-    from += PROFILES_PAGE_SIZE;
-  }
+        all.push(...(data as PfProfile[]));
+        pageLength = data.length;
+        if (pageLength < PROFILES_PAGE_SIZE) break;
+        from += PROFILES_PAGE_SIZE;
+    }
 
-  return all;
+    return all;
 }
 
 // ─── PF event data shapes (snake_case matches actual API response) ─────────────

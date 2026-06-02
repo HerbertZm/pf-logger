@@ -156,9 +156,8 @@ router.get(
 
         // Resolve PF staff UUIDs → display names for extension entries
         const extUserIds = [...new Set(extensions.map((e) => e.userId).filter((id): id is string => id !== null))];
-        const staffRows = extUserIds.length > 0
-            ? await prisma.pfStaff.findMany({ where: { pfUserId: { in: extUserIds } } })
-            : [];
+        const staffRows =
+            extUserIds.length > 0 ? await prisma.pfStaff.findMany({ where: { pfUserId: { in: extUserIds } } }) : [];
         const staffMap = new Map(staffRows.map((s) => [s.pfUserId, s.displayName]));
 
         const entries: LogsResponse['entries'] = [

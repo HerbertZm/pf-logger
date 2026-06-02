@@ -70,14 +70,15 @@ router.post(
 // POST /api/backfill  — re-process raw records into normalized tables
 router.post(
     '/backfill',
-    asyncHandler(async (req: Request, res: Response) => {
+    asyncHandler((req: Request, res: Response): Promise<void> => {
         const { tournamentId } = req.body as { tournamentId?: number };
-        if (!tournamentId) {
+        if (tournamentId === undefined || tournamentId === null) {
             res.status(400).json({ error: 'tournamentId required' });
-            return;
+            return Promise.resolve();
         }
         // TODO: P0.5 — re-derive normalized tables from raw layer
         res.status(501).json({ error: 'Not implemented' });
+        return Promise.resolve();
     }),
 );
 

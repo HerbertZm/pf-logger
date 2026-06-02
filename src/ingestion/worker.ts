@@ -1,7 +1,12 @@
+import type { Prisma } from '../generated/prisma/client';
 import { prisma } from '../db/prisma';
 import { fetchCardeRounds, fetchCardeMatches } from './providers/carde';
 import { fetchPfData, fetchPfProfiles, parseExtensionAction, type PfData } from './providers/purplefox';
 import { getPfJwt } from './jwtStore';
+
+function jsonPayload(value: unknown): Prisma.InputJsonValue {
+    return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
 
 const CARDE_POLL_INTERVAL_MS = 30_000;
 const PF_POLL_INTERVAL_MS = 15_000;
@@ -124,7 +129,7 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
                 timerDurationMin: r.timer_duration_minutes ?? null,
                 cardeStatus: r.status,
                 pairingsStatus: r.pairings_status ?? null,
-                rawPayload: JSON.parse(JSON.stringify(r)),
+                rawPayload: jsonPayload(r),
             },
         });
 
@@ -242,7 +247,7 @@ async function syncCardeMatches(
                 p2UserId: m.p2_user_id,
                 p2Name: m.p2_name,
                 winningPlayerId: m.winning_player_id,
-                rawPayload: JSON.parse(JSON.stringify(m)),
+                rawPayload: jsonPayload(m),
             },
         });
 
@@ -387,7 +392,7 @@ async function normalizeDrops(tournamentId: number, pfTournamentId: string, data
                 isChecked: d.isChecked,
                 isCancelled: d.isCancelled,
                 updatedBy: d.updated_by,
-                rawPayload: JSON.parse(JSON.stringify(d)),
+                rawPayload: jsonPayload(d),
             },
         });
 
@@ -463,7 +468,7 @@ async function normalizeExtensions(tournamentId: number, pfTournamentId: string,
                 toMinutes,
                 userId: e.userId,
                 createdAt: new Date(e.createdAt),
-                rawPayload: JSON.parse(JSON.stringify(e)),
+                rawPayload: jsonPayload(e),
             },
         });
 
@@ -510,7 +515,7 @@ async function normalizePenalties(tournamentId: number, pfTournamentId: string, 
                 createdAt: new Date(p.createdAt + 'Z'), // no tz suffix from PF — append Z for UTC
                 creatorId: p.creator_id,
                 creatorName: p.creator_name,
-                rawPayload: JSON.parse(JSON.stringify(p)),
+                rawPayload: jsonPayload(p),
             },
         });
 
@@ -554,7 +559,7 @@ async function normalizeJudgeCalls(tournamentId: number, pfTournamentId: string,
                 round: currentRound,
                 judgeResult: jc.judgeResult,
                 firstSeenAt: new Date(),
-                rawPayload: JSON.parse(JSON.stringify(jc)),
+                rawPayload: jsonPayload(jc),
             },
         });
 
