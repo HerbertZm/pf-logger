@@ -30,5 +30,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS "extensions_pf_id_tournament_id_key"
 CREATE UNIQUE INDEX IF NOT EXISTS "penalties_pf_id_tournament_id_key"
     ON "penalties"("pf_id", "tournament_id");
 
-CREATE UNIQUE INDEX IF NOT EXISTS "table_judge_calls_tournament_id_table_number_round_key"
+-- Non-unique index (a table can have multiple judge calls in one round)
+CREATE INDEX IF NOT EXISTS "table_judge_calls_tournament_id_table_number_round_idx"
     ON "table_judge_calls"("tournament_id", "table_number", "round");

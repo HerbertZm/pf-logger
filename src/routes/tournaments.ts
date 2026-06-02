@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { prisma } from '../db/prisma';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { AuthenticatedRequest } from '../middleware/auth';
@@ -210,7 +210,7 @@ router.get('/data/:table', asyncHandler(async (req: Request, res: Response) => {
     res.status(403).json({ error: 'Forbidden' }); return;
   }
 
-  const tableName = req.params['table'] ?? '';
+  const tableName = String(req.params['table'] ?? '');
   const modelName = TABLE_MODEL_MAP[tableName];
   if (!modelName) {
     res.status(404).json({ error: `Unknown table: ${tableName}` }); return;

@@ -1,8 +1,6 @@
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
-
-const prisma = new PrismaClient();
+import { prisma } from './prisma';
 const PEPPER = process.env['PF_PASSWORD_PEPPER'] ?? '';
 
 async function main(): Promise<void> {

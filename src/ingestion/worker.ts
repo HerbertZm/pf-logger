@@ -520,25 +520,21 @@ async function normalizeJudgeCalls(
       },
     });
 
-    // Upsert normalized judge call (unique on tournament + table + round)
-    const existing = await prisma.tableJudgeCall.findUnique({
-      where: { tournamentId_tableNumber_round: { tournamentId, tableNumber: jc.tableNumber, round: currentRound } },
+    // Insert normalized judge call if this exact (table, round, result) combo isn't already stored.
+    // A table can have multiple judge calls per round (different outcomes), but we don't want
+    // duplicates from re-polling the same live snapshot.
+    const existing = await prisma.tableJudgeCall.findFirst({
+      where: { tournamentId, tableNumber: jc.tableNumber, round: currentRound, judgeResult: jc.judgeResult },
     });
+    if (existing) continue;
 
-    await prisma.tableJudgeCall.upsert({
-      where: { tournamentId_tableNumber_round: { tournamentId, tableNumber: jc.tableNumber, round: currentRound } },
-      create: {
+    await prisma.tableJudgeCall.create({
+      data: {
         tournamentId,
         round: currentRound,
         tableNumber: jc.tableNumber,
         judgeResult: jc.judgeResult,
         firstSeenAt: new Date(),
-      },
-      update: {
-        // judgeResult may be updated if judge amends their call; always reflect latest
-        judgeResult: jc.judgeResult,
-        // firstSeenAt is write-once — preserve original
-        firstSeenAt: existing?.firstSeenAt ?? new Date(),
       },
     });
   }

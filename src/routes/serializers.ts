@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../generated/prisma/client';
 import type {
   Round, Drop, Extension, Penalty, Coverage, JudgeCall,
 } from '../api/types';

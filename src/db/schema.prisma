@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // url removed — connection managed via adapter in src/db/prisma.ts
+  // migrate URL lives in prisma.config.ts
 }
 
 // ─── App Layer ────────────────────────────────────────────────────────────────
@@ -263,7 +265,7 @@ model TableJudgeCall {
 
   tournament AppTournament @relation(fields: [tournamentId], references: [id])
 
-  @@unique([tournamentId, tableNumber, round])
+  @@index([tournamentId, tableNumber, round])
   @@map("table_judge_calls")
 }
 
