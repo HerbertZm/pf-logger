@@ -1,8 +1,11 @@
 {
-  "endOfLine": "crlf",
-  "semi": true,
-  "singleQuote": true,
-  "trailingComma": "all",
-  "printWidth": 100,
-  "tabWidth": 2
+    "endOfLine": "crlf",
+    "semi": true,
+    "singleQuote": true,
+    "trailingComma": "all",
+    "printWidth": 120,
+    "tabWidth": 4,
+    "bracketSpacing": true,
+    "arrowParens": "always",
+    "jsxSingleQuote": false
 }

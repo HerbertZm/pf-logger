@@ -7,11 +7,11 @@ import App from './App';
 
 // AuthProvider wraps TournamentProvider — tournament context makes authenticated API calls on mount
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <AuthProvider>
-      <TournamentProvider>
-        <App />
-      </TournamentProvider>
-    </AuthProvider>
-  </StrictMode>,
+    <StrictMode>
+        <AuthProvider>
+            <TournamentProvider>
+                <App />
+            </TournamentProvider>
+        </AuthProvider>
+    </StrictMode>,
 );

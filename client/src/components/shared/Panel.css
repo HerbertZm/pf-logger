@@ -1,45 +1,45 @@
 .panel {
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
-  padding: var(--panel-padding);
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--panel-radius);
+    padding: var(--panel-padding);
 }
 
 .panel--elevated {
-  background: var(--color-bg-elevated);
+    background: var(--color-bg-elevated);
 }
 
 .panel--urgent {
-  background: var(--color-urgent-bg);
-  border-color: var(--color-urgent);
+    background: var(--color-urgent-bg);
+    border-color: var(--color-urgent);
 }
 .panel--warning {
-  background: var(--color-warning-bg);
-  border-color: var(--color-warning);
+    background: var(--color-warning-bg);
+    border-color: var(--color-warning);
 }
 .panel--success {
-  background: var(--color-success-bg);
-  border-color: var(--color-success);
+    background: var(--color-success-bg);
+    border-color: var(--color-success);
 }
 .panel--pending {
-  background: var(--color-pending-bg);
-  border-color: var(--color-pending);
+    background: var(--color-pending-bg);
+    border-color: var(--color-pending);
 }
 
 /* Glow — only meaningful on urgent/warning/success */
 .panel--urgent.panel--glow {
-  box-shadow: var(--glow-urgent);
+    box-shadow: var(--glow-urgent);
 }
 .panel--warning.panel--glow {
-  box-shadow: var(--glow-warning);
+    box-shadow: var(--glow-warning);
 }
 .panel--success.panel--glow {
-  box-shadow: var(--glow-success);
+    box-shadow: var(--glow-success);
 }
 
 /* Accent bar — 3px left border, rounded right side only */
 .panel--accent {
-  border-left-width: 3px;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
+    border-left-width: 3px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
 }

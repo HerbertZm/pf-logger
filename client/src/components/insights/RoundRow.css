@@ -1,53 +1,53 @@
 .round-row {
-  cursor: pointer;
-  transition: background var(--transition-base);
+    cursor: pointer;
+    transition: background var(--transition-base);
 }
 
 .round-row:hover td {
-  background: var(--color-bg-hover);
+    background: var(--color-bg-hover);
 }
 .round-row--urgent td {
-  background: var(--color-urgent-bg);
+    background: var(--color-urgent-bg);
 }
 .round-row--warning td {
-  background: var(--color-warning-bg);
+    background: var(--color-warning-bg);
 }
 
 .round-row td {
-  padding: var(--space-3) var(--space-3);
-  border-bottom: 1px solid var(--color-border-subtle);
-  font-size: var(--text-sm-size);
-  color: var(--color-text-primary);
-  white-space: nowrap;
+    padding: var(--space-3) var(--space-3);
+    border-bottom: 1px solid var(--color-border-subtle);
+    font-size: var(--text-sm-size);
+    color: var(--color-text-primary);
+    white-space: nowrap;
 }
 
 .round-row__rd {
-  font-weight: 700;
-  width: 40px;
+    font-weight: 700;
+    width: 40px;
 }
 .round-row__status {
-  color: var(--color-text-secondary);
-  font-size: var(--text-xs-size);
+    color: var(--color-text-secondary);
+    font-size: var(--text-xs-size);
 }
 .round-row__num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 .round-row__expand {
-  text-align: right;
-  width: 24px;
-  opacity: 0.4;
-  font-size: 9px;
+    text-align: right;
+    width: 24px;
+    opacity: 0.4;
+    font-size: 9px;
 }
 
 .round-row__detail td {
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-bg-elevated);
-  border-bottom: 1px solid var(--color-border-subtle);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .round-row__tables {
-  font-size: var(--text-xs-size);
-  color: var(--color-text-secondary);
-  margin-top: var(--space-2);
+    font-size: var(--text-xs-size);
+    color: var(--color-text-secondary);
+    margin-top: var(--space-2);
 }

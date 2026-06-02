@@ -6,30 +6,30 @@
  */
 
 interface JwtEntry {
-  jwt: string;
-  expiresAt: string | null;
-  setBy: string;
-  setAt: string;
+    jwt: string;
+    expiresAt: string | null;
+    setBy: string;
+    setAt: string;
 }
 
 let entry: JwtEntry | null = null;
 
 export function setPfJwt(jwt: string, expiresAt: string | null, setBy: string): void {
-  entry = { jwt, expiresAt, setBy, setAt: new Date().toISOString() };
+    entry = { jwt, expiresAt, setBy, setAt: new Date().toISOString() };
 }
 
 export function getPfJwt(): string | null {
-  return entry?.jwt ?? null;
+    return entry?.jwt ?? null;
 }
 
 export function getPfJwtEntry(): JwtEntry | null {
-  return entry;
+    return entry;
 }
 
 export function clearPfJwt(): void {
-  entry = null;
+    entry = null;
 }
 
 export function isPfJwtInMemory(): boolean {
-  return entry !== null;
+    return entry !== null;
 }

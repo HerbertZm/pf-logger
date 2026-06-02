@@ -1,28 +1,28 @@
 .round-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: var(--space-round-strip);
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  font-size: var(--text-sm-size);
-  font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--space-round-strip);
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    font-size: var(--text-sm-size);
+    font-weight: 600;
 }
 
 .round-strip--success {
-  background: var(--color-success-bg);
-  color: var(--color-success);
+    background: var(--color-success-bg);
+    color: var(--color-success);
 }
 .round-strip--warning {
-  background: var(--color-warning-bg);
-  color: var(--color-warning);
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
 }
 .round-strip--urgent {
-  background: var(--color-urgent-bg);
-  color: var(--color-urgent);
+    background: var(--color-urgent-bg);
+    color: var(--color-urgent);
 }
 
 .round-strip__label {
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }

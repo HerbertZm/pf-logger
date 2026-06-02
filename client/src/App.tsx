@@ -10,36 +10,36 @@ import { SessionPanel } from './components/session/SessionPanel';
 import { DataTab } from './components/data/DataTab';
 
 const ComingSoon = ({ name }: { name: string }) => (
-  <div
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '40vh',
-      color: 'var(--color-text-tertiary)',
-      fontSize: 'var(--text-body-size)',
-    }}
-  >
-    {name} — coming soon
-  </div>
+    <div
+        style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '40vh',
+            color: 'var(--color-text-tertiary)',
+            fontSize: 'var(--text-body-size)',
+        }}
+    >
+        {name} — coming soon
+    </div>
 );
 
 const App = () => {
-  const { token } = useAuth();
-  const [tab, setTab] = useState<Tab>('dashboard');
+    const { token } = useAuth();
+    const [tab, setTab] = useState<Tab>('dashboard');
 
-  if (!token) return <LoginModal />;
+    if (!token) return <LoginModal />;
 
-  return (
-    <Shell tab={tab} onTabChange={setTab}>
-      {tab === 'dashboard' && <ActiveRound />}
-      {tab === 'logs' && <LogFeed />}
-      {tab === 'insights' && <CrossRoundSummary />}
-      {tab === 'session' && <SessionPanel />}
-      {tab === 'data' && <DataTab />}
-      {tab === 'manage' && <ComingSoon name="Manage" />}
-    </Shell>
-  );
+    return (
+        <Shell tab={tab} onTabChange={setTab}>
+            {tab === 'dashboard' && <ActiveRound />}
+            {tab === 'logs' && <LogFeed />}
+            {tab === 'insights' && <CrossRoundSummary />}
+            {tab === 'session' && <SessionPanel />}
+            {tab === 'data' && <DataTab />}
+            {tab === 'manage' && <ComingSoon name="Manage" />}
+        </Shell>
+    );
 };
 
 export default App;

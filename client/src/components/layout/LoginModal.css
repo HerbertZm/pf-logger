@@ -1,60 +1,60 @@
 .login-scrim {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background: var(--color-bg-base);
-  padding: var(--space-4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: var(--color-bg-base);
+    padding: var(--space-4);
 }
 
 .login-modal {
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-xl);
-  padding: var(--space-8);
-  width: 100%;
-  max-width: 360px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-xl);
+    padding: var(--space-8);
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
 }
 
 .login-modal__title {
-  font-size: var(--text-xl-size);
-  font-weight: 700;
-  margin: 0;
+    font-size: var(--text-xl-size);
+    font-weight: 700;
+    margin: 0;
 }
 
 .login-modal__sub {
-  font-size: var(--text-sm-size);
-  color: var(--color-text-tertiary);
-  margin: calc(-1 * var(--space-3)) 0 0;
+    font-size: var(--text-sm-size);
+    color: var(--color-text-tertiary);
+    margin: calc(-1 * var(--space-3)) 0 0;
 }
 
 .login-modal__fields {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
 }
 
 .login-modal__input {
-  width: 100%;
-  height: var(--input-height);
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--input-radius);
-  padding: 0 var(--input-padding-x);
-  color: var(--color-text-primary);
-  font-size: var(--text-base-size);
+    width: 100%;
+    height: var(--input-height);
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--input-radius);
+    padding: 0 var(--input-padding-x);
+    color: var(--color-text-primary);
+    font-size: var(--text-base-size);
 }
 
 .login-modal__input:focus {
-  outline: none;
-  border-color: var(--input-border-focus);
+    outline: none;
+    border-color: var(--input-border-focus);
 }
 
 .login-modal__error {
-  font-size: var(--text-sm-size);
-  color: var(--color-urgent);
-  margin: 0;
+    font-size: var(--text-sm-size);
+    color: var(--color-urgent);
+    margin: 0;
 }

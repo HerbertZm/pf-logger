@@ -18,6 +18,35 @@ Rules are organized by topic. Each rule leads with the behavior, followed by **W
 - Do not add comments unless the WHY is non-obvious.
 - Never add emojis to files or responses unless explicitly asked.
 
+## Code style (enforced by ESLint + Prettier — `npm run lint` and `npm run format`)
+
+**Formatting:**
+- Tab width: **4 spaces** (not 2). Print width: 120.
+- Single quotes for JS/TS strings. Double quotes for JSX attributes (`jsxSingleQuote: false`).
+- Trailing commas everywhere. `arrowParens: always`.
+- Run `npm run format` after any batch of edits. Run `npm run lint` before considering a task done.
+
+**Null / equality checks:**
+- Always use `===` / `!==`. Never `==` / `!=`. The `eqeqeq: error` rule enforces this.
+- Null guard pattern: use explicit `=== null` or `!== null`, not truthiness (`!x` or `x &&`). When checking a nullable type for both null and a property value, split into two separate `if` statements — don't combine into one compound `||` expression that spans the null guard and the property access (this triggers `prefer-optional-chain`).
+
+**Async patterns:**
+- A promise-returning function passed as a void callback (setInterval, onClick, etc.) must be wrapped: `() => { void fn(); }`.
+- A standalone floating promise call must use `void fn()`.
+- Async functions with no `await` expression must drop the `async` keyword (`require-await` rule).
+- Do not pass `async` functions directly to `onSubmit`, `onClick`, or other void-typed event handlers — wrap them.
+
+**TypeScript:**
+- Prefer `interface` over `type` for object shapes (`consistent-type-definitions` rule).
+- Use optional chaining (`?.`) and nullish coalescing (`??`) — `prefer-optional-chain` and `prefer-nullish-coalescing` are errors.
+- No `any` without an eslint-disable comment explaining why.
+- Return types are required on backend functions (`explicit-function-return-type: warn`); omitted on frontend components/expressions.
+- When stringifying `unknown` values, do not use `String(value)` directly — narrow the type first: handle `null`/`undefined` → `''`, `string` → passthrough, `number`/`boolean`/`bigint` → `String(value)`, everything else → `JSON.stringify(value)`.
+
+**General:**
+- Use `object-shorthand` — `{ foo }` not `{ foo: foo }`.
+- `prefer-const` is enforced; never use `var`.
+
 ## File and doc edits
 
 - When editing agent docs (`agent/*.md`), preserve the user's formatting style — extra blank lines between list items, etc. Do not revert formatting changes.
