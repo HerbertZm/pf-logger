@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from './context/AuthContext';
 import { LoginModal } from './components/layout/LoginModal';
 import { Shell } from './components/layout/Shell';
@@ -9,6 +9,8 @@ import { LogFeed } from './components/logs/LogFeed';
 import { CrossRoundSummary } from './components/insights/CrossRoundSummary';
 import { SessionPanel } from './components/session/SessionPanel';
 import { DataTab } from './components/data/DataTab';
+import { ReportsTab } from './components/reports/ReportsTab';
+import { DashboardRoundProvider } from './context/DashboardRoundContext';
 
 const ComingSoon = ({ name }: { name: string }) => (
     <div
@@ -26,17 +28,25 @@ const ComingSoon = ({ name }: { name: string }) => (
 );
 
 const App = () => {
-    const { token } = useAuth();
+    const { token, isAdmin } = useAuth();
     const [tab, setTab] = useState<Tab>('dashboard');
+
+    useEffect(() => {
+        if (!isAdmin && tab === 'reports') {
+            setTab('dashboard');
+        }
+    }, [isAdmin, tab]);
 
     if (!token) return <LoginModal />;
 
     return (
-        <Shell tab={tab} onTabChange={setTab}>
+        <Shell tab={tab} onTabChange={setTab} showReports={isAdmin}>
             {tab === 'dashboard' && (
-                <IndicatorsLayout>
-                    <ActiveRound />
-                </IndicatorsLayout>
+                <DashboardRoundProvider>
+                    <IndicatorsLayout>
+                        <ActiveRound />
+                    </IndicatorsLayout>
+                </DashboardRoundProvider>
             )}
             {tab === 'logs' && (
                 <IndicatorsLayout>
@@ -48,6 +58,7 @@ const App = () => {
                     <CrossRoundSummary />
                 </IndicatorsLayout>
             )}
+            {tab === 'reports' && isAdmin && <ReportsTab />}
             {tab === 'session' && <SessionPanel />}
             {tab === 'data' && <DataTab />}
             {tab === 'manage' && <ComingSoon name="Manage" />}

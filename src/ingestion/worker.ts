@@ -107,7 +107,10 @@ async function recordError(tournamentId: number, err: unknown): Promise<void> {
 // ─── Carde sync ───────────────────────────────────────────────────────────────
 
 export async function syncCardeRounds(tournamentId: number): Promise<void> {
-    const tourn = await prisma.appTournament.findUnique({ where: { id: tournamentId }, select: { isTestTournament: true } });
+    const tourn = await prisma.appTournament.findUnique({
+        where: { id: tournamentId },
+        select: { isTestTournament: true },
+    });
     if (tourn?.isTestTournament) return; // never call external APIs for test tournaments
 
     const mapping = await prisma.tournamentSourceMapping.findFirst({
@@ -345,7 +348,10 @@ async function maybeSnapshotOutstanding(
 // ─── PurpleFox sync ───────────────────────────────────────────────────────────
 
 export async function syncPfData(tournamentId: number): Promise<void> {
-    const tourn = await prisma.appTournament.findUnique({ where: { id: tournamentId }, select: { isTestTournament: true } });
+    const tourn = await prisma.appTournament.findUnique({
+        where: { id: tournamentId },
+        select: { isTestTournament: true },
+    });
     if (tourn?.isTestTournament) return; // never call external APIs for test tournaments
 
     const mapping = await prisma.tournamentSourceMapping.findFirst({

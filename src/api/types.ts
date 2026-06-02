@@ -141,6 +141,20 @@ export interface RoundSummary {
     extensions: Extension[];
 }
 
+/** Round timing report — see plans/reports.md */
+export interface RoundTimingReportRow {
+    roundNumber: number;
+    publishedAt: string | null;
+    roundTimeStart: string | null;
+    roundTimeScheduledEnd: string | null;
+    additionalTimeUsedSec: number | null;
+    totalDurationPlaySec: number | null;
+    totalDurationSincePublishSec: number | null;
+    seatingTurnoverSec: number | null;
+    tablesPlayingAfterTime: number | null;
+    maxExtensionSec: number | null;
+}
+
 export interface MeResponse {
     username: string;
     role: string;

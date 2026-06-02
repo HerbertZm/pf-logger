@@ -1,6 +1,6 @@
 import './TabBar.css';
 
-export type Tab = 'dashboard' | 'logs' | 'insights' | 'session' | 'data' | 'manage';
+export type Tab = 'dashboard' | 'logs' | 'insights' | 'reports' | 'session' | 'data' | 'manage';
 
 interface TabBarProps {
     active: Tab;
@@ -8,6 +8,7 @@ interface TabBarProps {
     logsBadge?: number;
     dashboardUrgent?: boolean;
     sessionWarning?: boolean;
+    showReports?: boolean;
 }
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -46,6 +47,18 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
         ),
     },
     {
+        id: 'reports',
+        label: 'Reports',
+        icon: (
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <rect x="3" y="2" width="16" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                <line x1="7" y1="7" x2="15" y2="7" stroke="currentColor" strokeWidth="1.5" />
+                <line x1="7" y1="11" x2="15" y2="11" stroke="currentColor" strokeWidth="1.5" />
+                <line x1="7" y1="15" x2="12" y2="15" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+        ),
+    },
+    {
         id: 'data',
         label: 'Data',
         icon: (
@@ -76,26 +89,36 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     },
 ];
 
-export const TabBar = ({ active, onChange, logsBadge = 0, dashboardUrgent = false }: TabBarProps) => (
-    <nav className="tab-bar" aria-label="Main navigation">
-        {TABS.map((tab) => (
-            <button
-                key={tab.id}
-                className={`tab-bar__item${active === tab.id ? ' tab-bar__item--active' : ''}`}
-                onClick={() => onChange(tab.id)}
-                aria-current={active === tab.id ? 'page' : undefined}
-            >
-                <span className="tab-bar__icon">
-                    {tab.icon}
-                    {tab.id === 'dashboard' && dashboardUrgent && (
-                        <span className="tab-bar__dot tab-bar__dot--urgent" />
-                    )}
-                    {tab.id === 'logs' && logsBadge > 0 && (
-                        <span className="tab-bar__badge">{logsBadge > 99 ? '99+' : logsBadge}</span>
-                    )}
-                </span>
-                <span className="tab-bar__label">{tab.label}</span>
-            </button>
-        ))}
-    </nav>
-);
+export const TabBar = ({
+    active,
+    onChange,
+    logsBadge = 0,
+    dashboardUrgent = false,
+    showReports = false,
+}: TabBarProps) => {
+    const tabs = showReports ? TABS : TABS.filter((t) => t.id !== 'reports');
+
+    return (
+        <nav className="tab-bar" aria-label="Main navigation">
+            {tabs.map((tab) => (
+                <button
+                    key={tab.id}
+                    className={`tab-bar__item${active === tab.id ? ' tab-bar__item--active' : ''}`}
+                    onClick={() => onChange(tab.id)}
+                    aria-current={active === tab.id ? 'page' : undefined}
+                >
+                    <span className="tab-bar__icon">
+                        {tab.icon}
+                        {tab.id === 'dashboard' && dashboardUrgent && (
+                            <span className="tab-bar__dot tab-bar__dot--urgent" />
+                        )}
+                        {tab.id === 'logs' && logsBadge > 0 && (
+                            <span className="tab-bar__badge">{logsBadge > 99 ? '99+' : logsBadge}</span>
+                        )}
+                    </span>
+                    <span className="tab-bar__label">{tab.label}</span>
+                </button>
+            ))}
+        </nav>
+    );
+};

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import './RoundSchedulePane.css';
 import { api } from '../../api/client';
 import type { Round } from '../../api/types';
+import { useDashboardRound } from '../../context/DashboardRoundContext';
 import { useTournament } from '../../context/TournamentContext';
 import { Banner } from '../shared/Banner';
 import {
@@ -23,6 +24,7 @@ const rowState = (row: RoundScheduleRow): 'active' | 'complete' | 'upcoming' => 
 };
 
 export const RoundSchedulePane = () => {
+    const dashboardRound = useDashboardRound();
     const { activeTournamentId, activeTournament } = useTournament();
     const [rounds, setRounds] = useState<Round[]>([]);
     const [error, setError] = useState<string | null>(null);
@@ -84,10 +86,32 @@ export const RoundSchedulePane = () => {
                                 const state = rowState(row);
                                 const isOvertime =
                                     row.durationMinutes !== null && row.durationMinutes > overtimeThreshold;
+                                const isSelectable = dashboardRound !== null;
+                                const isSelected =
+                                    isSelectable &&
+                                    (dashboardRound.selectedRoundNumber === row.round.roundNumber ||
+                                        (dashboardRound.selectedRoundNumber === null && state === 'active'));
+                                const selectRound = (): void => {
+                                    if (dashboardRound === null) return;
+                                    dashboardRound.setSelectedRoundNumber(row.round.roundNumber);
+                                };
                                 return (
                                     <tr
                                         key={row.round.id}
-                                        className={`round-schedule__row round-schedule__row--${state}${isOvertime ? ' round-schedule__row--overtime' : ''}`}
+                                        className={`round-schedule__row round-schedule__row--${state}${isOvertime ? ' round-schedule__row--overtime' : ''}${isSelectable ? ' round-schedule__row--selectable' : ''}${isSelected ? ' round-schedule__row--selected' : ''}`}
+                                        {...(isSelectable && {
+                                            role: 'button',
+                                            tabIndex: 0,
+                                            'aria-pressed': isSelected,
+                                            'aria-label': `View round ${row.round.roundNumber} in live panel`,
+                                            onClick: selectRound,
+                                            onKeyDown: (e: KeyboardEvent<HTMLTableRowElement>) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    selectRound();
+                                                }
+                                            },
+                                        })}
                                     >
                                         <td className="round-schedule__rd">{row.round.roundNumber}</td>
                                         <td

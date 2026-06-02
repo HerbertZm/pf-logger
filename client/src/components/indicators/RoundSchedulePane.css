@@ -95,3 +95,23 @@
 .round-schedule__row--overtime .round-schedule__duration {
     color: var(--color-warning);
 }
+
+.round-schedule__row--selectable {
+    cursor: pointer;
+}
+
+.round-schedule__row--selectable:hover td {
+    background: var(--color-bg-elevated);
+}
+
+.round-schedule__row--selectable.round-schedule__row--active:hover td {
+    background: var(--color-info-subtle);
+}
+
+.round-schedule__row--selected td {
+    box-shadow: inset 2px 0 0 var(--color-info);
+}
+
+.round-schedule__row--selected.round-schedule__row--active td {
+    background: var(--color-info-subtle);
+}

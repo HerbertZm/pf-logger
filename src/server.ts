@@ -5,6 +5,7 @@ import { tournamentsRouter } from './routes/tournaments';
 import { sessionRouter } from './routes/session';
 import { syncRouter } from './routes/sync';
 import { adminRouter } from './routes/admin';
+import { reportsRouter } from './routes/reports';
 import { authMiddleware } from './middleware/auth';
 import { rateLimitMiddleware } from './middleware/rateLimit';
 import { startWorker } from './ingestion/worker';
@@ -22,6 +23,7 @@ app.use('/api', sessionRouter);
 // Authenticated routes
 app.use('/api', authMiddleware, tournamentsRouter);
 app.use('/api', authMiddleware, syncRouter);
+app.use('/api/reports', authMiddleware, reportsRouter);
 app.use('/api/admin', authMiddleware, adminRouter);
 
 // GET /api/health — unauthenticated liveness + readiness probe

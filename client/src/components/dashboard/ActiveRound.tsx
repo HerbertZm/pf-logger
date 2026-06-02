@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import type { ActiveRoundResponse, Round } from '../../api/types';
+import { useDashboardRoundRequired } from '../../context/DashboardRoundContext';
 import { useTournament } from '../../context/TournamentContext';
 import { useRoundTimer } from '../../hooks/useRoundTimer';
 import { Banner } from '../shared/Banner';
@@ -14,8 +15,8 @@ const POLL_MS = 15_000;
 
 export const ActiveRound = () => {
     const { activeTournamentId } = useTournament();
+    const { selectedRoundNumber, setSelectedRoundNumber } = useDashboardRoundRequired();
     const [rounds, setRounds] = useState<Round[]>([]);
-    const [selectedRoundNumber, setSelectedRoundNumber] = useState<number | null>(null); // null = latest active
     const [data, setData] = useState<ActiveRoundResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

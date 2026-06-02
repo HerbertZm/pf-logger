@@ -1,0 +1,49 @@
+.round-timing-report__table-wrap {
+    overflow-x: auto;
+}
+
+.round-timing-report__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-xs-size);
+    font-variant-numeric: tabular-nums;
+}
+
+.round-timing-report__table thead th {
+    padding: var(--space-2) var(--space-3);
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-tertiary);
+    border-bottom: 1px solid var(--color-border-default);
+    white-space: nowrap;
+    max-width: 10rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.round-timing-report__table tbody td {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-border-subtle);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+.round-timing-report__table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.round-timing-report__cell--round {
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.round-timing-report__cell--clock,
+.round-timing-report__cell--duration-hm,
+.round-timing-report__cell--duration-ms,
+.round-timing-report__cell--count,
+.round-timing-report__cell--extension {
+    text-align: right;
+}
