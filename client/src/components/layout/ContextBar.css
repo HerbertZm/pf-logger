@@ -30,22 +30,27 @@
 .context-bar__name--empty { color: var(--color-text-tertiary); }
 
 .context-bar__select {
-  background: none;
+  background: var(--color-bg-chrome);
   border: none;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  padding: 0;
+  padding: 0 4px 0 0;
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
-  /* let the browser render the native dropdown arrow */
   appearance: auto;
+  /* Tell the OS to render the native dropdown popup in dark mode */
+  color-scheme: dark;
 }
 
 .context-bar__select:focus { outline: none; }
+.context-bar__select option {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
 
 .context-bar__status {
   font-size: var(--text-xs-size);

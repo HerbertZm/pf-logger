@@ -36,18 +36,36 @@ router.get('/tournaments', asyncHandler(async (_req: Request, res: Response) => 
   res.json(body);
 }));
 
-// GET /api/dashboard/active-round?tournamentId=:id
+// GET /api/rounds?tournamentId=:id — lightweight round list for selectors
+router.get('/rounds', asyncHandler(async (req: Request, res: Response) => {
+  const tid = Number(req.query['tournamentId']);
+  if (!tid) { res.status(400).json({ error: 'tournamentId required' }); return; }
+  const rounds = await prisma.round.findMany({
+    where: { tournamentId: tid },
+    orderBy: { roundNumber: 'asc' },
+  });
+  res.json(rounds.map(serializeRound));
+}));
+
+// GET /api/dashboard/active-round?tournamentId=:id[&roundNumber=:n]
+// If roundNumber is provided, returns that specific round; otherwise returns latest active/complete.
 router.get('/dashboard/active-round', asyncHandler(async (req: Request, res: Response) => {
   const tid = Number(req.query['tournamentId']);
   if (!tid) { res.status(400).json({ error: 'tournamentId required' }); return; }
 
-  const round = await prisma.round.findFirst({
-    where: {
-      tournamentId: tid,
-      cardeStatus: { in: ['IN_PROGRESS', 'COMPLETE'] },
-    },
-    orderBy: { roundNumber: 'desc' },
-  });
+  const requestedRound = req.query['roundNumber'] ? Number(req.query['roundNumber']) : null;
+
+  const round = requestedRound
+    ? await prisma.round.findFirst({
+        where: { tournamentId: tid, roundNumber: requestedRound },
+      })
+    : await prisma.round.findFirst({
+        where: {
+          tournamentId: tid,
+          cardeStatus: { in: ['IN_PROGRESS', 'COMPLETE'] },
+        },
+        orderBy: { roundNumber: 'desc' },
+      });
 
   if (!round) { res.json(null); return; }
 

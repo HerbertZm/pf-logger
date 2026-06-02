@@ -57,9 +57,9 @@ export const CrossRoundSummary = () => {
               <th>Rd</th>
               <th>Status</th>
               {sources.pf && <th>Drops</th>}
-              <th>Ext</th>
-              <th>Outstanding</th>
-              <th>Overtime</th>
+              <th>Extensions</th>
+              <th title="Tables with outstanding results when the round clock expired">Late Tables</th>
+              <th title="Minutes past timer expiry before last result — requires ingestion worker">Overtime (min)</th>
               <th />
             </tr>
           </thead>

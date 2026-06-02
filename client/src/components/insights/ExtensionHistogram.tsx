@@ -24,7 +24,7 @@ export const ExtensionHistogram = ({ extensions }: ExtensionHistogramProps) => {
 
   return (
     <div className="ext-histogram">
-      <p className="ext-histogram__title">Extension distribution</p>
+      <p className="ext-histogram__title">Extensions by duration granted</p>
       <div className="ext-histogram__bars">
         {entries.map(({ label, count }) => (
           <div key={label} className="ext-histogram__col">

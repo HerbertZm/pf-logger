@@ -59,6 +59,17 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
       </svg>
     ),
   },
+  {
+    id: 'manage',
+    label: 'Manage',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <circle cx="11" cy="11" r="3" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M11 1v3M11 18v3M1 11h3M18 11h3M3.93 3.93l2.12 2.12M15.95 15.95l2.12 2.12M18.07 3.93l-2.12 2.12M6.05 15.95l-2.12 2.12"
+          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
 ];
 
 export const TabBar = ({ active, onChange, logsBadge = 0, dashboardUrgent = false }: TabBarProps) => (

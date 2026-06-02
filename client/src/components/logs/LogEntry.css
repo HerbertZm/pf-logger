@@ -1,6 +1,6 @@
 .log-entry {
   display: grid;
-  grid-template-columns: 3px 12px 80px 1fr 72px;
+  grid-template-columns: 3px 8px auto 1fr 72px;
   align-items: center;
   min-height: var(--log-row-height);
   background: var(--log-row-bg);
@@ -11,7 +11,7 @@
 
 @media (min-width: 768px) {
   .log-entry {
-    grid-template-columns: 3px 12px 80px 1fr 80px;
+    grid-template-columns: 3px 8px auto 1fr 80px;
   }
 }
 
@@ -55,6 +55,15 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.log-entry__staff {
+  font-size: var(--text-xs-size);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
 }
 
 .log-entry__time {

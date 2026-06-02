@@ -41,8 +41,8 @@ export const RoundRow = ({ summary }: RoundRowProps) => {
         <td className={`round-row__num${summary.outstandingAtTimeCalled === 0 ? ' value-zero' : ''}`}>
           {val(summary.outstandingAtTimeCalled)}
         </td>
-        <td className={`round-row__num${(summary.overtimeMinutes ?? 0) === 0 ? ' value-zero' : ''}`}>
-          {summary.overtimeMinutes !== null ? `${val(summary.overtimeMinutes)}m` : '—'}
+        <td className="round-row__num value-zero" title="Requires ingestion worker — not yet available">
+          {summary.overtimeMinutes !== null ? `${val(summary.overtimeMinutes)}m` : 'n/a'}
         </td>
         <td className="round-row__expand">{expanded ? '▲' : '▼'}</td>
       </tr>

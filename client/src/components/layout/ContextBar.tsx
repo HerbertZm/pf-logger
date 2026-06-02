@@ -11,7 +11,7 @@ interface ContextBarProps {
 
 export const ContextBar = ({ onSessionClick, sessionActive = false }: ContextBarProps) => {
   const { activeTournament, tournaments, activeTournamentId, setActiveTournament, sources } = useTournament();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSuperadmin } = useAuth();
   const { lastSync, isRunning, error, isStale, pfJwtExpiresAt } = useWorkerStatus(
     activeTournament?.id ?? null,
   );
@@ -55,7 +55,7 @@ export const ContextBar = ({ onSessionClick, sessionActive = false }: ContextBar
       </div>
       <div className="context-bar__right">
         <span className={`context-bar__status ${status.cls}`}>{status.text}</span>
-        {sources.pf && (
+        {(sources.pf || isSuperadmin) && (
           <button
             className={`context-bar__gear${sessionActive ? ' context-bar__gear--active' : ''}${jwtWarn ? ' context-bar__gear--warn' : ''}`}
             onClick={onSessionClick}
