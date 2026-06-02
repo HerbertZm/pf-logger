@@ -337,3 +337,36 @@ See `docs/DEPLOY.md` — the "CI/CD access" section covers generating the key pa
 - Deactivating a user immediately invalidates their open sessions
 - All existing sync/log/backfill flows work unchanged
 - Health endpoint returns correct worker status and last sync times
+
+---
+
+## 1.x — Test Tournament Management
+
+**Goal:** Maintain a reliable dev fixture that always produces a working "live event" state locally, so UI development and manual testing don't require a real in-progress tournament.
+
+### What exists today
+
+- `isTestTournament: boolean` on `app_tournaments` — lets the app and scripts filter out test data from real workflows
+- `src/db/seed-test-tournament.ts` — idempotent seed that creates `[TEST] Riftbound Regional RQ 2026` with:
+  - 4 completed rounds (with drops, extensions, penalties, judge calls)
+  - 1 in-progress round (timer ~40 min remaining from when the seed was run)
+  - Realistic timing: rounds spaced 75 min apart starting ~5h before now
+- `npm run db:seed-test` — run it any time to reset the test tournament to a fresh state
+
+### Rules for test tournaments
+
+- Test data is **local only** — never deployed to the VPS. The VPS never has `isTestTournament=true` rows.
+- `npm run db:seed-test` is safe to re-run at any time — it deletes and recreates all test data atomically.
+- The "Live" round timer will drift after the seed runs (round 5 started 20 min ago, ends in 40 min). Re-run the seed if you need a fresh countdown.
+- Test tournaments appear in the tournament selector alongside real ones — prefix `[TEST]` in the name makes them identifiable. Future: hide them behind a dev-only toggle in the Manage tab.
+
+### Phase 1 additions
+
+- [ ] `POST /api/admin/tournaments` should default `isTestTournament` to false and validate it's not settable via the API (test tournaments are seed-only, not creatable from the UI)
+- [ ] Manage tab: show a `TEST` badge on test tournaments; add a "Reset test data" button that calls `POST /api/admin/reset-test-tournament` (re-runs the seed logic server-side)
+- [ ] `GET /api/tournaments` in production (`NODE_ENV=production`) should filter out `isTestTournament=true` rows — they must never appear to real event staff
+
+### Phase 2 additions
+
+- [ ] Seed script gains a `--scenario` flag: `--scenario late` (timer at 2 min), `--scenario overtime` (timer expired, outstanding tables), `--scenario top8` (Top 8 brackets with null timer_duration)
+- [ ] CI pipeline runs the seed and smoke-tests the API responses before each deploy

@@ -98,6 +98,7 @@ export interface Tournament {
     game: Game;
     isActive: boolean;
     isEnded: boolean;
+    isTestTournament: boolean;
     sources: { pf: boolean; carde: boolean };
 }
 

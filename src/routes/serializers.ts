@@ -96,6 +96,7 @@ interface PrismaTournamentWithGame {
     gameId: number;
     isActive: boolean;
     isEnded: boolean;
+    isTestTournament: boolean;
     game: PrismaGame;
     sourceMappings: PrismaSourceMapping[];
 }
@@ -120,6 +121,7 @@ export function serializeTournament(t: PrismaTournamentWithGame): Tournament {
         game: serializeGame(t.game),
         isActive: t.isActive,
         isEnded: t.isEnded,
+        isTestTournament: t.isTestTournament,
         sources: {
             pf: t.sourceMappings.some((m) => m.source === 'purplefox' && m.isEnabled),
             carde: t.sourceMappings.some((m) => m.source === 'carde' && m.isEnabled),

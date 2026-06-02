@@ -1,0 +1,1 @@
+ALTER TABLE "app_tournaments" ADD COLUMN IF NOT EXISTS "is_test_tournament" BOOLEAN NOT NULL DEFAULT FALSE;
