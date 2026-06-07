@@ -97,14 +97,14 @@ Open the Vite URL in the browser (not `:8080` directly in dev). All `/api/*` req
 
 ## Local Development Setup (Ubuntu/Linux)
 
-### 1 — Install Node.js 20 LTS
+### 1 — Install Node.js 22 LTS
 
 Ubuntu's default `apt` packages are too old. Use NodeSource:
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
-node -v   # should print v20.x.x
+node -v   # should print v22.x.x
 npm -v
 ```
 
@@ -182,7 +182,7 @@ Same as Windows (see §5 above): API on `PORT` (default 8080), Vite after `wait-
 
 Deploy on a VPS with nginx reverse proxy + Let's Encrypt TLS.
 
-**Stack:** Node.js 20 LTS, PostgreSQL 16, nginx, systemd, GitHub Actions for CI/CD.
+**Stack:** Node.js 22 LTS, PostgreSQL 16, nginx, systemd, GitHub Actions for CI/CD.
 
 **Assumptions:** Ubuntu 22.04/24.04, root or sudo access, DNS for `analysis.heidy.tools` managed somewhere you can add records.
 
@@ -205,8 +205,8 @@ Propagation takes a few minutes to an hour. Check with `dig analysis.heidy.tools
 ```bash
 sudo apt update && sudo apt upgrade -y
 
-# Node.js 20 LTS (via NodeSource)
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+# Node.js 22 LTS (via NodeSource)
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
 
 # PostgreSQL 16
@@ -219,7 +219,7 @@ sudo apt install -y nginx certbot python3-certbot-nginx ufw git
 Verify versions:
 
 ```bash
-node -v    # should print v20.x.x
+node -v    # should print v22.x.x
 npm -v
 psql --version
 ```
