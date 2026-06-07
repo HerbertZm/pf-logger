@@ -20,6 +20,12 @@ const PORT = Number(process.env['PORT'] ?? 8080);
 app.use(express.json());
 app.use(rateLimitMiddleware);
 
+// GET /api/health — must be before authMiddleware mounts so it is always public
+app.get('/api/health', async (_req: Request, res: Response) => {
+    const status = await buildPublicHealthStatus(Math.floor(process.uptime()));
+    res.status(status.ok ? 200 : 503).json(status);
+});
+
 // Public routes (login, logout, /me)
 app.use('/api', sessionRouter);
 
@@ -29,12 +35,6 @@ app.use('/api', authMiddleware, configRouter);
 app.use('/api', authMiddleware, syncRouter);
 app.use('/api/reports', authMiddleware, reportsRouter);
 app.use('/api/admin', authMiddleware, adminRouter);
-
-// GET /api/health — unauthenticated liveness only (no JWT/tournament details)
-app.get('/api/health', async (_req: Request, res: Response) => {
-    const status = await buildPublicHealthStatus(Math.floor(process.uptime()));
-    res.status(status.ok ? 200 : 503).json(status);
-});
 
 // Unmatched /api/* → 404 (prevents SPA fallback from swallowing API typos)
 app.use('/api', (_req: Request, res: Response) => {
