@@ -35,7 +35,7 @@ jobs:
                       git config --global --add safe.directory /opt/pf-logger
                       cd /opt/pf-logger
                       git pull origin main
-                      npm ci --omit=dev
+                      npm install --no-audit --no-fund
                       npm run db:generate
                       if ! npx prisma migrate deploy 2>migrate.err; then
                         if grep -q P1002 migrate.err; then

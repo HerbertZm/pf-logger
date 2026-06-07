@@ -309,7 +309,7 @@ sudo -u deploy npm run build
 
 `npm run build` compiles the Express API to `dist/server.js` and builds the React app to `dist/client/`. Express serves `dist/client/` as static files with a SPA fallback.
 
-> **Prisma 7 note:** `src/generated/prisma/` is gitignored — it must be (re)generated after every `npm ci` or schema change. The `postinstall` script handles this automatically for `npm install`, but `npm ci --omit=dev` skips lifecycle scripts, so run `db:generate` explicitly after production installs.
+> **Prisma 7 note:** `src/generated/prisma/` is gitignored — it must be (re)generated after every install or schema change. `postinstall` runs `prisma generate` automatically, so `npm install` handles this. Run `npm run db:generate` explicitly if you ever install without scripts (e.g. `--ignore-scripts`).
 
 ---
 
@@ -565,14 +565,14 @@ See `plans/phase-1.md` — section 1.4 for the full workflow YAML and required `
 ```bash
 cd /opt/pf-logger
 git pull origin main
-npm ci --omit=dev
-npm run db:generate        # Prisma 7: postinstall skips on --omit=dev; must run explicitly
-npx prisma migrate deploy  # e.g. games table + game_id on tournaments (2026-06-01+)
+npm install --no-audit --no-fund   # includes devDeps needed for tsc build
+npm run db:generate                # Prisma 7: regenerate client (postinstall handles this, but explicit is safe)
+npx prisma migrate deploy          # e.g. games table + game_id on tournaments (2026-06-01+)
 npm run build
 sudo systemctl restart pf-logger
 ```
 
-`npm ci --omit=dev` installs only production dependencies. `db:generate` must be run explicitly after it because `--omit=dev` causes npm to skip lifecycle scripts. Prisma migrations are applied before the build — if a migration fails, the restart is skipped and the old version stays running.
+`npm install` is used instead of `npm ci --omit=dev` because the build step (`tsc`) requires devDependencies (`@types/*`, TypeScript). Prisma migrations are applied before the build — if a migration fails, the restart is skipped and the old version stays running.
 
 If `npx prisma migrate deploy` fails with **P1002** (advisory lock — usually another `prisma` or dev server connection), stop competing processes and retry, or run `npm run db:apply-pending` on the VPS as the `deploy` user (same `DATABASE_URL` in `.env`).
 
@@ -600,12 +600,12 @@ If you need to deploy manually outside of the CI/CD flow:
 ssh deploy@<VPS-IP>
 cd /opt/pf-logger
 git pull origin main
-npm ci --omit=dev
-npm run db:generate        # Prisma 7: regenerate client after install
-npx prisma migrate deploy  # or: npm run db:apply-pending if P1002 lock
+npm install --no-audit --no-fund   # includes devDeps needed for tsc build
+npm run db:generate                # Prisma 7: regenerate client after install
+npx prisma migrate deploy          # or: npm run db:apply-pending if P1002 lock
 npm run build
 sudo systemctl restart pf-logger
-sudo journalctl -u pf-logger -f   # watch logs to confirm clean start
+sudo journalctl -u pf-logger -f    # watch logs to confirm clean start
 ```
 
 After deploy, complete the [timestamp refresh](#timestamps-utc-storage-and-display) steps if this release changes ingestion or display timezone handling.
