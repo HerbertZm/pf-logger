@@ -7,6 +7,10 @@ on:
 jobs:
     deploy:
         runs-on: ubuntu-latest
+        env:
+            # prisma generate (postinstall) parses prisma.config.ts which requires DATABASE_URL.
+            # No real connection is made during generate — a placeholder is sufficient.
+            DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
         steps:
             - uses: actions/checkout@v4
 
