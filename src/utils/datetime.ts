@@ -72,6 +72,8 @@ export function parseCardeTimestamp(
     return parseUtcTimestamp(value, { defaultTimeZone: tournamentTimeZone });
 }
 
+// DST spring-forward gap (e.g. 02:30 America/New_York on changeover Sunday): the iterative loop
+// converges to one side of the gap. Tournament events are never scheduled at 2am, so this is fine.
 function wallTimeInZoneToUtc(isoLocal: string, timeZone: string): Date | null {
     const m = isoLocal.match(NAIVE_ISO);
     if (!m) return null;

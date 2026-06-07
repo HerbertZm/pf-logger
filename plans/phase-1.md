@@ -99,7 +99,11 @@ Work landed on feature branches before the remaining P1 Manage/CI items. Safe to
 | Event TZ cascade on link (default-TZ-only) | Phase 2 events UX |
 | Authenticated CI smoke (`/api/admin/health`) | Phase 2 CI |
 | Compare duration / overtime columns | Phase 2 (`result_at`, StageTimer) |
+| Password reset session invalidation | Phase 2 |
+| Activity log pagination | Phase 2 |
 | `GET /api/admin/backup` | Phase 3 |
+
+**Note:** `GET /api/config` is intentionally auth-gated (not public) — the whole app requires auth, so this has no functional impact. Returns only `{ extensionLogisticsThresholdMin }` for Insights display logic.
 
 ---
 

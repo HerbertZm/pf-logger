@@ -5,6 +5,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 export type AuditEventType =
     | 'tournament_created'
     | 'tournament_updated'
+    | 'tournament_reactivated'
     | 'tournament_deactivated'
     | 'tournament_ended'
     | 'event_created'

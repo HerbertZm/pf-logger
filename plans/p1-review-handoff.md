@@ -1,6 +1,6 @@
 # pf-logger — Phase 1 completion review (detailed handoff)
 
-> **Status: WRAPPED (2026-06-02).** Phase 1 is complete; use `plans/phase-2.md` for active work. This doc is an archive of the review pass.
+> **Status: WRAPPED (2026-06-02).** Branch `hz/random-v2`: `f46b5b6` (Phase 1) + `5ed2538` (UTC). Use `plans/phase-2.md` for active work. **Copy-paste review prompt:** § [Agent review prompt](#agent-review-prompt-copy-paste) below.
 
 ## Mission
 
@@ -428,3 +428,139 @@ Tabs: dashboard, logs, insights, **guide**, reports (admin+), session (context g
 3. **Nice-to-have / defer to Phase 2**
 4. Whether `plans/phase-1.md` and `plans/qol.md` match code
 5. Whether deploy/migration steps are sufficient
+
+---
+
+## Agent review prompt (copy-paste)
+
+Use this block as the full handoff for another agent. Branch: **`hz/random-v2`**. Commits: **`f46b5b6`** (Phase 1) + **`5ed2538`** (UTC timestamps). Base: `a3a6b3b`.
+
+```markdown
+# pf-logger — branch review: `hz/random-v2`
+
+## Mission
+Review commits `f46b5b6` + `5ed2538` (base `a3a6b3b`) for merge readiness to `main`. Focus on security, data correctness, domain invariants, and deploy/ops runbook. Tournament ops dashboard: PurpleFox + Carde.io → PostgreSQL → React.
+
+## Read first
+| Doc | Why |
+|-----|-----|
+| `CLAUDE.md` | Domain invariants, phase status |
+| `agent/RULES.md` | Style, UTC/health/VPS rules |
+| `agent/MEMORY.md` | 2026-06-02 session log |
+| `plans/phase-1.md` | P1 scope (WRAPPED) |
+| `plans/qol.md` | QoL 1–13 status |
+| `plans/p1-review-handoff.md` | This file — detailed checklist |
+| `docs/DEPLOY.md` | § Timestamps (UTC storage and display) |
+
+## Verify locally
+npm run db:generate
+npm run typecheck
+npm run lint
+npm run build
+node scripts/apply-pending-migrations.cjs --dry-run
+
+Migrations to confirm on target DB:
+- 20260601120000_add_games
+- 20260601_add_test_tournament_flag
+- 20260602120000_add_operator_notes
+- 20260602140000_events_and_timezone
+- 20260602160000_app_config
+
+---
+
+## Summary of changes
+
+### Commit 1: `f46b5b6` — Complete Phase 1 (~98 files)
+
+**Backend**
+- Superadmin **Manage API**: tournaments (CRUD, sources, reactivate), users (incl. last login, password reset), sessions, events, config, activity, staff-sync, reset-test-tournament
+- **Health split**: `GET /api/health` → `{ ok, uptime, db }` only; `GET /api/admin/health` → workers + PF JWT (superadmin)
+- **Worker lifecycle**: `stopTournamentWorker` on deactivate/end/delete; respawn on reactivate; `rescheduleActiveTournamentPolls` on config PATCH
+- **Backfill** (`src/ingestion/backfillFromRaw.ts`) + `POST /api/backfill` aligned with worker normalization
+- **Guards**: prod hides test tournaments (`tournamentAccess.ts`); `PF_PASSWORD_PEPPER` required in production
+- **Audit** (`auditLog.ts`): typed events incl. `pf_jwt_set/cleared`, `staff_sync`, `tournament_*`, `manual_sync`, etc.
+- **Rate limit** on sync; `src/lib/logger.ts` with `LOG_LEVEL`
+- **Migrations**: operator notes, app_events + tournament timezone/venue, app_config singleton
+
+**Frontend**
+- Full **Manage** tab: Tournaments, Users, Sessions, Events, Config, Tools, Pre-event checklist, Activity
+- **QoL 1–13**: logs badge, keyboard shortcuts, Guide tab, round compare (duration `n/a`), operator notes, copy summary, extension histogram, collapsible logs, filter presets, diff banner, etc.
+- Events/timezone inherit; `formatInTournamentTz` on logs/dashboard/schedule
+- TournamentPanel: timezone/venue prompts, reactivate, end tournament
+
+**Ops**
+- `.github/workflows/deploy.yml` (typecheck, lint, build, SSH deploy)
+- `scripts/apply-pending-migrations.cjs` (initial)
+- `npm run db:apply-pending` in package.json
+
+**Docs**
+- `plans/phase-1.md` WRAPPED; `CLAUDE.md` → Phase 2; `plans/qol.md`, `plans/p1-review-handoff.md` synced
+
+**Explicitly NOT shipped**: `GET /api/admin/backup` (Phase 3). QoL 2/10 duration columns until Phase 2 `result_at`/StageTimer.
+
+### Commit 2: `5ed2538` — UTC storage + client display (16 files)
+
+**Ingestion (`src/utils/datetime.ts`, `worker.ts`)**
+- `parseCardeTimestamp(value, tournament.timezone)` — naive Carde ISO → UTC instant using IANA zone
+- `parsePfTimestamp` — PF strings without suffix treated as UTC
+- Worker round/match/extension/penalty sync uses parsers (not raw `new Date(string)`)
+
+**API**
+- Unchanged contract: all timestamps still `Date.toISOString()` (`…Z`)
+
+**Client (`client/src/utils/time.ts`, `datetime.ts`)**
+- `formatInTournamentTz` — tournament UI (logs, dashboard, schedule, reports)
+- `formatUtc` / `formatUtcDateTime` — Manage users/sessions/activity labeled **(UTC)**
+- Reports `formatReportValue` uses shared formatter
+
+**Deploy / CI**
+- `docs/DEPLOY.md`: **Timestamps** section; post-deploy **sync per tournament** (not backfill-only); `db:apply-pending --dry-run`; P1002 guidance
+- `apply-pending-migrations.cjs`: auto-discovers all migration folders, SHA-256 checksums, `--dry-run`
+- `deploy.yml`: on Prisma **P1002 only**, fallback to `npm run db:apply-pending`
+
+**Docs / agent**
+- `docs/carde-api.md`: timer_end_datetime not recoverable for completed rounds; matches-list pagination notes
+- `CLAUDE.md`, `agent/RULES.md`, `agent/MEMORY.md`: UTC pipeline + health + VPS DB access rules
+
+---
+
+## Review focus areas
+
+### Security
+- Public `/api/health` must not leak JWT or per-tournament worker details
+- Admin routes superadmin-gated where required; session list excludes tokens
+- Prod test-tournament 404 on tournament-scoped routes
+- No secrets in committed files
+
+### Domain invariants (must not regress)
+- `completed_at` ≠ round end time (equals next round `started_at`)
+- PF+Carde: extensions from PF only; Carde `time_extension_seconds` = 0
+- Outstanding tables include extension tables
+- Top-8: null-check `timer_duration_minutes`
+- PF JWT memory-only; `inMemory: false` after restart
+
+### UTC correctness (commit 2)
+- Carde strings with offset vs naive — correct UTC in DB?
+- `wallTimeInZoneToUtc` edge cases (DST)?
+- Existing rows wrong until **manual sync** — is DEPLOY.md accurate?
+- Any remaining `toLocaleString()` without explicit `timeZone`?
+
+### Worker / backfill parity
+- `backfillFromRaw.ts` vs `worker.ts` for drops, matches, `inferRoundPhase`
+- Worker stop/start on tournament lifecycle events
+
+### Phase 1 completeness
+- `plans/phase-1.md` vs code
+- QoL matrix vs `plans/qol.md`
+
+### Deploy
+- CI migrate + P1002 fallback safe?
+- VPS steps: migrate → restart → PF JWT paste → per-tournament sync
+
+## Deliverables
+1. **Blockers** (security, data loss, auth bypass)
+2. **Should-fix before merge**
+3. **Nice-to-have / Phase 2**
+4. Confirm both commits safe to merge as-is or recommend split/reorder
+5. Post-merge VPS checklist (migrations, sync, smoke tests)
+```

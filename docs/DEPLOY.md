@@ -72,6 +72,8 @@ That script discovers **all** folders under `src/db/migrations/*/migration.sql`,
 node scripts/apply-pending-migrations.cjs --dry-run
 ```
 
+> **Warning:** Unlike `prisma migrate deploy`, `db:apply-pending` does **not** wrap each migration in a transaction. If a migration contains multiple statements and fails mid-way, the schema may be left in a partial state while the migration is recorded as applied. Use this script only as a last resort when `prisma migrate deploy` is blocked by a P1002 lock. Always prefer `npx prisma migrate deploy` on the VPS.
+
 On the VPS, prefer `npx prisma migrate deploy` when nothing holds the DB lock (see [Timestamps and post-deploy data refresh](#timestamps-utc-storage-and-display) for when to re-sync after deploy).
 
 ### 5 — Start the dev server

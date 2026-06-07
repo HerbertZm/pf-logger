@@ -92,6 +92,20 @@ From P0.5 API exploration: several Carde.io endpoints have unknown behavior once
 
 ---
 
+## Carry-forward from Phase 1 review
+
+Small items deferred from the P1 merge review that don't belong in a feature section:
+
+| Item | Detail |
+|------|--------|
+| **Password reset → invalidate sessions** | `PATCH /api/admin/users/:id` (password reset) does not revoke existing sessions. User can keep working until session expires (up to 30 days). Add a session purge in the same transaction as the password update. |
+| **Activity log pagination** | `GET /api/admin/activity` is hard-capped at 100 rows. Add `limit`/`offset` query params; default limit 100. |
+| **Audit granularity for PATCH transitions** | When a tournament is ended or deactivated via `PATCH /api/admin/tournaments/:id` (rather than the dedicated end-tournament route), the audit reads `tournament_updated`. Consider emitting `tournament_ended` / `tournament_deactivated` based on which fields changed. |
+| **TournamentContext silent failures** | `fetchTournaments` swallows all errors with `.catch(() => {})`. Surface a staleness banner when the tournament list can't be refreshed while the app is open. |
+| **Authenticated CI smoke test** | `deploy.yml` confirms liveness via public `/api/health`. Add an authenticated smoke that calls `GET /api/admin/health` after restart so workers and PF JWT state are verified in CI. |
+
+---
+
 ## Verification Checklist
 
 - Superadmin creates event, adds 2 tournaments, assigns a judge → judge sees only those 2

@@ -38,9 +38,11 @@ jobs:
                           npm run db:apply-pending
                         else
                           cat migrate.err
+                          rm -f migrate.err
                           exit 1
                         fi
                       fi
+                      rm -f migrate.err
                       npm run build
                       sudo systemctl restart pf-logger
                       sleep 3

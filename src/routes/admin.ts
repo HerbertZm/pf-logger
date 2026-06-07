@@ -595,7 +595,8 @@ router.patch(
             spawnTournamentWorker(id).catch(() => undefined);
         }
 
-        fireAudit(req, 'tournament_updated', `id=${id}`);
+        const auditEvent = !wasRunning && isRunning ? 'tournament_reactivated' : 'tournament_updated';
+        fireAudit(req, auditEvent, `id=${id}`);
         res.json(serializeAdminTournament(tournament));
     }),
 );
