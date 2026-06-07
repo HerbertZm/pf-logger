@@ -23,6 +23,8 @@ export type AuditEventType =
     | 'logout'
     | 'pf_jwt_set'
     | 'pf_jwt_cleared'
+    | 'carde_token_set'
+    | 'carde_token_cleared'
     | 'config_updated'
     | 'test_tournament_reset'
     | 'manual_sync'

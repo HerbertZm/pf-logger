@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import type { AdminTournament, AppEventSummary, SourceMapping } from '../../api/adminTypes';
 import type { Game } from '../../api/types';
-import { COMMON_TIMEZONES } from '../../constants/timezones';
+import { ALL_TIMEZONES, COMMON_TIMEZONES } from '../../constants/timezones';
 import { Banner } from '../shared/Banner';
 import { Badge } from '../shared/Badge';
 import { Button } from '../shared/Button';
@@ -244,7 +244,7 @@ export const TournamentPanel = () => {
                         disabled={tzLocked}
                         onChange={(e) => setTimezone(e.target.value)}
                     >
-                        {COMMON_TIMEZONES.map((tz) => (
+                        {ALL_TIMEZONES.map((tz) => (
                             <option key={tz} value={tz}>
                                 {tz}
                             </option>

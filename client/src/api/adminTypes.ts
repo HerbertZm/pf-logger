@@ -62,6 +62,20 @@ export type AdminTournament = Tournament & {
     sourceMappings: AdminSourceMapping[];
 };
 
+export interface PfJwtStatus {
+    status: 'valid' | 'expired' | 'missing';
+    inMemory: boolean;
+    expiresAt: string | null;
+    setBy: string | null;
+}
+
+export interface CardeTokenStatus {
+    source: 'memory' | 'env';
+    hasToken: boolean;
+    setBy: string | null;
+    setAt: string | null;
+}
+
 export interface SourceMapping {
     tournamentId: number;
     source: string;

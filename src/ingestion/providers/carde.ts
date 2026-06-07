@@ -10,8 +10,9 @@
  * - timer_is_running does NOT flip false on expiry; detect via timer_end_datetime vs wall time
  */
 
+import { getCardeToken } from '../cardeTokenStore';
+
 const BASE = 'https://app.carde.io/api';
-const TOKEN = process.env['CARDE_API_TOKEN'] ?? '';
 
 interface CardeRound {
     id: number;
@@ -48,7 +49,7 @@ interface CardeMatch {
 
 async function cardeGet<T>(path: string): Promise<T> {
     const res = await fetch(`${BASE}${path}`, {
-        headers: { Authorization: `Token ${TOKEN}` },
+        headers: { Authorization: `Token ${getCardeToken()}` },
     });
     if (!res.ok) {
         throw new Error(`Carde API ${res.status} at ${path}`);

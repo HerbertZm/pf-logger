@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import type { AppEventSummary } from '../../api/adminTypes';
-import { COMMON_TIMEZONES } from '../../constants/timezones';
+import { ALL_TIMEZONES, COMMON_TIMEZONES } from '../../constants/timezones';
 import { Banner } from '../shared/Banner';
 import { Button } from '../shared/Button';
 
@@ -78,7 +78,7 @@ export const EventsPanel = () => {
                 <label>
                     Timezone
                     <select value={timezone} onChange={(e) => setTimezone(e.target.value)}>
-                        {COMMON_TIMEZONES.map((tz) => (
+                        {ALL_TIMEZONES.map((tz) => (
                             <option key={tz} value={tz}>
                                 {tz}
                             </option>

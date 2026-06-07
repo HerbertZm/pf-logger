@@ -1,5 +1,23 @@
 @import './tokens.css';
 
+/* Select reset — removes native OS arrow; components supply their own padding-right */
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: inherit;
+    font-size: inherit;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6L8 10L12 6' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--space-3) center;
+    background-size: 16px 16px;
+    cursor: pointer;
+}
+
+select:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
 @keyframes overtime-pulse {
     0%,
     100% {

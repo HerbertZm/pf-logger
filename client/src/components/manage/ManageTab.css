@@ -101,12 +101,20 @@
 .manage-form input,
 .manage-form select {
     min-height: 44px;
-    padding: 0 var(--space-3);
     border-radius: var(--radius-md);
-    border: 1px solid var(--color-border);
-    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border-default);
+    background: var(--color-bg-elevated);
     color: var(--color-text-primary);
     font-size: var(--text-body-size);
+}
+
+.manage-form input {
+    padding: 0 var(--space-3);
+}
+
+.manage-form select {
+    /* Extra right padding leaves room for the custom chevron arrow */
+    padding: 0 36px 0 var(--space-3);
 }
 
 .manage-row-actions {
@@ -115,6 +123,16 @@
     gap: var(--space-2);
     min-height: 44px;
     align-items: center;
+}
+
+.manage-row-actions select {
+    height: 36px;
+    padding: 0 32px 0 var(--space-2);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-default);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm-size);
 }
 
 .manage-tournament-name {

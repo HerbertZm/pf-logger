@@ -133,22 +133,6 @@ export const FilterBar = ({
                     disabled={latestRoundNumber === null}
                     onClick={() => applyPreset('this_round')}
                 />
-                <FilterChip
-                    label="Extensions"
-                    active={activePreset === 'extensions'}
-                    onClick={() => applyPreset('extensions')}
-                />
-                <FilterChip
-                    label="Drops"
-                    active={activePreset === 'drops'}
-                    disabled={!sources.pf}
-                    onClick={() => applyPreset('drops')}
-                />
-                <FilterChip
-                    label="Penalties"
-                    active={activePreset === 'penalties'}
-                    onClick={() => applyPreset('penalties')}
-                />
                 <FilterChip label="Clear" active={activePreset === 'clear'} onClick={() => applyPreset('clear')} />
             </div>
             <div className="filter-bar__chips">

@@ -5,6 +5,7 @@ import type { AdminTournament } from '../../api/adminTypes';
 import { useAuth } from '../../context/AuthContext';
 import { ActivityPanel } from './ActivityPanel';
 import { ConfigPanel } from './ConfigPanel';
+import { CredentialsPanel } from './CredentialsPanel';
 import { EventsPanel } from './EventsPanel';
 import { OpsChecklistPanel } from './OpsChecklistPanel';
 import { SessionsPanel } from './SessionsPanel';
@@ -36,6 +37,7 @@ export const ManageTab = () => {
         <div className="manage-tab">
             <div className="manage-tab__panels">
                 <OpsChecklistPanel tournamentCount={activeTournamentCount} />
+                <CredentialsPanel />
                 <ToolsPanel />
                 <ConfigPanel />
                 <EventsPanel />

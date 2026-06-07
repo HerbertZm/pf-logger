@@ -6,6 +6,7 @@ import { loginRateLimit } from '../middleware/rateLimit';
 import { authMiddleware, requireAdmin, AuthenticatedRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { setPfJwt, getPfJwtEntry, clearPfJwt, isPfJwtInMemory } from '../ingestion/jwtStore';
+import { setCardeToken, getCardeTokenEntry, clearCardeToken, isCardeTokenInMemory } from '../ingestion/cardeTokenStore';
 import { auditFromRequest, auditPublicRequest } from '../services/auditLog';
 
 const router = Router();
@@ -178,6 +179,52 @@ router.delete(
     UPDATE pf_session SET expires_at = NULL, set_by = NULL, set_at = NULL WHERE id = 1
   `;
         void auditFromRequest(req, 'pf_jwt_cleared', null);
+        res.json({ ok: true });
+    }),
+);
+
+// GET /api/session/carde-token — token status (never returns the token itself)
+router.get(
+    '/session/carde-token',
+    authMiddleware,
+    (_req: Request, res: Response): void => {
+        const entry = getCardeTokenEntry();
+        const hasEnvToken = Boolean(process.env['CARDE_API_TOKEN']);
+        res.json({
+            source: isCardeTokenInMemory() ? 'memory' : 'env',
+            hasToken: entry !== null ? true : hasEnvToken,
+            setBy: entry?.setBy ?? null,
+            setAt: entry?.setAt ?? null,
+        });
+    },
+);
+
+// POST /api/session/carde-token — set in-memory override (admin+)
+router.post(
+    '/session/carde-token',
+    authMiddleware,
+    requireAdmin,
+    asyncHandler(async (req: Request, res: Response) => {
+        const { token } = req.body as { token?: string };
+        if (!token) {
+            res.status(400).json({ error: 'token required' });
+            return;
+        }
+        const user = (req as AuthenticatedRequest).user;
+        setCardeToken(token, user.username);
+        void auditFromRequest(req, 'carde_token_set', null);
+        res.json({ ok: true });
+    }),
+);
+
+// DELETE /api/session/carde-token — clear in-memory override (admin+)
+router.delete(
+    '/session/carde-token',
+    authMiddleware,
+    requireAdmin,
+    asyncHandler(async (req: Request, res: Response) => {
+        clearCardeToken();
+        void auditFromRequest(req, 'carde_token_cleared', null);
         res.json({ ok: true });
     }),
 );
