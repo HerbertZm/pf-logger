@@ -204,7 +204,7 @@ router.post(
     '/session/carde-token',
     authMiddleware,
     requireAdmin,
-    asyncHandler(async (req: Request, res: Response) => {
+    (req: Request, res: Response): void => {
         const { token } = req.body as { token?: string };
         if (!token) {
             res.status(400).json({ error: 'token required' });
@@ -214,7 +214,7 @@ router.post(
         setCardeToken(token, user.username);
         void auditFromRequest(req, 'carde_token_set', null);
         res.json({ ok: true });
-    }),
+    },
 );
 
 // DELETE /api/session/carde-token — clear in-memory override (admin+)
@@ -222,11 +222,11 @@ router.delete(
     '/session/carde-token',
     authMiddleware,
     requireAdmin,
-    asyncHandler(async (req: Request, res: Response) => {
+    (req: Request, res: Response): void => {
         clearCardeToken();
         void auditFromRequest(req, 'carde_token_cleared', null);
         res.json({ ok: true });
-    }),
+    },
 );
 
 export { router as sessionRouter };
