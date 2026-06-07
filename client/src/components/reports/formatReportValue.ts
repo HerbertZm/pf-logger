@@ -1,13 +1,10 @@
 import type { ReportColumnDef } from './reportColumns';
 import type { RoundTimingReportRow } from '../../api/types';
+import { formatInTournamentTz } from '../../utils/time';
 
 export function formatReportClock(isoUtc: string | null, timeZone: string): string {
     if (isoUtc === null) return '—';
-    return new Date(isoUtc).toLocaleTimeString([], {
-        hour: 'numeric',
-        minute: '2-digit',
-        timeZone,
-    });
+    return formatInTournamentTz(isoUtc, timeZone, { hour: 'numeric', minute: '2-digit' });
 }
 
 export function formatDurationHm(totalSec: number | null): string {

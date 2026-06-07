@@ -1,6 +1,7 @@
 import type { Prisma } from '../generated/prisma/client';
 import { prisma } from '../db/prisma';
 import type { RoundTimingReportRow } from '../api/types';
+import { formatWallClock } from '../utils/datetime';
 
 function toIso(d: Date | null | undefined): string | null {
     if (d === null || d === undefined) return null;
@@ -140,15 +141,6 @@ const CSV_COLUMNS: CsvColumn[] = [
     { label: 'Max Extension', key: 'maxExtensionSec', kind: 'extension' },
 ];
 
-function formatClock(isoUtc: string | null, timeZone: string): string {
-    if (isoUtc === null) return '';
-    return new Date(isoUtc).toLocaleTimeString([], {
-        hour: 'numeric',
-        minute: '2-digit',
-        timeZone,
-    });
-}
-
 function formatDurationHm(totalSec: number | null): string {
     if (totalSec === null) return '';
     const sec = Math.max(0, Math.round(totalSec));
@@ -178,7 +170,7 @@ function formatCsvCell(row: RoundTimingReportRow, col: CsvColumn, timeZone: stri
         case 'round':
             return String(value);
         case 'clock':
-            return formatClock(value as string | null, timeZone);
+            return formatWallClock(value as string | null, timeZone);
         case 'duration-hm':
             return formatDurationHm(value as number | null);
         case 'duration-ms':

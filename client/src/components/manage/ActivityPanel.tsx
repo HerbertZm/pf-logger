@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import { Banner } from '../shared/Banner';
 import { Button } from '../shared/Button';
+import { formatUtcDateTime } from '../../utils/time';
 
 interface ActivityRow {
     id: number;
@@ -47,7 +48,7 @@ export const ActivityPanel = () => {
                 <table className="manage-table manage-table--activity">
                     <thead>
                         <tr>
-                            <th>Time</th>
+                            <th>Time (UTC)</th>
                             <th>Event</th>
                             <th>User</th>
                             <th>Detail</th>
@@ -56,7 +57,7 @@ export const ActivityPanel = () => {
                     <tbody>
                         {rows.map((r) => (
                             <tr key={r.id}>
-                                <td>{new Date(r.createdAt).toLocaleString()}</td>
+                                <td>{formatUtcDateTime(r.createdAt)}</td>
                                 <td>{r.eventType}</td>
                                 <td>{r.username}</td>
                                 <td className="manage-activity__detail">{r.detail ?? '—'}</td>

@@ -3,6 +3,7 @@ import { api } from '../../api/client';
 import type { AdminSession } from '../../api/adminTypes';
 import { Banner } from '../shared/Banner';
 import { Button } from '../shared/Button';
+import { formatUtcDateTime } from '../../utils/time';
 
 export const SessionsPanel = () => {
     const [sessions, setSessions] = useState<AdminSession[]>([]);
@@ -42,8 +43,8 @@ export const SessionsPanel = () => {
                         <tr>
                             <th>User</th>
                             <th>IP</th>
-                            <th>Created</th>
-                            <th>Expires</th>
+                            <th>Created (UTC)</th>
+                            <th>Expires (UTC)</th>
                             <th />
                         </tr>
                     </thead>
@@ -52,8 +53,8 @@ export const SessionsPanel = () => {
                             <tr key={s.id}>
                                 <td>{s.username}</td>
                                 <td>{s.ip ?? '—'}</td>
-                                <td>{new Date(s.createdAt).toLocaleString()}</td>
-                                <td>{new Date(s.expiresAt).toLocaleString()}</td>
+                                <td>{formatUtcDateTime(s.createdAt)}</td>
+                                <td>{formatUtcDateTime(s.expiresAt)}</td>
                                 <td>
                                     <Button variant="danger" size="sm" onClick={() => revoke(s.id)}>
                                         Revoke

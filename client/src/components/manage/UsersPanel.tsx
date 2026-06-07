@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Banner } from '../shared/Banner';
 import { Badge } from '../shared/Badge';
 import { Button } from '../shared/Button';
+import { formatUtcDateTime } from '../../utils/time';
 
 const ROLES = ['user', 'admin', 'superadmin'] as const;
 
@@ -117,7 +118,7 @@ export const UsersPanel = () => {
                         <tr>
                             <th>User</th>
                             <th>Role</th>
-                            <th>Last login</th>
+                            <th>Last login (UTC)</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -136,9 +137,7 @@ export const UsersPanel = () => {
                                         />
                                     </td>
                                     <td className="manage-table__muted">
-                                        {u.lastLoginAt !== null && u.lastLoginAt !== undefined
-                                            ? new Date(u.lastLoginAt).toLocaleString()
-                                            : '—'}
+                                        {formatUtcDateTime(u.lastLoginAt ?? null)}
                                     </td>
                                     <td>{u.isActive ? 'Active' : 'Inactive'}</td>
                                     <td>

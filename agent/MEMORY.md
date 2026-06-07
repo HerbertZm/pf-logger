@@ -91,6 +91,11 @@ _Consolidated session entries appear below. Most recent first._
 
 <!-- entries appended by consolidation skill -->
 
+### 2026-06-02
+**Asked:** Harsh P1 review + fix all issues; finish/wrap Phase 1; verify vs QoL; proactive doc sync; UTC storage with client-side display; DEPLOY.md + migration script; VPS DB access from local; consolidate memory + review handoff prompt.
+**Learned:** Phase 1 wrapped on `hz/random-v2` (commit `f46b5b6`): Manage tab, admin API, QoL 1–13, health split (`GET /api/health` liveness vs `GET /api/admin/health` ops), backfill parity, worker lifecycle, prod test-tournament guards, CI deploy. QoL 2/10 duration columns stay `n/a` until Phase 2. UTC (committed after `f46b5b6`, may be uncommitted): `src/utils/datetime.ts` ingest + `formatInTournamentTz` / `formatUtc` display; naive Carde strings use `tournament.timezone`. Post-deploy timestamp fix needs **manual sync per tournament**, not backfill alone. `db:apply-pending` auto-discovers all migration folders; CI retries with it only on P1002. VPS Postgres is localhost-only by default — prefer SSH tunnel (`ssh -L 5433:127.0.0.1:5432`); if opening 5432 use `YOUR.IP/32` in both `pg_hba.conf` and `ufw`, never bare `/32` or `0.0.0.0/0` without accepting risk.
+**Learned:** `plans/p1-review-handoff.md` archived; active work → `plans/phase-2.md`.
+
 ### 2026-06-01 (session 2)
 **Asked:** Dep upgrades (Prisma 7, Express 5, Vite 8); UI fixes (logs judge info, insights columns, dashboard round selector, past-round timer); PF staff profiles sync; test tournament seed + `isTestTournament` flag; dead code removal; plan doc sync.
 **Learned:** Prisma 7 changes import path to generated file (not `@prisma/client`); Prisma 7 JSON columns need `JSON.parse(JSON.stringify(x))` for `InputJsonValue` compat; Express 5 wildcard routes require regex; `jwtStore` is now a global singleton (no per-tournament); PF `profiles` table: `{ id, firstname, lastname }` global ~2k rows; advisory lock times out when dev server holds a Prisma connection.
@@ -155,7 +160,7 @@ _Consolidated session entries appear below. Most recent first._
 - `tournament_source_mapping` with `is_enabled` replaces hardcoded provider config; non-destructive Carde-only toggle
 - `carde_first_round_id` in mapping table; `carde_base_round_id` convention dropped
 - Existing SQLite kept at `data/legacy.db` — no migration to new schema
-- TIMESTAMPTZ on every timestamp; Carde EDT → UTC at ingestion
+- TIMESTAMPTZ on every timestamp; ingest/display split in `src/utils/datetime.ts` + client `utils/time.ts` (see `docs/DEPLOY.md` Timestamps section)
 - Design Phase added between Phase 0 and Phase 1 in the plan
 - `plans/PLAN.md` split into: `phase-0.md`, `design.md`, `phase-1.md`, `phase-2.md`, `phase-3.md`, `qol.md`, `open-decisions.md`
 

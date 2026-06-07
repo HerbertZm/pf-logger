@@ -1,20 +1,24 @@
+import { normalizeIsoUtc, UTC_DISPLAY_ZONE } from './datetime';
+
 export const DEFAULT_TIMEZONE = 'America/New_York';
 
-/** Format an ISO timestamp as a locale clock time in the browser timezone (legacy). */
-export const formatClock = (iso: string | null | undefined): string => {
-    if (!iso) return '—';
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
+function parseUtcInstant(isoUtc: string | null | undefined): Date | null {
+    if (!isoUtc) return null;
+    const d = new Date(normalizeIsoUtc(isoUtc));
+    return Number.isNaN(d.getTime()) ? null : d;
+}
 
-/** Format an ISO UTC timestamp in a specific IANA timezone. */
+/**
+ * Format a UTC ISO timestamp in a display timezone (tournament local or UTC).
+ * Storage and API are always UTC; only call this at render time.
+ */
 export const formatInTournamentTz = (
     isoUtc: string | null | undefined,
     timeZone: string,
     options?: Intl.DateTimeFormatOptions,
 ): string => {
-    if (!isoUtc) return '—';
-    const d = new Date(isoUtc);
-    if (Number.isNaN(d.getTime())) return '—';
+    const d = parseUtcInstant(isoUtc);
+    if (d === null) return '—';
     return d.toLocaleString(undefined, {
         timeZone,
         hour: '2-digit',
@@ -22,6 +26,24 @@ export const formatInTournamentTz = (
         ...options,
     });
 };
+
+/** Admin / global timestamps — stored UTC, shown as UTC. */
+export const formatUtc = (
+    isoUtc: string | null | undefined,
+    options?: Intl.DateTimeFormatOptions,
+): string => formatInTournamentTz(isoUtc, UTC_DISPLAY_ZONE, options);
+
+export const formatUtcDateTime = (isoUtc: string | null | undefined): string =>
+    formatInTournamentTz(isoUtc, UTC_DISPLAY_ZONE, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+
+/** @deprecated Use formatInTournamentTz (tournament UI) or formatUtc (admin). */
+export const formatClock = formatUtc;
 
 /** Short timezone label for context bar — e.g. "EDT" or "GMT-4". */
 export const formatTzAbbrev = (timeZone: string, at: Date = new Date()): string => {

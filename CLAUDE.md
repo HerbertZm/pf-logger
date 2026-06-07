@@ -30,6 +30,8 @@ Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Sup
 - Round timing report (`plans/reports.md`): `totalDurationPlaySec` uses `started_at` as play-start proxy until StageTimer import — not judge call time.
 - Tournaments belong to a **game** (`games` table, `game_id` FK) — default round length comes from `games.default_round_length_minutes`.
 - Local `npm run dev`: Vite waits for API (`wait-on`); proxy `PORT` from repo root `.env`. See `docs/DEPLOY.md`.
+- **Timestamps:** store UTC (`TIMESTAMPTZ`); ingest with `src/utils/datetime.ts`; API JSON uses `toISOString()` (`Z`); display only in the client (`formatInTournamentTz` for tournament UI, `formatUtc` for Manage). Set `tournament.timezone` correctly before trusting wall clocks.
+- **Health:** `GET /api/health` = public liveness; `GET /api/admin/health` = workers + PF JWT (superadmin).
 
 ---
 

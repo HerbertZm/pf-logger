@@ -68,6 +68,8 @@ Rules are organized by topic. Each rule leads with the behavior, followed by **W
 - **Reports tab:** `admin` / `superadmin` only; full-width main content — **no** `IndicatorsLayout` sidebar.
 - **Dashboard round selection:** `DashboardRoundProvider` wraps the dashboard tab in `App.tsx` only. `RoundSchedulePane` rows are clickable when the provider is present; selection syncs with Live / R# pills in `ActiveRound`.
 - Round timing report **play duration** (`totalDurationPlaySec`) uses `started_at` as a proxy until StageTimer import (Phase 2.5) — do not document or label it as judge "you may begin" time.
+- Round timing report **scheduled end** = the timer's **actual end time** (`timer_end_datetime` captured live), and **round start = scheduled_end − 60 min**. Do **NOT** compute `started_at + timer_duration_minutes` for the report. The round clock starts *after* pairings publish (seating), and the SK may start it late and set it to "whatever's left" — so `timer_duration_minutes` is not the round length and `started_at` is not when the 60-min window began. This is distinct from the **display** computation (`started_at + duration*60s`, see Architecture section) which is for the normalized `rounds` table only. (User corrected this repeatedly — high priority.)
+- `timer_end_datetime` must be captured **live** per round by the ingestion worker. It is **not recoverable from Carde for completed events**: round objects carry only `started_at` / `timer_duration_minutes` / `completed_at`; the event `detail/` endpoint keeps only the single last timer state at close; no round-detail or timer/audit-log endpoint exists (all 404). Events never ingested have no recoverable per-round scheduled end.
 
 ## Local development
 
@@ -145,7 +147,11 @@ Rules are organized by topic. Each rule leads with the behavior, followed by **W
 
 - The tool is being rewritten to TypeScript + Express + Prisma + PostgreSQL. Do not write or suggest Python code for new work.
 - Schema is three layers: raw (verbatim API, append-only) → normalized (app queries) → app (`app_*`, tool-owned). See `docs/SCHEMA_DESIGN.md`.
-- All timestamps are TIMESTAMPTZ. Carde timestamps are EDT for US events and must be converted to UTC at ingestion.
+- All timestamps are TIMESTAMPTZ (UTC storage). Ingest via `parseUtcTimestamp` / `parseCardeTimestamp` / `parsePfTimestamp` (`src/utils/datetime.ts`). API returns ISO UTC (`…Z`); UI converts with `formatInTournamentTz` (tournament) or `formatUtc` (Manage). Never use bare `toLocaleString()` / `toLocaleTimeString()` without an explicit `timeZone`.
+- After deploys that change timestamp parsing, operators must **sync each active tournament** (Manage → Tools) to re-ingest from API — `POST /api/backfill` alone does not fix wrongly captured raw timestamps. See `docs/DEPLOY.md` § Timestamps.
+- Migrations: prefer `npx prisma migrate deploy`; on **P1002** advisory lock locally or in CI, use `npm run db:apply-pending` (auto-discovers pending folders; `--dry-run` to preview).
+- Health: public `GET /api/health` is `{ ok, uptime, db }` only; worker/JWT status is `GET /api/admin/health` (Manage checklist).
+- VPS PostgreSQL: default is localhost-only. Prefer SSH tunnel for remote access; do not document or recommend opening port 5432 to `0.0.0.0/0`. If direct access is required, restrict to a single IP in `pg_hba.conf` (`ADDR/32`) and matching `ufw allow from ADDR`.
 - `timer_end_datetime` for round display is computed locally as `started_at + (timer_duration_min * 60s)` and stored in the normalized `rounds` table. The API does expose it on `detail/` and `edit_current_round_timer` responses — but compute locally for reliability and to handle the +7–83s server lag.
 - Carde-only mode: `tournament_source_mapping.is_enabled = FALSE` on the PF row. Worker skips all PF fetches. Extensions come from `time_extension_seconds` on Carde match objects. No drops, penalties, coverage, or judge calls.
 - PF+Carde mode: extensions from PF `tournament_logs` only. Carde `time_extension_seconds` always 0 for our events.

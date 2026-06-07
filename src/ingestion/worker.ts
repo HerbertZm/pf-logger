@@ -6,6 +6,8 @@ import { getPfJwt } from './jwtStore';
 import { getAppConfig } from '../services/appConfig';
 import { logger } from '../lib/logger';
 import { inferRoundPhase } from '../utils/roundPhase';
+import { parseCardeTimestamp, parsePfTimestamp } from '../utils/datetime';
+import { DEFAULT_TIMEZONE } from '../utils/timezone';
 
 function jsonPayload(value: unknown): Prisma.InputJsonValue {
     return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -163,7 +165,7 @@ async function recordError(tournamentId: number, err: unknown): Promise<void> {
 export async function syncCardeRounds(tournamentId: number): Promise<void> {
     const tourn = await prisma.appTournament.findUnique({
         where: { id: tournamentId },
-        select: { isTestTournament: true },
+        select: { isTestTournament: true, timezone: true },
     });
     if (tourn?.isTestTournament) return; // never call external APIs for test tournaments
 
@@ -172,10 +174,14 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
     });
     if (!mapping) return;
 
+    const cardeTz = tourn?.timezone ?? DEFAULT_TIMEZONE;
     const cardeEventId = Number(mapping.externalId);
     const rounds = await fetchCardeRounds(cardeEventId);
 
     for (const r of rounds) {
+        const startedAt = parseCardeTimestamp(r.started_at, cardeTz);
+        const completedAt = parseCardeTimestamp(r.completed_at, cardeTz);
+
         // Append to raw layer
         await prisma.rawCardeRound.create({
             data: {
@@ -184,8 +190,8 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
                 cardeEventId,
                 cardeRoundId: r.id,
                 roundNumber: r.round_number,
-                startedAt: r.started_at ? new Date(r.started_at) : null,
-                completedAt: r.completed_at ? new Date(r.completed_at) : null,
+                startedAt,
+                completedAt,
                 timerDurationMin: r.timer_duration_minutes ?? null,
                 cardeStatus: r.status,
                 pairingsStatus: r.pairings_status ?? null,
@@ -194,7 +200,6 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
         });
 
         // Derive normalized round (write-once semantics for timestamp fields)
-        const startedAt = r.started_at ? new Date(r.started_at) : null;
         const timerEnd =
             startedAt && r.timer_duration_minutes !== null
                 ? computeTimerEnd(startedAt, r.timer_duration_minutes)
@@ -215,13 +220,13 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
                 startedAt,
                 timerDurationMin: r.timer_duration_minutes ?? null,
                 timerEndDatetime: timerEnd,
-                completedAt: r.completed_at ? new Date(r.completed_at) : null,
+                completedAt,
             },
             update: {
                 cardeStatus: r.status,
                 // write-once: don't overwrite a timestamp we've already stored
                 startedAt: existing?.startedAt ?? startedAt,
-                completedAt: existing?.completedAt ?? (r.completed_at ? new Date(r.completed_at) : null),
+                completedAt: existing?.completedAt ?? completedAt,
                 // timer_duration_min can change if TO resets timer; recompute timer_end accordingly
                 timerDurationMin: r.timer_duration_minutes ?? existing?.timerDurationMin ?? null,
                 timerEndDatetime: timerEnd ?? existing?.timerEndDatetime ?? null,
@@ -230,7 +235,7 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
 
         // Fetch in-progress matches for the active round
         if (r.status === 'IN_PROGRESS') {
-            await syncCardeMatches(tournamentId, r.id, r.round_number, mapping).catch((err) =>
+            await syncCardeMatches(tournamentId, r.id, r.round_number, mapping, cardeTz).catch((err) =>
                 logger.error(`match sync failed for round ${r.id}`, err),
             );
         }
@@ -263,6 +268,7 @@ async function syncCardeMatches(
     cardeRoundId: number,
     roundNumber: number,
     mapping: { externalId: string },
+    cardeTz: string,
 ): Promise<void> {
     const matches = await fetchCardeMatches(cardeRoundId);
 
@@ -300,8 +306,8 @@ async function syncCardeMatches(
                 deckCheckStarted: m.deck_check_started,
                 deckCheckCompleted: m.deck_check_completed,
                 assignedJudge: m.assigned_judge,
-                resultReportedAt: m.result_reported_at ? new Date(m.result_reported_at) : null,
-                updatedAt: new Date(m.updated_at),
+                resultReportedAt: parseCardeTimestamp(m.result_reported_at, cardeTz),
+                updatedAt: parseCardeTimestamp(m.updated_at, cardeTz) ?? new Date(),
                 p1UserId: m.p1_user_id,
                 p1Name: m.p1_name,
                 p2UserId: m.p2_user_id,
@@ -312,7 +318,10 @@ async function syncCardeMatches(
         });
 
         // Derive normalized match
-        const resultAt = m.result_reported_at ? new Date(m.result_reported_at) : new Date(m.updated_at);
+        const resultAt =
+            parseCardeTimestamp(m.result_reported_at, cardeTz) ??
+            parseCardeTimestamp(m.updated_at, cardeTz) ??
+            new Date();
 
         await prisma.match.upsert({
             where: {
@@ -338,7 +347,7 @@ async function syncCardeMatches(
                 deckCheckStarted: m.deck_check_started,
                 deckCheckCompleted: m.deck_check_completed,
                 assignedJudge: m.assigned_judge,
-                resultReportedAt: m.result_reported_at ? new Date(m.result_reported_at) : null,
+                resultReportedAt: parseCardeTimestamp(m.result_reported_at, cardeTz),
                 resultAt,
                 p1UserId: m.p1_user_id,
                 p1Name: m.p1_name,
@@ -355,7 +364,7 @@ async function syncCardeMatches(
                 deckCheckStarted: m.deck_check_started,
                 deckCheckCompleted: m.deck_check_completed,
                 assignedJudge: m.assigned_judge,
-                resultReportedAt: m.result_reported_at ? new Date(m.result_reported_at) : null,
+                resultReportedAt: parseCardeTimestamp(m.result_reported_at, cardeTz),
                 resultAt,
                 winningPlayerId: m.winning_player_id,
             },
@@ -535,7 +544,7 @@ async function normalizeExtensions(tournamentId: number, pfTournamentId: string,
                 fromMinutes,
                 toMinutes,
                 userId: e.userId,
-                createdAt: new Date(e.createdAt),
+                createdAt: parsePfTimestamp(e.createdAt),
                 rawPayload: jsonPayload(e),
             },
         });
@@ -553,7 +562,7 @@ async function normalizeExtensions(tournamentId: number, pfTournamentId: string,
                 extensionMinutes,
                 actionText: e.action,
                 userId: e.userId,
-                createdAt: new Date(e.createdAt),
+                createdAt: parsePfTimestamp(e.createdAt),
                 source: 'purplefox',
             },
             update: {
@@ -580,7 +589,7 @@ async function normalizePenalties(tournamentId: number, pfTournamentId: string, 
                 description: p.description,
                 infraction: p.type, // PF field is "type"; we store as "infraction"
                 sanction: p.sanction,
-                createdAt: new Date(p.createdAt + 'Z'), // no tz suffix from PF — append Z for UTC
+                createdAt: parsePfTimestamp(p.createdAt),
                 creatorId: p.creator_id,
                 creatorName: p.creator_name,
                 rawPayload: jsonPayload(p),
@@ -599,7 +608,7 @@ async function normalizePenalties(tournamentId: number, pfTournamentId: string, 
                 description: p.description ?? '',
                 infraction: p.type,
                 sanction: p.sanction,
-                createdAt: new Date(p.createdAt + 'Z'),
+                createdAt: parsePfTimestamp(p.createdAt),
                 creatorId: p.creator_id,
                 creatorName: p.creator_name,
                 source: 'purplefox',

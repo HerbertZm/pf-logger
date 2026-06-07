@@ -66,7 +66,13 @@ npm run db:migrate    # creates and applies migrations
 npm run db:apply-pending
 ```
 
-That script applies SQL from `src/db/migrations/*` and records `_prisma_migrations` without taking the advisory lock.
+That script discovers **all** folders under `src/db/migrations/*/migration.sql`, applies any not yet recorded in `_prisma_migrations`, and skips the rest. Preview pending work with:
+
+```powershell
+node scripts/apply-pending-migrations.cjs --dry-run
+```
+
+On the VPS, prefer `npx prisma migrate deploy` when nothing holds the DB lock (see [Timestamps and post-deploy data refresh](#timestamps-utc-storage-and-display) for when to re-sync after deploy).
 
 ### 5 — Start the dev server
 
@@ -291,8 +297,9 @@ cd /opt/pf-logger
 # postinstall does this automatically after npm ci, but run explicitly to be sure
 sudo -u deploy npm run db:generate
 
-# Apply database schema migrations
+# Apply database schema migrations (see Timestamps section if migrate lock fails)
 sudo -u deploy npx prisma migrate deploy
+# P1002 while dev tools hold the DB: sudo -u deploy npm run db:apply-pending
 
 # Build the TypeScript API + React frontend
 sudo -u deploy npm run build
@@ -452,6 +459,8 @@ curl https://analysis.heidy.tools/api/health
 
 Open `https://analysis.heidy.tools` in a browser — login modal over HTTPS.
 
+If this deploy includes UTC ingestion/display changes, follow [Timestamps (UTC storage and display)](#timestamps-utc-storage-and-display) — restart, PF JWT, per-tournament sync, then checklist.
+
 ---
 
 ## Step 13 — Import legacy data (first deploy only)
@@ -563,6 +572,8 @@ sudo systemctl restart pf-logger
 
 `npm ci --omit=dev` installs only production dependencies. `db:generate` must be run explicitly after it because `--omit=dev` causes npm to skip lifecycle scripts. Prisma migrations are applied before the build — if a migration fails, the restart is skipped and the old version stays running.
 
+If `npx prisma migrate deploy` fails with **P1002** (advisory lock — usually another `prisma` or dev server connection), stop competing processes and retry, or run `npm run db:apply-pending` on the VPS as the `deploy` user (same `DATABASE_URL` in `.env`).
+
 ### Allowing deploy to restart the service without a password
 
 The `systemctl restart pf-logger` command requires sudo. Grant the deploy user passwordless permission for that one command only:
@@ -589,10 +600,47 @@ cd /opt/pf-logger
 git pull origin main
 npm ci --omit=dev
 npm run db:generate        # Prisma 7: regenerate client after install
-npx prisma migrate deploy
+npx prisma migrate deploy  # or: npm run db:apply-pending if P1002 lock
 npm run build
 sudo systemctl restart pf-logger
 sudo journalctl -u pf-logger -f   # watch logs to confirm clean start
+```
+
+After deploy, complete the [timestamp refresh](#timestamps-utc-storage-and-display) steps if this release changes ingestion or display timezone handling.
+
+---
+
+## Timestamps (UTC storage and display)
+
+### Model
+
+| Layer | Rule |
+|-------|------|
+| **PostgreSQL** | Every timestamp column is `TIMESTAMPTZ` — stored as UTC. |
+| **Ingestion** | `src/utils/datetime.ts`: Carde strings → `parseCardeTimestamp(..., tournament.timezone)`; PurpleFox naive strings → `parsePfTimestamp` (UTC). |
+| **API JSON** | `Date.toISOString()` only — always ends with `Z` (UTC). |
+| **UI** | Convert at render time only: `formatInTournamentTz` (logs, dashboard, schedule, reports) using `tournament.timezone`; `formatUtc` / columns labeled **(UTC)** on Manage (users, sessions, audit). |
+
+Set each tournament’s **IANA timezone** correctly in Manage (or inherit from the linked event) before trusting wall-clock labels. Naive Carde timestamps without a `Z` or offset are interpreted as wall time in that zone.
+
+### After a deploy that changes timestamp parsing
+
+Existing normalized rows are **not** rewritten by migrations alone. Refresh from the sources:
+
+1. **Restart** the API (`sudo systemctl restart pf-logger`) so ingestion code and health endpoints match the build.
+2. **Paste PF JWT** in Session if the server restarted (`inMemory: false` until set).
+3. For each **active** tournament, run **Manage → Tools → Sync** (or `POST /api/sync` as admin+). That re-fetches Carde/PF and re-parses timestamps into UTC.
+4. Optional: **Backfill** (`POST /api/backfill`) only rebuilds normalized rows from **raw** tables already in the DB — use sync first if raw timestamps were wrong at capture time.
+5. Confirm **Manage → Pre-event checklist** (`GET /api/admin/health`) and spot-check log times against the context-bar timezone hint.
+
+### Verify
+
+```bash
+# Public liveness (no auth)
+curl -fsS https://analysis.heidy.tools/api/health
+# → {"ok":true,"uptime":...,"db":"ok"}
+
+# Log in in the browser; open Manage → Pre-event checklist (uses /api/admin/health)
 ```
 
 ---
