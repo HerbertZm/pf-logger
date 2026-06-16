@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { requireAdmin } from '../middleware/auth';
+import { AuthenticatedRequest, requireAdmin } from '../middleware/auth';
 import { syncRateLimit } from '../middleware/rateLimit';
 import { backfillTournamentFromRaw } from '../ingestion/backfillFromRaw';
 import { syncCardeRounds, syncPfData } from '../ingestion/worker';
@@ -26,7 +26,7 @@ router.post(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
-        if (await rejectTestTournamentInProduction(tournamentId, res)) {
+        if (await rejectTestTournamentInProduction(tournamentId, res, (req as AuthenticatedRequest).user)) {
             return;
         }
 
@@ -98,7 +98,7 @@ router.post(
             res.status(404).json({ error: 'Tournament not found' });
             return;
         }
-        if (await rejectTestTournamentInProduction(tournamentId, res)) {
+        if (await rejectTestTournamentInProduction(tournamentId, res, (req as AuthenticatedRequest).user)) {
             return;
         }
 

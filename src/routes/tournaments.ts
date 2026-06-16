@@ -16,7 +16,7 @@ import {
 } from './serializers';
 import { stopTournamentWorker } from '../ingestion/worker';
 import { auditFromRequest } from '../services/auditLog';
-import { rejectTestTournamentInProduction } from '../utils/tournamentAccess';
+import { canAccessTestTournaments, rejectTestTournamentInProduction } from '../utils/tournamentAccess';
 
 const router = Router();
 
@@ -31,7 +31,7 @@ router.post(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
-        if (await rejectTestTournamentInProduction(tid, res)) {
+        if (await rejectTestTournamentInProduction(tid, res, (req as AuthenticatedRequest).user)) {
             return;
         }
         try {
@@ -65,12 +65,14 @@ router.get(
 // GET /api/tournaments
 router.get(
     '/tournaments',
-    asyncHandler(async (_req: Request, res: Response) => {
-        const isProduction = process.env['NODE_ENV'] === 'production';
+    asyncHandler(async (req: Request, res: Response) => {
+        const user = (req as AuthenticatedRequest).user;
+        const hideTestTournaments =
+            process.env['NODE_ENV'] === 'production' && !canAccessTestTournaments(user);
         const tournaments = await prisma.appTournament.findMany({
             where: {
                 deletedAt: null,
-                ...(isProduction ? { isTestTournament: false } : {}),
+                ...(hideTestTournaments ? { isTestTournament: false } : {}),
             },
             include: { sourceMappings: true, game: true, event: true },
             orderBy: { createdAt: 'desc' },
@@ -91,7 +93,7 @@ router.get(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
-        if (await rejectTestTournamentInProduction(tid, res)) {
+        if (await rejectTestTournamentInProduction(tid, res, (req as AuthenticatedRequest).user)) {
             return;
         }
         const rounds = await prisma.round.findMany({
@@ -112,7 +114,7 @@ router.get(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
-        if (await rejectTestTournamentInProduction(tid, res)) {
+        if (await rejectTestTournamentInProduction(tid, res, (req as AuthenticatedRequest).user)) {
             return;
         }
 
@@ -183,7 +185,7 @@ router.get(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
-        if (await rejectTestTournamentInProduction(tid, res)) {
+        if (await rejectTestTournamentInProduction(tid, res, (req as AuthenticatedRequest).user)) {
             return;
         }
 
@@ -238,7 +240,7 @@ router.get(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
-        if (await rejectTestTournamentInProduction(tid, res)) {
+        if (await rejectTestTournamentInProduction(tid, res, (req as AuthenticatedRequest).user)) {
             return;
         }
 
@@ -303,7 +305,7 @@ router.patch(
             res.status(404).json({ error: 'Round not found' });
             return;
         }
-        if (await rejectTestTournamentInProduction(roundRow.tournamentId, res)) {
+        if (await rejectTestTournamentInProduction(roundRow.tournamentId, res, (req as AuthenticatedRequest).user)) {
             return;
         }
 
@@ -357,7 +359,7 @@ router.get(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
-        if (await rejectTestTournamentInProduction(tid, res)) {
+        if (await rejectTestTournamentInProduction(tid, res, (req as AuthenticatedRequest).user)) {
             return;
         }
 
@@ -422,7 +424,7 @@ router.get(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
-        if (await rejectTestTournamentInProduction(tid, res)) {
+        if (await rejectTestTournamentInProduction(tid, res, (req as AuthenticatedRequest).user)) {
             return;
         }
 

@@ -9,7 +9,6 @@ import {
     BREAK_BETWEEN_ROUNDS_MIN,
     buildRoundSchedule,
     defaultRoundLengthMinutes,
-    formatDuration,
     formatScheduleTime,
     type RoundScheduleRow,
 } from './roundSchedule';
@@ -79,7 +78,6 @@ export const RoundSchedulePane = () => {
                                 <th>Rd</th>
                                 <th>Start</th>
                                 <th>End</th>
-                                <th>Duration</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -126,18 +124,6 @@ export const RoundSchedulePane = () => {
                                             title={row.end?.estimated ? 'Estimated end' : undefined}
                                         >
                                             {formatScheduleTime(row.end ?? null, tz)}
-                                        </td>
-                                        <td
-                                            className={`round-schedule__duration${row.durationEstimated ? ' round-schedule__time--est' : ''}`}
-                                            title={
-                                                isOvertime
-                                                    ? `Over planned slot (${overtimeThreshold}m)`
-                                                    : row.durationEstimated
-                                                      ? 'Estimated duration'
-                                                      : undefined
-                                            }
-                                        >
-                                            {formatDuration(row.durationMinutes)}
                                         </td>
                                     </tr>
                                 );

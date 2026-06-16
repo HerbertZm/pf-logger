@@ -41,8 +41,8 @@ export const useRoundTimer = (round: Round | null, outstandingCount: number): Ti
 
     const isOvertime = remaining <= 0;
     let urgency: Urgency = 'success';
-    if (isOvertime || outstandingCount >= 5) urgency = 'urgent';
-    else if (remaining <= 300 || outstandingCount >= 1) urgency = 'warning';
+    if (isOvertime) urgency = 'urgent';
+    else if (remaining <= 300 && outstandingCount >= 1) urgency = 'warning';
 
     return { remaining, isOvertime, isTopEight: false, urgency };
 };

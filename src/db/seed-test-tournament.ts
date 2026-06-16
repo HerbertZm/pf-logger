@@ -393,6 +393,44 @@ export async function seedTestTournament(scenario: TestSeedScenario = 'default')
         });
     }
 
+    // ─── Matches for Round 5 ─────────────────────────────────────────────────────
+    // Outstanding tables are derived from match.status === 'IN_PROGRESS'.
+    // Without match rows the active-round view always shows 0 outstanding.
+    {
+        let outstandingSet: Set<number>;
+        if (scenario === 'overtime') {
+            // Mirrors missingTablesJson set above
+            outstandingSet = new Set([3, 17, 42, 88, 102]);
+        } else if (scenario === 'top8') {
+            outstandingSet = new Set(); // round 5 is COMPLETE
+        } else {
+            // default / late: ~12 outstanding, always including the extension tables
+            outstandingSet = new Set<number>(liveExtTables);
+            while (outstandingSet.size < 12) outstandingSet.add(randInt(1, TABLE_COUNT));
+        }
+
+        // ~90 matches covering the outstanding tables plus filled-in completed tables
+        const r5TableSet = new Set<number>(outstandingSet);
+        while (r5TableSet.size < 90) r5TableSet.add(randInt(1, TABLE_COUNT));
+
+        let cid = 999100;
+        await prisma.match.createMany({
+            data: [...r5TableSet].map((tbl) => ({
+                tournamentId: tid,
+                roundId: r5.id,
+                roundNumber: 5,
+                tableNumber: tbl,
+                cardeMatchId: cid++,
+                status: outstandingSet.has(tbl) ? 'IN_PROGRESS' : 'COMPLETE',
+                isBye: false,
+                isGhostMatch: false,
+            })),
+        });
+        logger.info(
+            `  Round 5 matches: ${r5TableSet.size} total, ${outstandingSet.size} outstanding (IN_PROGRESS)`,
+        );
+    }
+
     if (scenario === 'top8') {
         const r6 = await prisma.round.create({
             data: {
@@ -409,6 +447,22 @@ export async function seedTestTournament(scenario: TestSeedScenario = 'default')
             },
         });
         createdRounds.push(r6.id);
+
+        // Top-8 has 4 tables; seed 2 outstanding to exercise the outstanding list
+        let cid = 999200;
+        await prisma.match.createMany({
+            data: [1, 2, 3, 4].map((tbl) => ({
+                tournamentId: tid,
+                roundId: r6.id,
+                roundNumber: 6,
+                tableNumber: tbl,
+                cardeMatchId: cid++,
+                status: tbl <= 2 ? 'IN_PROGRESS' : 'COMPLETE',
+                isBye: false,
+                isGhostMatch: false,
+            })),
+        });
+
         await prisma.workerState.update({
             where: { tournamentId: tid },
             data: { currentRound: 6 },

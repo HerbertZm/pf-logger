@@ -60,6 +60,13 @@ export const ActiveRound = () => {
         return () => clearInterval(id);
     }, [activeTournamentId, selectedRoundNumber]);
 
+    const extensionTotals = new Map<number, number>();
+    for (const ext of data?.extensions ?? []) {
+        if (ext.tableNumber !== null) {
+            extensionTotals.set(ext.tableNumber, (extensionTotals.get(ext.tableNumber) ?? 0) + (ext.extensionMinutes ?? 0));
+        }
+    }
+
     const { urgency } = useRoundTimer(data?.round ?? null, data?.outstandingTables.length ?? 0);
     const pace = useRoundPace(data?.round ?? null);
     const showPaceAlert =
@@ -111,7 +118,7 @@ export const ActiveRound = () => {
                 timeZone={tz}
             />
             <StatChips data={data} />
-            <OutstandingTables tables={data.outstandingTables} withExtensions={data.tablesWithExtensions} />
+            <OutstandingTables tables={data.outstandingTables} withExtensions={data.tablesWithExtensions} extensionTotals={extensionTotals} />
 
             {/* Extensions table for selected round */}
             {data.extensions.length > 0 && (

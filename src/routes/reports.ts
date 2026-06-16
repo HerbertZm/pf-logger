@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { requireAdmin } from '../middleware/auth';
+import { AuthenticatedRequest, requireAdmin } from '../middleware/auth';
 import {
     buildRoundTimingReport,
     csvFilename,
@@ -27,7 +27,7 @@ router.get(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
-        if (await rejectTestTournamentInProduction(tid, res)) {
+        if (await rejectTestTournamentInProduction(tid, res, (req as AuthenticatedRequest).user)) {
             return;
         }
 
@@ -50,7 +50,7 @@ router.get(
             res.status(400).json({ error: 'tournamentId required' });
             return;
         }
-        if (await rejectTestTournamentInProduction(tid, res)) {
+        if (await rejectTestTournamentInProduction(tid, res, (req as AuthenticatedRequest).user)) {
             return;
         }
 
