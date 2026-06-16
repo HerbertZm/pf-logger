@@ -11,6 +11,7 @@ import { seedTestTournament } from '../db/seed-test-tournament';
 import { getAppConfig, updateAppConfig, type AppConfigValues } from '../services/appConfig';
 import { buildHealthStatus } from '../services/healthStatus';
 import { auditFromRequest } from '../services/auditLog';
+import { canAccessTestTournaments } from '../utils/tournamentAccess';
 import {
     validateUsername,
     validatePassword,
@@ -190,7 +191,10 @@ router.delete(
 router.post(
     '/reset-test-tournament',
     asyncHandler(async (req: Request, res: Response) => {
-        if (process.env['NODE_ENV'] === 'production') {
+        if (
+            process.env['NODE_ENV'] === 'production' &&
+            !canAccessTestTournaments((req as AuthenticatedRequest).user)
+        ) {
             res.status(403).json({ error: 'Not available in production' });
             return;
         }
