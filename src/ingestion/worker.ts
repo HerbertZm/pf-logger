@@ -545,6 +545,9 @@ async function normalizeExtensions(tournamentId: number, pfTournamentId: string,
         const extensionMinutes =
             fromMinutes !== null && toMinutes !== null ? Math.round((toMinutes - fromMinutes) / 60) : null;
 
+        // Skip non-extension entries (timer initialization, no-op changes, etc.)
+        if (!extensionMinutes || extensionMinutes <= 0) continue;
+
         // Look up normalized round_id from our rounds table
         const round =
             e.round !== null ? await prisma.round.findFirst({ where: { tournamentId, roundNumber: e.round } }) : null;
@@ -571,6 +574,7 @@ async function normalizeExtensions(tournamentId: number, pfTournamentId: string,
         await prisma.extension.upsert({
             where: { pfId_tournamentId: { pfId: String(e.id), tournamentId } },
             create: {
+                pfId: String(e.id),
                 tournamentId,
                 roundId: round?.id ?? null,
                 round: e.round,
