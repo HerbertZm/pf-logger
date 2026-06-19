@@ -554,14 +554,12 @@ async function normalizeDrops(tournamentId: number, pfTournamentId: string, data
 async function normalizeExtensions(tournamentId: number, pfTournamentId: string, data: PfData): Promise<void> {
     for (const e of data.extensions) {
         const { fromMinutes, toMinutes } = parseExtensionAction(e.action);
-        // PF stores the timer in seconds despite the "min" label in the action string
-        // (matches tournaments.defaultTime which is seconds: 3000 = 50 min).
-        // Divide the raw delta by 60 to get actual extension minutes.
-        const extensionMinutes =
-            fromMinutes !== null && toMinutes !== null ? Math.round((toMinutes - fromMinutes) / 60) : null;
-
-        // Skip non-extension entries (timer initialization, no-op changes, etc.)
-        if (!extensionMinutes || extensionMinutes <= 0) continue;
+        // Action string values are already in minutes (confirmed from live data).
+        // Skip entries with no delta, negative delta, or implausibly large delta —
+        // PF writes "from 0min to 99min" for every table as a bulk initialization
+        // signal when time is called; those are noise, not judge-given extensions.
+        const extensionMinutes = fromMinutes !== null && toMinutes !== null ? toMinutes - fromMinutes : null;
+        if (!extensionMinutes || extensionMinutes <= 0 || extensionMinutes > 60) continue;
 
         // Look up normalized round_id from our rounds table
         const round =
