@@ -385,6 +385,21 @@ async function syncCardeMatches(
         });
     }
 
+    // Mark any DB matches not returned in this response as COMPLETE — the
+    // status=in_progress filter means finished matches drop off the list silently.
+    const seenCardeMatchIds = matches.map((m) => m.id);
+    if (seenCardeMatchIds.length > 0 || matches.length === 0) {
+        await prisma.match.updateMany({
+            where: {
+                tournamentId,
+                roundNumber,
+                status: 'IN_PROGRESS',
+                cardeMatchId: { notIn: seenCardeMatchIds },
+            },
+            data: { status: 'COMPLETE' },
+        });
+    }
+
     await prisma.workerState.update({
         where: { tournamentId },
         data: { lastMatchesFetchedAt: new Date(), updatedAt: new Date() },
