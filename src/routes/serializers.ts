@@ -25,6 +25,7 @@ interface PrismaRound {
     startedAt: Date | null;
     timerDurationMin: number | null;
     timerEndDatetime: Date | null;
+    lastMatchCompletedAt: Date | null;
     missingTablesJson: Prisma.JsonValue;
     snapshotCapturedAt: Date | null;
     operatorNotes: string | null;
@@ -229,6 +230,7 @@ export function serializeRound(r: PrismaRound): Round {
         startedAt: r.startedAt?.toISOString() ?? null,
         timerDurationMinutes: r.timerDurationMin,
         timerEndDatetime: r.timerEndDatetime?.toISOString() ?? null,
+        lastMatchCompletedAt: r.lastMatchCompletedAt?.toISOString() ?? null,
         missingTablesJson: r.missingTablesJson as number[] | null,
         snapshotCapturedAt: r.snapshotCapturedAt?.toISOString() ?? null,
         operatorNotes: r.operatorNotes,

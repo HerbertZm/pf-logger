@@ -400,6 +400,18 @@ async function syncCardeMatches(
         });
     }
 
+    // Capture real round end when the last match finishes (write-once via null check in where)
+    const [stillInProgress, totalNonBye] = await Promise.all([
+        prisma.match.count({ where: { tournamentId, roundId: round.id, status: 'IN_PROGRESS', isBye: false } }),
+        prisma.match.count({ where: { tournamentId, roundId: round.id, isBye: false } }),
+    ]);
+    if (stillInProgress === 0 && totalNonBye > 0) {
+        await prisma.round.updateMany({
+            where: { id: round.id, lastMatchCompletedAt: null },
+            data: { lastMatchCompletedAt: new Date() },
+        });
+    }
+
     await prisma.workerState.update({
         where: { tournamentId },
         data: { lastMatchesFetchedAt: new Date(), updatedAt: new Date() },

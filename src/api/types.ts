@@ -19,6 +19,7 @@ export interface Round {
     startedAt: string | null;
     timerDurationMinutes: number | null;
     timerEndDatetime: string | null;
+    lastMatchCompletedAt: string | null; // real round end; null while round is still active
     missingTablesJson: number[] | null;
     snapshotCapturedAt: string | null;
     operatorNotes: string | null;

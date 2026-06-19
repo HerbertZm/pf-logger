@@ -176,10 +176,11 @@ model Round {
   cardeStatus        String?   @map("carde_status")
   startedAt          DateTime? @db.Timestamptz() @map("started_at")
   timerDurationMin   Int?      @map("timer_duration_min") // NULL for Top-8; null-check before ALL timing math
-  timerEndDatetime   DateTime? @db.Timestamptz() @map("timer_end_datetime") // computed: started_at + (timer_duration_min * 60s)
-  completedAt        DateTime? @db.Timestamptz() @map("completed_at") // verbatim from Carde; never use for duration
-  missingTablesJson  Json?     @map("missing_tables_json")
-  snapshotCapturedAt DateTime? @db.Timestamptz() @map("snapshot_captured_at")
+  timerEndDatetime     DateTime? @db.Timestamptz() @map("timer_end_datetime") // computed: started_at + (timer_duration_min * 60s)
+  completedAt          DateTime? @db.Timestamptz() @map("completed_at") // verbatim from Carde; never use for duration
+  lastMatchCompletedAt DateTime? @db.Timestamptz() @map("last_match_completed_at") // real round end: when last IN_PROGRESS match went COMPLETE
+  missingTablesJson    Json?     @map("missing_tables_json")
+  snapshotCapturedAt   DateTime? @db.Timestamptz() @map("snapshot_captured_at")
   operatorNotes      String?   @map("operator_notes")
 
   tournament AppTournament @relation(fields: [tournamentId], references: [id])

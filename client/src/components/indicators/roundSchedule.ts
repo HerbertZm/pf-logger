@@ -1,7 +1,7 @@
 import type { Round } from '../../api/types';
 import { formatInTournamentTz } from '../../utils/time';
 
-/** Break between Swiss rounds — used to estimate when the next round starts. */
+/** Buffer added to estimated round ends — accounts for overtime + cleanup before next round starts. */
 export const BREAK_BETWEEN_ROUNDS_MIN = 15;
 
 export interface ScheduleTime {
@@ -46,7 +46,10 @@ function hasStarted(round: Round): boolean {
 export function buildRoundSchedule(rounds: Round[], gameDefaultMinutes?: number): RoundScheduleRow[] {
     const sorted = [...rounds].sort((a, b) => a.roundNumber - b.roundNumber);
     const fallback = defaultRoundLengthMinutes(sorted, gameDefaultMinutes);
-    let endAnchor: Date | null = null;
+    // nextRoundStart is the base for the next round's estimated start time.
+    // For real timer ends: nextRoundStart = timerEnd + BREAK (break hasn't happened yet).
+    // For estimated ends: the break is already baked into the estimate, so nextRoundStart = estimated end.
+    let nextRoundStart: Date | null = null;
 
     return sorted.map((round) => {
         const lengthMin = roundLengthMinutes(round, fallback);
@@ -55,15 +58,25 @@ export function buildRoundSchedule(rounds: Round[], gameDefaultMinutes?: number)
         let start: ScheduleTime | null = null;
         if (round.startedAt !== null) {
             start = { at: new Date(round.startedAt), estimated: false };
-        } else if (endAnchor !== null) {
-            start = { at: addMinutes(endAnchor, BREAK_BETWEEN_ROUNDS_MIN), estimated: true };
+        } else if (nextRoundStart !== null) {
+            start = { at: nextRoundStart, estimated: true };
         }
 
         let end: ScheduleTime | null = null;
-        if (round.timerEndDatetime !== null) {
+        if (round.lastMatchCompletedAt !== null) {
+            // Real end: last match result came in
+            end = { at: new Date(round.lastMatchCompletedAt), estimated: false };
+            nextRoundStart = end.at; // next round can start right at real end
+        } else if (round.timerEndDatetime !== null) {
+            // Scheduled clock-0; still need break for next round
             end = { at: new Date(round.timerEndDatetime), estimated: false };
+            nextRoundStart = addMinutes(end.at, BREAK_BETWEEN_ROUNDS_MIN);
         } else if (start !== null && lengthMin !== null) {
-            end = { at: addMinutes(start.at, lengthMin), estimated: start.estimated };
+            // Estimated: round clock + buffer already baked in so next round starts at this end
+            end = { at: addMinutes(start.at, lengthMin + BREAK_BETWEEN_ROUNDS_MIN), estimated: true };
+            nextRoundStart = end.at;
+        } else {
+            nextRoundStart = null;
         }
 
         let durationMinutes: number | null = null;
@@ -72,15 +85,9 @@ export function buildRoundSchedule(rounds: Round[], gameDefaultMinutes?: number)
             durationMinutes = diffMinutes(start.at, end.at);
             durationEstimated = start.estimated || end.estimated;
         } else if (!started && lengthMin !== null) {
-            // Planning slot: round clock + break before the next round
+            // Upcoming with no anchor: planning slot (clock + break buffer)
             durationMinutes = lengthMin + BREAK_BETWEEN_ROUNDS_MIN;
             durationEstimated = true;
-        }
-
-        if (end !== null) {
-            endAnchor = end.at;
-        } else if (start !== null && lengthMin !== null) {
-            endAnchor = addMinutes(start.at, lengthMin);
         }
 
         return { round, start, end, durationMinutes, durationEstimated };
