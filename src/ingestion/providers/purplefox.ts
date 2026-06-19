@@ -171,10 +171,13 @@ export async function fetchPfData(pfTournamentId: string, jwt: string): Promise<
     };
 }
 
-/** Parse "Change time from Xmin to Ymin" action string from tournament_logs. */
+/** Parse "Change time from Xmin to Ymin" action string from tournament_logs.
+ *  Despite the "min" label, PF stores timer values in SECONDS (same as defaultTime).
+ *  Returned as fromMinutes/toMinutes to match DB column names — callers must divide
+ *  the delta by 60 to get actual extension minutes. */
 export function parseExtensionAction(action: string): {
-    fromMinutes: number | null;
-    toMinutes: number | null;
+    fromMinutes: number | null; // raw seconds despite the name
+    toMinutes: number | null;   // raw seconds despite the name
 } {
     const match = /from\s+(\d+)min\s+to\s+(\d+)min/i.exec(action);
     if (!match) return { fromMinutes: null, toMinutes: null };

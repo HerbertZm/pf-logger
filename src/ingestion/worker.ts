@@ -539,7 +539,11 @@ async function normalizeDrops(tournamentId: number, pfTournamentId: string, data
 async function normalizeExtensions(tournamentId: number, pfTournamentId: string, data: PfData): Promise<void> {
     for (const e of data.extensions) {
         const { fromMinutes, toMinutes } = parseExtensionAction(e.action);
-        const extensionMinutes = fromMinutes !== null && toMinutes !== null ? toMinutes - fromMinutes : null;
+        // PF stores the timer in seconds despite the "min" label in the action string
+        // (matches tournaments.defaultTime which is seconds: 3000 = 50 min).
+        // Divide the raw delta by 60 to get actual extension minutes.
+        const extensionMinutes =
+            fromMinutes !== null && toMinutes !== null ? Math.round((toMinutes - fromMinutes) / 60) : null;
 
         // Look up normalized round_id from our rounds table
         const round =
