@@ -105,16 +105,21 @@ interface CardeMatchesPage {
 
 export async function fetchCardeMatches(cardeRoundId: number): Promise<CardeMatch[]> {
     const all: CardeMatch[] = [];
-    // page_size=200; large rounds (700–1300 records) require multiple pages — follow `next`
+    // page_size=1000 to pull all in-progress matches in one shot for large events (400+ tables).
+    // Still follow `next` in case Carde caps page_size server-side.
     let next: string | null =
-        `/v2/organize/tournament-rounds/${cardeRoundId}/matches-list/?status=in_progress&avoid_cache=true&page_size=200`;
+        `/v2/organize/tournament-rounds/${cardeRoundId}/matches-list/?status=in_progress&avoid_cache=true&page_size=1000`;
+    let pageCount = 0;
 
     while (next !== null) {
         const page: CardeMatchesPage | CardeMatch[] = await cardeGet<CardeMatchesPage | CardeMatch[]>(next);
+        pageCount++;
         if (Array.isArray(page)) {
             all.push(...page);
+            console.log(`[carde] round ${cardeRoundId} page ${pageCount}: flat array, ${page.length} matches`);
             break;
         }
+        console.log(`[carde] round ${cardeRoundId} page ${pageCount}: ${page.results?.length ?? 0} matches, next=${page.next ?? 'null'}`);
         all.push(...(page.results ?? []));
         next = page.next ?? null;
     }
@@ -127,5 +132,6 @@ export async function fetchCardeMatches(cardeRoundId: number): Promise<CardeMatc
             byTable.set(m.table_number, m);
         }
     }
+    console.log(`[carde] round ${cardeRoundId} total fetched: ${all.length}, unique tables: ${byTable.size}`);
     return [...byTable.values()];
 }
