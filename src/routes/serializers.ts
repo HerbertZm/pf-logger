@@ -25,6 +25,7 @@ interface PrismaRound {
     startedAt: Date | null;
     timerDurationMin: number | null;
     timerEndDatetime: Date | null;
+    playStartedAt: Date | null;
     lastMatchCompletedAt: Date | null;
     missingTablesJson: Prisma.JsonValue;
     snapshotCapturedAt: Date | null;
@@ -220,13 +221,7 @@ export function serializeTournament(t: PrismaTournamentWithGame): Tournament {
     };
 }
 
-export function serializeRound(r: PrismaRound, gameDefaultMinutes?: number): Round {
-    // playStartedAt = timerEnd - game's standard round length (NOT Carde's timerDurationMin).
-    // This gives us when the TO pressed Resume regardless of what Carde stored as timer duration.
-    const playStartedAt =
-        r.timerEndDatetime !== null && gameDefaultMinutes !== undefined
-            ? new Date(r.timerEndDatetime.getTime() - gameDefaultMinutes * 60_000).toISOString()
-            : null;
+export function serializeRound(r: PrismaRound): Round {
     return {
         id: r.id,
         tournamentId: r.tournamentId,
@@ -236,7 +231,7 @@ export function serializeRound(r: PrismaRound, gameDefaultMinutes?: number): Rou
         startedAt: r.startedAt?.toISOString() ?? null,
         timerDurationMinutes: r.timerDurationMin,
         timerEndDatetime: r.timerEndDatetime?.toISOString() ?? null,
-        playStartedAt,
+        playStartedAt: r.playStartedAt?.toISOString() ?? null,
         lastMatchCompletedAt: r.lastMatchCompletedAt?.toISOString() ?? null,
         missingTablesJson: r.missingTablesJson as number[] | null,
         snapshotCapturedAt: r.snapshotCapturedAt?.toISOString() ?? null,

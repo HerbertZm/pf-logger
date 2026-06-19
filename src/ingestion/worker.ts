@@ -165,7 +165,7 @@ async function recordError(tournamentId: number, err: unknown): Promise<void> {
 export async function syncCardeRounds(tournamentId: number): Promise<void> {
     const tourn = await prisma.appTournament.findUnique({
         where: { id: tournamentId },
-        select: { isTestTournament: true, timezone: true },
+        select: { isTestTournament: true, timezone: true, game: { select: { defaultRoundLengthMin: true } } },
     });
     if (tourn?.isTestTournament) return; // never call external APIs for test tournaments
 
@@ -229,6 +229,16 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
                 ? (realTimerEnd ?? existing?.timerEndDatetime ?? computedTimerEnd)
                 : existing?.timerEndDatetime ?? computedTimerEnd;
 
+        // playStartedAt = timerEnd - game's standard round length.
+        // Write-once: once we have the real timer end, this value is stable.
+        const gameDefaultMs = (tourn?.game.defaultRoundLengthMin ?? null) !== null
+            ? tourn!.game.defaultRoundLengthMin * 60_000
+            : null;
+        const playStartedAt =
+            timerEnd !== null && gameDefaultMs !== null
+                ? new Date(timerEnd.getTime() - gameDefaultMs)
+                : null;
+
         await prisma.round.upsert({
             where: { tournamentId_roundNumber: { tournamentId, roundNumber: r.round_number } },
             create: {
@@ -240,6 +250,7 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
                 startedAt,
                 timerDurationMin: r.timer_duration_minutes ?? null,
                 timerEndDatetime: timerEnd,
+                playStartedAt,
                 completedAt,
             },
             update: {
@@ -250,6 +261,8 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
                 // timer_duration_min can change if TO resets timer; recompute timer_end accordingly
                 timerDurationMin: r.timer_duration_minutes ?? existing?.timerDurationMin ?? null,
                 timerEndDatetime: timerEnd ?? null,
+                // playStartedAt: update whenever timerEnd updates (timerEnd may improve as real value arrives)
+                playStartedAt: playStartedAt ?? existing?.playStartedAt ?? null,
             },
         });
 
