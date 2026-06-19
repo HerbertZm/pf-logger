@@ -23,12 +23,11 @@ export function defaultRoundLengthMinutes(rounds: Round[], gameDefaultMinutes?: 
     return swiss?.timerDurationMinutes ?? 50;
 }
 
-function roundLengthMinutes(round: Round, fallback: number): number | null {
-    if (round.timerDurationMinutes === null) {
-        if (round.phase === 'top8') return null;
-        return fallback;
-    }
-    return round.timerDurationMinutes;
+function roundLengthMinutes(round: Round, fallback: number): number {
+    // Use real timer duration when known; fall back to game default for all rounds
+    // (top8 rounds have null timer_duration_minutes until the TO sets the clock, so a
+    // rough estimate cascades correctly rather than breaking all subsequent rows).
+    return round.timerDurationMinutes ?? fallback;
 }
 
 function addMinutes(d: Date, minutes: number): Date {
