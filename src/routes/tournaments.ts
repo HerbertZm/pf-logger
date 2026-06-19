@@ -20,6 +20,14 @@ import { canAccessTestTournaments, rejectTestTournamentInProduction } from '../u
 
 const router = Router();
 
+async function gameDefaultMin(tournamentId: number): Promise<number | undefined> {
+    const row = await prisma.tournament.findUnique({
+        where: { id: tournamentId },
+        select: { game: { select: { defaultRoundLengthMinutes: true } } },
+    });
+    return row?.game.defaultRoundLengthMinutes;
+}
+
 // POST /api/end-tournament — admin+; freezes is_ended (never reset by sync)
 router.post(
     '/end-tournament',
@@ -96,11 +104,11 @@ router.get(
         if (await rejectTestTournamentInProduction(tid, res, (req as AuthenticatedRequest).user)) {
             return;
         }
-        const rounds = await prisma.round.findMany({
-            where: { tournamentId: tid },
-            orderBy: { roundNumber: 'asc' },
-        });
-        res.json(rounds.map(serializeRound));
+        const [rounds, defaultMin] = await Promise.all([
+            prisma.round.findMany({ where: { tournamentId: tid }, orderBy: { roundNumber: 'asc' } }),
+            gameDefaultMin(tid),
+        ]);
+        res.json(rounds.map((r) => serializeRound(r, defaultMin)));
     }),
 );
 
@@ -162,8 +170,9 @@ router.get(
             ...new Set(extensions.map((e) => e.tableNumber).filter((n): n is number => n !== null)),
         ];
 
+        const defaultMin = await gameDefaultMin(tid);
         const body: ActiveRoundResponse = {
-            round: serializeRound(round),
+            round: serializeRound(round, defaultMin),
             outstandingTables,
             tablesWithExtensions,
             extensions: extensions.map(serializeExtension),
@@ -189,7 +198,7 @@ router.get(
             return;
         }
 
-        const [rounds, drops, extensions, penalties, coverage, judgeCalls] = await Promise.all([
+        const [rounds, drops, extensions, penalties, coverage, judgeCalls, defaultMin] = await Promise.all([
             prisma.round.findMany({ where: { tournamentId: tid }, orderBy: { roundNumber: 'asc' } }),
             prisma.drop.findMany({ where: { tournamentId: tid }, orderBy: { id: 'asc' } }),
             prisma.extension.findMany({ where: { tournamentId: tid }, orderBy: { createdAt: 'asc' } }),
@@ -202,6 +211,7 @@ router.get(
                 where: { tournamentId: tid },
                 orderBy: { firstSeenAt: 'asc' },
             }),
+            gameDefaultMin(tid),
         ]);
 
         // Resolve PF staff UUIDs → display names for extension entries
@@ -223,7 +233,7 @@ router.get(
         ].sort((a, b) => entryTime(a) - entryTime(b));
 
         const body: LogsResponse = {
-            rounds: rounds.map(serializeRound),
+            rounds: rounds.map((r) => serializeRound(r, defaultMin)),
             entries,
         };
 
@@ -244,10 +254,10 @@ router.get(
             return;
         }
 
-        const rounds = await prisma.round.findMany({
-            where: { tournamentId: tid },
-            orderBy: { roundNumber: 'asc' },
-        });
+        const [rounds, defaultMin] = await Promise.all([
+            prisma.round.findMany({ where: { tournamentId: tid }, orderBy: { roundNumber: 'asc' } }),
+            gameDefaultMin(tid),
+        ]);
 
         const summaries: RoundSummary[] = await Promise.all(
             rounds.map(async (round) => {
@@ -275,7 +285,7 @@ router.get(
                         : null;
 
                 return {
-                    round: serializeRound(round),
+                    round: serializeRound(round, defaultMin),
                     dropCount,
                     extensionCount,
                     penaltyCount,
@@ -352,7 +362,7 @@ router.patch(
             throw err;
         }
 
-        res.json(serializeRound(round));
+        res.json(serializeRound(round, await gameDefaultMin(roundRow.tournamentId)));
     }),
 );
 
