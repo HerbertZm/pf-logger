@@ -230,6 +230,10 @@ export function serializeRound(r: PrismaRound): Round {
         startedAt: r.startedAt?.toISOString() ?? null,
         timerDurationMinutes: r.timerDurationMin,
         timerEndDatetime: r.timerEndDatetime?.toISOString() ?? null,
+        playStartedAt:
+            r.timerEndDatetime !== null && r.timerDurationMin !== null
+                ? new Date(r.timerEndDatetime.getTime() - r.timerDurationMin * 60_000).toISOString()
+                : null,
         lastMatchCompletedAt: r.lastMatchCompletedAt?.toISOString() ?? null,
         missingTablesJson: r.missingTablesJson as number[] | null,
         snapshotCapturedAt: r.snapshotCapturedAt?.toISOString() ?? null,

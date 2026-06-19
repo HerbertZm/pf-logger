@@ -19,6 +19,7 @@ export interface Round {
     startedAt: string | null;
     timerDurationMinutes: number | null;
     timerEndDatetime: string | null;
+    playStartedAt: string | null; // timerEnd - timerDuration = when TO pressed Resume; more accurate than startedAt
     lastMatchCompletedAt: string | null; // real round end; null while round is still active
     missingTablesJson: number[] | null;
     snapshotCapturedAt: string | null;

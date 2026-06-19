@@ -55,7 +55,11 @@ export function buildRoundSchedule(rounds: Round[], gameDefaultMinutes?: number)
         const started = hasStarted(round);
 
         let start: ScheduleTime | null = null;
-        if (round.startedAt !== null) {
+        if (round.playStartedAt !== null) {
+            // When TO pressed Resume: timerEnd - timerDuration. More accurate than startedAt.
+            start = { at: new Date(round.playStartedAt), estimated: false };
+        } else if (round.startedAt !== null) {
+            // Carde round-created timestamp — used until timer is set
             start = { at: new Date(round.startedAt), estimated: false };
         } else if (nextRoundStart !== null) {
             start = { at: nextRoundStart, estimated: true };
