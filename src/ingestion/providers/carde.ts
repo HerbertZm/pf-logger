@@ -80,6 +80,22 @@ export async function fetchCardeRounds(cardeEventId: number): Promise<CardeRound
     return items as CardeRound[];
 }
 
+interface CardeEventDetail {
+    timer_end_datetime: string | null;
+    timer_is_running: boolean;
+    timer_paused_at_datetime: string | null;
+}
+
+/** Fetches event-level timer state. The only endpoint with the real timer_end_datetime.
+ *  Returns null on any error so callers can fall back to the computed value. */
+export async function fetchCardeEventDetail(cardeEventId: number): Promise<CardeEventDetail | null> {
+    try {
+        return await cardeGet<CardeEventDetail>(`/v2/organize/events/${cardeEventId}/detail/`);
+    } catch {
+        return null;
+    }
+}
+
 export async function fetchCardeMatches(cardeRoundId: number): Promise<CardeMatch[]> {
     // status=in_progress confirmed functional; page_size=200 to get all in one call (default is 25)
     const data = await cardeGet<{ results?: CardeMatch[] } | CardeMatch[]>(

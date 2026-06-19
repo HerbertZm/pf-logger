@@ -1,6 +1,6 @@
 import type { Prisma } from '../generated/prisma/client';
 import { prisma } from '../db/prisma';
-import { fetchCardeRounds, fetchCardeMatches } from './providers/carde';
+import { fetchCardeRounds, fetchCardeMatches, fetchCardeEventDetail } from './providers/carde';
 import { fetchPfData, fetchPfProfiles, parseExtensionAction, type PfData } from './providers/purplefox';
 import { getPfJwt } from './jwtStore';
 import { getAppConfig } from '../services/appConfig';
@@ -176,7 +176,18 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
 
     const cardeTz = tourn?.timezone ?? DEFAULT_TIMEZONE;
     const cardeEventId = Number(mapping.externalId);
-    const rounds = await fetchCardeRounds(cardeEventId);
+    const [rounds, eventDetail] = await Promise.all([
+        fetchCardeRounds(cardeEventId),
+        fetchCardeEventDetail(cardeEventId),
+    ]);
+
+    // Real timer_end_datetime from the event detail endpoint — more accurate than
+    // startedAt + duration because it reflects when the TO actually pressed Resume,
+    // not when the round object was created (lag of +7 to +83 s documented in carde-api.md).
+    const realTimerEnd =
+        eventDetail?.timer_end_datetime && !eventDetail.timer_paused_at_datetime
+            ? new Date(eventDetail.timer_end_datetime)
+            : null;
 
     for (const r of rounds) {
         const startedAt = parseCardeTimestamp(r.started_at, cardeTz);
@@ -199,11 +210,14 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
             },
         });
 
-        // Derive normalized round (write-once semantics for timestamp fields)
-        const timerEnd =
+        // Derive normalized round (write-once semantics for timestamp fields).
+        // For the live IN_PROGRESS round, prefer the real timer_end_datetime from
+        // event detail over the computed value (avoids the +7–83 s lag).
+        const computedTimerEnd =
             startedAt && r.timer_duration_minutes !== null
                 ? computeTimerEnd(startedAt, r.timer_duration_minutes)
                 : null;
+        const timerEnd = r.status === 'IN_PROGRESS' ? (realTimerEnd ?? computedTimerEnd) : computedTimerEnd;
 
         const existing = await prisma.round.findUnique({
             where: { tournamentId_roundNumber: { tournamentId, roundNumber: r.round_number } },
