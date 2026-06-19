@@ -47,12 +47,14 @@ interface CardeMatch {
     winning_player_id: string | null;
 }
 
-async function cardeGet<T>(path: string): Promise<T> {
-    const res = await fetch(`${BASE}${path}`, {
+async function cardeGet<T>(pathOrUrl: string): Promise<T> {
+    // Accept either a path ("/api/...") or a full URL (from pagination `next` fields)
+    const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${BASE}${pathOrUrl}`;
+    const res = await fetch(url, {
         headers: { Authorization: `Token ${getCardeToken()}` },
     });
     if (!res.ok) {
-        throw new Error(`Carde API ${res.status} at ${path}`);
+        throw new Error(`Carde API ${res.status} at ${pathOrUrl}`);
     }
     return res.json() as Promise<T>;
 }
@@ -96,10 +98,34 @@ export async function fetchCardeEventDetail(cardeEventId: number): Promise<Carde
     }
 }
 
+interface CardeMatchesPage {
+    results: CardeMatch[];
+    next: string | null;
+}
+
 export async function fetchCardeMatches(cardeRoundId: number): Promise<CardeMatch[]> {
-    // status=in_progress confirmed functional; page_size=200 to get all in one call (default is 25)
-    const data = await cardeGet<{ results?: CardeMatch[] } | CardeMatch[]>(
-        `/v2/organize/tournament-rounds/${cardeRoundId}/matches-list/?status=in_progress&avoid_cache=true&page_size=200`,
-    );
-    return Array.isArray(data) ? data : (data.results ?? []);
+    const all: CardeMatch[] = [];
+    // page_size=200; large rounds (700–1300 records) require multiple pages — follow `next`
+    let next: string | null =
+        `/v2/organize/tournament-rounds/${cardeRoundId}/matches-list/?status=in_progress&avoid_cache=true&page_size=200`;
+
+    while (next !== null) {
+        const page: CardeMatchesPage | CardeMatch[] = await cardeGet<CardeMatchesPage | CardeMatch[]>(next);
+        if (Array.isArray(page)) {
+            all.push(...page);
+            break;
+        }
+        all.push(...(page.results ?? []));
+        next = page.next ?? null;
+    }
+
+    // Deduplicate by table_number — keep latest updated_at per table in case pages overlap
+    const byTable = new Map<number, CardeMatch>();
+    for (const m of all) {
+        const existing = byTable.get(m.table_number);
+        if (!existing || m.updated_at > existing.updated_at) {
+            byTable.set(m.table_number, m);
+        }
+    }
+    return [...byTable.values()];
 }
