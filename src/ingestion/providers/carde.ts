@@ -12,7 +12,7 @@
 
 import { getCardeToken } from '../cardeTokenStore';
 
-const BASE = 'https://app.carde.io/api';
+const BASE = 'https://api.admin.carde.io/api';
 
 interface CardeRound {
     id: number;
