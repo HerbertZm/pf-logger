@@ -57,11 +57,27 @@ async function cardeGet<T>(path: string): Promise<T> {
     return res.json() as Promise<T>;
 }
 
+// api.admin.carde.io returns tournament phase objects (each with a nested `rounds`
+// array) rather than a flat round list. Flatten all phases into a single round list.
+interface CardePhase {
+    id: number;
+    rounds: CardeRound[];
+}
+
 export async function fetchCardeRounds(cardeEventId: number): Promise<CardeRound[]> {
-    const data = await cardeGet<{ results?: CardeRound[] } | CardeRound[]>(
+    const data = await cardeGet<CardePhase[] | { results?: CardePhase[] } | CardeRound[]>(
         `/magic-events/${cardeEventId}/get_all_rounds/`,
     );
-    return Array.isArray(data) ? data : (data.results ?? []);
+    const items: unknown[] = Array.isArray(data) ? data : ((data as { results?: unknown[] }).results ?? []);
+    if (items.length === 0) return [];
+
+    // Detect format by checking if the first item has a `rounds` array (phase format)
+    // vs a `round_number` field (old flat format).
+    const first = items[0] as Record<string, unknown>;
+    if (Array.isArray(first['rounds'])) {
+        return (items as CardePhase[]).flatMap((phase) => phase.rounds);
+    }
+    return items as CardeRound[];
 }
 
 export async function fetchCardeMatches(cardeRoundId: number): Promise<CardeMatch[]> {
