@@ -263,10 +263,16 @@ router.get(
                 const outstandingAtTimeCalled =
                     round.missingTablesJson !== null ? (round.missingTablesJson as number[]).length : 0;
 
-                // overtimeMinutes: not computable from completedAt — that field equals next round's
-                // started_at for Swiss rounds. Requires a dedicated ingestion-time snapshot. Left null
-                // until the worker captures a real overtime signal.
-                const overtimeMinutes: null = null;
+                // lastMatchCompletedAt - timerEndDatetime = actual overtime (clamped to 0 for on-time rounds)
+                const overtimeMinutes =
+                    round.lastMatchCompletedAt !== null && round.timerEndDatetime !== null
+                        ? Math.max(
+                              0,
+                              Math.round(
+                                  (round.lastMatchCompletedAt.getTime() - round.timerEndDatetime.getTime()) / 60_000,
+                              ),
+                          )
+                        : null;
 
                 return {
                     round: serializeRound(round),

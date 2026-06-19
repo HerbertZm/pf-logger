@@ -217,11 +217,17 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
             startedAt && r.timer_duration_minutes !== null
                 ? computeTimerEnd(startedAt, r.timer_duration_minutes)
                 : null;
-        const timerEnd = r.status === 'IN_PROGRESS' ? (realTimerEnd ?? computedTimerEnd) : computedTimerEnd;
-
         const existing = await prisma.round.findUnique({
             where: { tournamentId_roundNumber: { tournamentId, roundNumber: r.round_number } },
         });
+
+        // For IN_PROGRESS: prefer real timer end (from detail/) > existing stored value > computed fallback.
+        // Real value reflects when the TO pressed Resume, not when the round object was created.
+        // For COMPLETE: never overwrite — the real value was captured while the round was IN_PROGRESS.
+        const timerEnd =
+            r.status === 'IN_PROGRESS'
+                ? (realTimerEnd ?? existing?.timerEndDatetime ?? computedTimerEnd)
+                : existing?.timerEndDatetime ?? computedTimerEnd;
 
         await prisma.round.upsert({
             where: { tournamentId_roundNumber: { tournamentId, roundNumber: r.round_number } },
@@ -243,7 +249,7 @@ export async function syncCardeRounds(tournamentId: number): Promise<void> {
                 completedAt: existing?.completedAt ?? completedAt,
                 // timer_duration_min can change if TO resets timer; recompute timer_end accordingly
                 timerDurationMin: r.timer_duration_minutes ?? existing?.timerDurationMin ?? null,
-                timerEndDatetime: timerEnd ?? existing?.timerEndDatetime ?? null,
+                timerEndDatetime: timerEnd ?? null,
             },
         });
 
