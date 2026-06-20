@@ -709,6 +709,7 @@ async function normalizeJudgeCalls(tournamentId: number, pfTournamentId: string,
         // Insert normalized judge call if this exact (table, round, result) combo isn't already stored.
         // A table can have multiple judge calls per round (different outcomes), but we don't want
         // duplicates from re-polling the same live snapshot.
+        // If the row exists but judge was null and coveredBy is now known, backfill it.
         const existing = await prisma.tableJudgeCall.findFirst({
             where: {
                 tournamentId,
@@ -717,13 +718,22 @@ async function normalizeJudgeCalls(tournamentId: number, pfTournamentId: string,
                 judgeResult: jc.judgeResult,
             },
         });
-        if (existing) continue;
+        if (existing) {
+            if (existing.judge === null && jc.coveredBy !== null) {
+                await prisma.tableJudgeCall.update({
+                    where: { id: existing.id },
+                    data: { judge: jc.coveredBy },
+                });
+            }
+            continue;
+        }
 
         await prisma.tableJudgeCall.create({
             data: {
                 tournamentId,
                 round: currentRound,
                 tableNumber: jc.tableNumber,
+                judge: jc.coveredBy ?? null,
                 judgeResult: jc.judgeResult,
                 firstSeenAt: new Date(),
             },

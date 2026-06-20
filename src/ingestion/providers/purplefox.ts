@@ -103,7 +103,7 @@ export interface PfExtension {
 export interface PfJudgeCall {
     tableNumber: number;
     judgeResult: string; // free-text — not an enum
-    coveredBy: string | null; // ignored (coverage not collected)
+    coveredBy: string | null; // judge who handled the call; stored as judge on TableJudgeCall
 }
 
 export interface PfData {
