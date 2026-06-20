@@ -182,7 +182,7 @@ export async function fetchPfData(pfTournamentId: string, jwt: string): Promise<
         penalties: penaltiesRes.data,
         extensions: extensionsRes.data,
         judgeCalls: judgeCallsRes.data,
-        coverage: coverageRes.data as PfCoverage[],
+        coverage: coverageRes.data,
         currentRound,
     };
 }
