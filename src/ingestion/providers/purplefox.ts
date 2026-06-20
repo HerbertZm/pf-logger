@@ -106,11 +106,17 @@ export interface PfJudgeCall {
     coveredBy: string | null; // judge who handled the call; stored as judge on TableJudgeCall
 }
 
+export interface PfCoverage {
+    tableNumber: number;
+    coveredBy: string; // judge who seated at the table
+}
+
 export interface PfData {
     drops: PfDrop[];
     penalties: PfPenalty[];
     extensions: PfExtension[];
     judgeCalls: PfJudgeCall[];
+    coverage: PfCoverage[];
     currentRound: number | null; // from tournaments.round; used to annotate judge calls
 }
 
@@ -127,7 +133,7 @@ async function fetchCurrentRound(pfTournamentId: string, jwt: string): Promise<n
 export async function fetchPfData(pfTournamentId: string, jwt: string): Promise<PfData> {
     const sb = getSupabase(jwt);
 
-    const [dropsRes, penaltiesRes, extensionsRes, judgeCallsRes, currentRound] = await Promise.all([
+    const [dropsRes, penaltiesRes, extensionsRes, judgeCallsRes, coverageRes, currentRound] = await Promise.all([
         sb
             .from('tournament_drops')
             .select(
@@ -146,13 +152,21 @@ export async function fetchPfData(pfTournamentId: string, jwt: string): Promise<
             .eq('tournamentId', pfTournamentId)
             .like('action', 'Change%'), // only extension entries
 
-        // tables is current-round-only; fetch rows with a judgeResult set
+        // Judge calls: tables with a submitted result this round
         sb
             .from('tables')
             .select('tableNumber,judgeResult,coveredBy')
             .eq('tournamentId', pfTournamentId)
             .not('judgeResult', 'is', null)
             .neq('judgeResult', ''),
+
+        // Coverage: tables where a judge has seated (coveredBy set), regardless of result
+        sb
+            .from('tables')
+            .select('tableNumber,coveredBy')
+            .eq('tournamentId', pfTournamentId)
+            .not('coveredBy', 'is', null)
+            .neq('coveredBy', ''),
 
         fetchCurrentRound(pfTournamentId, jwt),
     ]);
@@ -161,12 +175,14 @@ export async function fetchPfData(pfTournamentId: string, jwt: string): Promise<
     if (penaltiesRes.error) throw new Error(`PF penalties fetch failed: ${penaltiesRes.error.message}`);
     if (extensionsRes.error) throw new Error(`PF extensions fetch failed: ${extensionsRes.error.message}`);
     if (judgeCallsRes.error) throw new Error(`PF judge calls fetch failed: ${judgeCallsRes.error.message}`);
+    if (coverageRes.error) throw new Error(`PF coverage fetch failed: ${coverageRes.error.message}`);
 
     return {
         drops: dropsRes.data,
         penalties: penaltiesRes.data,
         extensions: extensionsRes.data,
         judgeCalls: judgeCallsRes.data,
+        coverage: coverageRes.data as PfCoverage[],
         currentRound,
     };
 }

@@ -504,6 +504,7 @@ export async function syncPfData(tournamentId: number): Promise<void> {
         normalizeExtensions(tournamentId, pfTournamentId, data),
         normalizePenalties(tournamentId, pfTournamentId, data),
         normalizeJudgeCalls(tournamentId, pfTournamentId, data),
+        normalizeCoverage(tournamentId, pfTournamentId, data),
     ]);
 
     await prisma.workerState.update({
@@ -737,6 +738,44 @@ async function normalizeJudgeCalls(tournamentId: number, pfTournamentId: string,
                 judgeResult: jc.judgeResult,
                 firstSeenAt: new Date(),
             },
+        });
+    }
+}
+
+async function normalizeCoverage(tournamentId: number, pfTournamentId: string, data: PfData): Promise<void> {
+    const currentRound = data.currentRound;
+
+    for (const c of data.coverage) {
+        // Append to raw layer
+        await prisma.rawPfCoverage.create({
+            data: {
+                fetchedAt: new Date(),
+                tournamentId,
+                pfTournamentId,
+                tableNumber: c.tableNumber,
+                coveredBy: c.coveredBy,
+                firstSeenAt: new Date(),
+                rawPayload: jsonPayload(c),
+            },
+        });
+
+        // Write-once: first time we see a (table, judge) pair, record it.
+        await prisma.tableCoverage.upsert({
+            where: {
+                tournamentId_tableNumber_coveredBy: {
+                    tournamentId,
+                    tableNumber: c.tableNumber,
+                    coveredBy: c.coveredBy,
+                },
+            },
+            create: {
+                tournamentId,
+                round: currentRound,
+                tableNumber: c.tableNumber,
+                coveredBy: c.coveredBy,
+                firstSeenAt: new Date(),
+            },
+            update: {},
         });
     }
 }
