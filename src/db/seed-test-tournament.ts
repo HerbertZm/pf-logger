@@ -487,7 +487,9 @@ async function main(): Promise<void> {
     await prisma.$disconnect();
 }
 
-main().catch((e) => {
-    logger.error('seed-test-tournament failed', e);
-    process.exit(1);
-});
+if (require.main === module) {
+    main().catch((e) => {
+        logger.error('seed-test-tournament failed', e);
+        process.exit(1);
+    });
+}
