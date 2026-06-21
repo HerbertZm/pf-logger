@@ -129,8 +129,9 @@ export async function fetchCardeFixedSeatRegistrations(
 ): Promise<CardeRegistrationSlim[]> {
     const all: CardeRegistrationSlim[] = [];
     let page = 1;
+    let hasMore = true;
 
-    while (true) {
+    while (hasMore) {
         const data = await cardeGet<CardeRegistrationsPage>(
             `/v2/organize/events/${cardeEventId}/registrations-slim/?ordering=fixed_seat&page_size=200&page=${page}`,
         );
@@ -138,7 +139,7 @@ export async function fetchCardeFixedSeatRegistrations(
         const fixedResults = results.filter((r) => r.fixed_seat !== null);
         all.push(...fixedResults);
         // Stop when this page contained any null fixed_seat entries, or no more pages
-        if (fixedResults.length < results.length || !data.next) break;
+        hasMore = fixedResults.length === results.length && data.next !== null;
         page++;
     }
 

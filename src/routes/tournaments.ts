@@ -502,7 +502,7 @@ router.get(
             const pmrs = m.player_match_relationships ?? [];
             for (let i = 0; i < Math.min(pmrs.length, 2); i++) {
                 const uid = pmrs[i]?.user_event_status?.user?.id;
-                if (uid == null) continue;
+                if (uid === null || uid === undefined) continue;
                 const opp = pmrs[1 - i];
                 const oppName = m.match_is_bye
                     ? null

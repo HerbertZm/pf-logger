@@ -40,10 +40,10 @@ export const FixedSeatingReport = () => {
                 <div className="fixed-seating__header-text">
                     <h2 className="fixed-seating__title">
                         Fixed seating
-                        {data?.roundNumber != null && ` — Round ${data.roundNumber}`}
+                        {data?.roundNumber !== null && data?.roundNumber !== undefined && ` — Round ${data.roundNumber}`}
                     </h2>
                     <p className="fixed-seating__subtitle">
-                        {data != null
+                        {data !== null
                             ? `${data.entries.length} fixed-seat player${data.entries.length !== 1 ? 's' : ''}${movedCount > 0 ? ` · ${movedCount} moved` : ''}`
                             : 'Players assigned to permanent seats across all rounds.'}
                     </p>
@@ -95,7 +95,7 @@ const FixedSeatingTable = ({ entries, roundNumber }: TableProps) => (
                 <tr>
                     <th>Player</th>
                     <th>Fixed seat</th>
-                    <th>{roundNumber != null ? `Round ${roundNumber} table` : 'Current table'}</th>
+                    <th>{roundNumber !== null ? `Round ${roundNumber} table` : 'Current table'}</th>
                     <th>Opponent</th>
                 </tr>
             </thead>
@@ -105,7 +105,7 @@ const FixedSeatingTable = ({ entries, roundNumber }: TableProps) => (
                         <td>{e.playerName}</td>
                         <td className="fixed-seating__cell--num">{e.fixedSeat}</td>
                         <td className="fixed-seating__cell--num">
-                            {e.currentTable != null ? (
+                            {e.currentTable !== null ? (
                                 <>
                                     {e.currentTable}
                                     {e.moved && <span className="fixed-seating__moved-badge">moved</span>}
