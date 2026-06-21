@@ -62,12 +62,13 @@ export const FixedSeatingReport = () => {
 
     const handlePrint = (): void => {
         const style = document.createElement('style');
+        // Use visibility (not display:none) so children can override with visibility:visible.
+        // position:absolute top:0 collapses the blank space left by hidden sibling elements.
         style.textContent = [
             '@media print {',
             '  body > * { visibility: hidden; }',
             '  .fixed-seating, .fixed-seating * { visibility: visible; }',
-            '  .fixed-seating { position: fixed; inset: 0; padding: 1rem; }',
-            '  .fixed-seating__actions { display: none; }',
+            '  .fixed-seating { position: absolute; top: 0; left: 0; width: 100%; margin: 0; }',
             '}',
         ].join('\n');
         document.head.appendChild(style);

@@ -133,37 +133,96 @@
     opacity: 0.7;
 }
 
-/* Print — injected dynamically by handlePrint; these styles complement the JS injection */
+/* ── Print ── */
 @media print {
-    .fixed-seating__table th,
-    .fixed-seating__table td {
-        border-bottom: 1px solid #ccc;
-        padding: 0.3rem 0.6rem;
+    /* Layout */
+    .fixed-seating {
+        font-size: 10pt;
+        color: #000;
     }
 
+    .fixed-seating__header {
+        margin-bottom: 6pt;
+    }
+
+    .fixed-seating__title {
+        font-size: 13pt;
+        font-weight: 700;
+        color: #000;
+    }
+
+    .fixed-seating__subtitle {
+        font-size: 9pt;
+        color: #555;
+        margin-bottom: 6pt;
+    }
+
+    .fixed-seating__actions {
+        display: none;
+    }
+
+    .fixed-seating__sort-indicator {
+        display: none;
+    }
+
+    /* Table */
+    .fixed-seating__table-wrap {
+        overflow: visible;
+    }
+
+    .fixed-seating__table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9pt;
+    }
+
+    .fixed-seating__table th,
+    .fixed-seating__table td {
+        border: 1px solid #aaa;
+        padding: 3pt 6pt;
+        text-align: left;
+    }
+
+    .fixed-seating__table th {
+        background: #e8e8e8 !important;
+        font-size: 8pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #333;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Moved rows */
     .fixed-seating__row--moved td {
-        background: #fff8e1;
+        background: #fff3cd !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
     .fixed-seating__moved-badge {
-        border: 1px solid #999;
-        background: transparent;
-        color: #333;
+        background: #f59e0b !important;
+        color: #000 !important;
+        border: none;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
+    /* FS-conflict rows */
     .fixed-seating__row--vs-fixed td {
-        background: #e8f0fe;
+        background: #dbeafe !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
 
     .fixed-seating__cell--vs-fixed {
-        border-left: 3px solid #3b82f6 !important;
+        border-left: 3pt solid #2563eb !important;
+        font-weight: 600;
     }
 
     .fixed-seating__fs-badge {
-        background: #3b82f6;
-        color: #fff;
+        background: #2563eb !important;
+        color: #fff !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
