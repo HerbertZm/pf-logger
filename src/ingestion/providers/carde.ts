@@ -164,19 +164,22 @@ export interface CardeMatchFull {
 
 interface CardeMatchFullPage {
     results: CardeMatchFull[];
-    next: string | null;
+    next: number | null; // numeric page number, same pattern as registrations-slim
 }
 
 /** Fetches ALL matches for a round (not just in-progress), with player details. */
 export async function fetchCardeAllRoundMatches(cardeRoundId: number): Promise<CardeMatchFull[]> {
     const all: CardeMatchFull[] = [];
-    let cursor: string | null =
-        `/v2/organize/tournament-rounds/${cardeRoundId}/matches-list/?page_size=200&ordering=table_number`;
+    let page = 1;
+    let hasMore = true;
 
-    while (cursor !== null) {
-        const matchPage: CardeMatchFullPage = await cardeGet<CardeMatchFullPage>(cursor);
+    while (hasMore) {
+        const matchPage: CardeMatchFullPage = await cardeGet<CardeMatchFullPage>(
+            `/v2/organize/tournament-rounds/${cardeRoundId}/matches-list/?page_size=200&ordering=table_number&page=${page}`,
+        );
         all.push(...(matchPage.results ?? []));
-        cursor = matchPage.next ?? null;
+        hasMore = matchPage.next !== null;
+        page++;
     }
 
     return all.filter((m) => m.table_number > 0); // exclude byes (table_number -1 or 0)
