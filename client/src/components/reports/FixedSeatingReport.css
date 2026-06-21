@@ -93,7 +93,12 @@
     letter-spacing: 0.05em;
 }
 
-/* FS opponent — prominent left-border accent on the opponent cell */
+/* FS opponent — blue tint on the whole row */
+.fixed-seating__row--vs-fixed td {
+    background: color-mix(in srgb, var(--color-info, #3b82f6) 10%, transparent);
+}
+
+/* Extra accent on just the opponent cell */
 .fixed-seating__cell--vs-fixed {
     border-left: 3px solid var(--color-info, #3b82f6) !important;
     font-weight: 600;
@@ -144,6 +149,12 @@
         border: 1px solid #999;
         background: transparent;
         color: #333;
+    }
+
+    .fixed-seating__row--vs-fixed td {
+        background: #e8f0fe;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
     .fixed-seating__cell--vs-fixed {
