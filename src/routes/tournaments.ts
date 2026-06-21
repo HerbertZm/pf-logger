@@ -491,10 +491,18 @@ router.get(
             return;
         }
 
-        const [registrations, matches] = await Promise.all([
-            fetchCardeFixedSeatRegistrations(cardeEventId),
-            fetchCardeAllRoundMatches(round.cardeRoundId),
-        ]);
+        let registrations: Awaited<ReturnType<typeof fetchCardeFixedSeatRegistrations>>;
+        let matches: Awaited<ReturnType<typeof fetchCardeAllRoundMatches>>;
+        try {
+            [registrations, matches] = await Promise.all([
+                fetchCardeFixedSeatRegistrations(cardeEventId),
+                fetchCardeAllRoundMatches(round.cardeRoundId),
+            ]);
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            res.status(502).json({ error: `Carde fetch failed: ${msg}` });
+            return;
+        }
 
         // Build userId → match info lookup
         const matchByUserId = new Map<number, { tableNumber: number; opponentName: string | null; isBye: boolean }>();
