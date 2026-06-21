@@ -6,8 +6,6 @@ import { ExtensionHistogram } from './ExtensionHistogram';
 import { operationalExtensionCount } from '../../utils/extensions';
 import { useRoundPace } from '../../hooks/useRoundPace';
 import { RoundOperatorNotes } from './RoundOperatorNotes';
-import { formatRoundSummaryText } from '../../utils/roundSummaryText';
-import { Button } from '../shared/Button';
 
 interface RoundRowProps {
     summary: RoundSummary;
@@ -17,6 +15,17 @@ interface RoundRowProps {
 
 const val = (n: number | null) => (n === null || n === 0 ? '—' : String(n));
 
+const seatingGap = (r: Round): string => {
+    if (!r.startedAt || !r.playStartedAt) return '—';
+    const sec = Math.round((new Date(r.playStartedAt).getTime() - new Date(r.startedAt).getTime()) / 1000);
+    if (sec <= 0) return '—';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    if (m === 0) return `${s}s`;
+    if (s === 0) return `${m}m`;
+    return `${m}m ${s}s`;
+};
+
 const rowUrgency = (s: RoundSummary): 'urgent' | 'warning' | '' => {
     if ((s.overtimeMinutes ?? 0) > 15 || s.outstandingAtTimeCalled >= 5) return 'urgent';
     if ((s.overtimeMinutes ?? 0) > 0 || s.outstandingAtTimeCalled >= 1) return 'warning';
@@ -25,23 +34,11 @@ const rowUrgency = (s: RoundSummary): 'urgent' | 'warning' | '' => {
 
 export const RoundRow = ({ summary, logisticsThresholdMin, onRoundUpdated }: RoundRowProps) => {
     const [expanded, setExpanded] = useState(false);
-    const [copyState, setCopyState] = useState<'idle' | 'ok' | 'err'>('idle');
-    const { sources, activeTournament } = useTournament();
+    const { sources } = useTournament();
     const urgency = rowUrgency(summary);
     const r = summary.round;
     const pace = useRoundPace(r);
     const opsExtensionCount = operationalExtensionCount(summary.extensions, logisticsThresholdMin);
-
-    const handleCopy = (): void => {
-        const text = formatRoundSummaryText(summary, activeTournament);
-        navigator.clipboard
-            .writeText(text)
-            .then(() => {
-                setCopyState('ok');
-                window.setTimeout(() => setCopyState('idle'), 2000);
-            })
-            .catch(() => setCopyState('err'));
-    };
 
     const handleNotesSaved = (round: Round): void => {
         onRoundUpdated(round);
@@ -74,23 +71,10 @@ export const RoundRow = ({ summary, logisticsThresholdMin, onRoundUpdated }: Rou
                 <td className="round-row__num value-zero" title="Requires ingestion worker — not yet available">
                     {summary.overtimeMinutes !== null ? `${val(summary.overtimeMinutes)}m` : 'n/a'}
                 </td>
-                <td
-                    className="round-row__actions"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                    }}
-                >
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                            handleCopy();
-                        }}
-                    >
-                        <span className="round-row__copy">
-                            {copyState === 'ok' ? 'Copied' : copyState === 'err' ? 'Failed' : 'Copy'}
-                        </span>
-                    </Button>
+                <td className="round-row__num" title="Time between round start and play start (seating + announcements)">
+                    {seatingGap(r)}
+                </td>
+                <td className="round-row__actions">
                     <span className="round-row__expand" aria-hidden="true">
                         {expanded ? '▲' : '▼'}
                     </span>
@@ -99,7 +83,7 @@ export const RoundRow = ({ summary, logisticsThresholdMin, onRoundUpdated }: Rou
 
             {expanded && (
                 <tr className="round-row__detail">
-                    <td colSpan={sources.pf ? 7 : 6}>
+                    <td colSpan={sources.pf ? 8 : 7}>
                         <ExtensionHistogram
                             extensions={summary.extensions}
                             logisticsThresholdMin={logisticsThresholdMin}

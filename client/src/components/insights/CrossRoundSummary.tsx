@@ -108,6 +108,9 @@ export const CrossRoundSummary = () => {
                             <th title="Minutes past timer expiry before last result — requires ingestion worker">
                                 Overtime (min)
                             </th>
+                            <th title="Time between round start and play start (seating + announcements)">
+                                Seating gap
+                            </th>
                             <th aria-label="Actions" />
                         </tr>
                     </thead>
