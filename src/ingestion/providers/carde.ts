@@ -103,6 +103,84 @@ interface CardeMatchesPage {
     next: string | null;
 }
 
+// ── Fixed seating helpers ──────────────────────────────────────────────────
+
+export interface CardeRegistrationSlim {
+    id: number;
+    user: {
+        id: number;
+        first_last: string;
+        best_identifier: string;
+    };
+    user_identifier: string;
+    registration_status: string; // "COMPLETE" | "DROPPED" | "CANCELED"
+    fixed_seat: number | null;
+}
+
+interface CardeRegistrationsPage {
+    results: CardeRegistrationSlim[];
+    next: number | null;
+}
+
+/** Fetches all registrations that have a fixed_seat assigned.
+ *  Uses ordering=fixed_seat so non-null entries come first; stops paginating once nulls begin. */
+export async function fetchCardeFixedSeatRegistrations(
+    cardeEventId: number,
+): Promise<CardeRegistrationSlim[]> {
+    const all: CardeRegistrationSlim[] = [];
+    let page = 1;
+
+    while (true) {
+        const data = await cardeGet<CardeRegistrationsPage>(
+            `/v2/organize/events/${cardeEventId}/registrations-slim/?ordering=fixed_seat&page_size=200&page=${page}`,
+        );
+        const results = data.results ?? [];
+        const fixedResults = results.filter((r) => r.fixed_seat !== null);
+        all.push(...fixedResults);
+        // Stop when this page contained any null fixed_seat entries, or no more pages
+        if (fixedResults.length < results.length || !data.next) break;
+        page++;
+    }
+
+    return all;
+}
+
+export interface CardeMatchFull {
+    id: number;
+    table_number: number;
+    match_is_bye: boolean;
+    player_match_relationships: Array<{
+        user_event_status: {
+            user_identifier: string;
+            user: {
+                id: number;
+                first_last: string;
+                best_identifier: string;
+            };
+        };
+    }>;
+}
+
+interface CardeMatchFullPage {
+    results: CardeMatchFull[];
+    next: string | null;
+}
+
+/** Fetches ALL matches for a round (not just in-progress), with player details. */
+export async function fetchCardeAllRoundMatches(cardeRoundId: number): Promise<CardeMatchFull[]> {
+    const all: CardeMatchFull[] = [];
+    let cursor: string | null =
+        `/v2/organize/tournament-rounds/${cardeRoundId}/matches-list/?page_size=200&ordering=table_number`;
+
+    while (cursor !== null) {
+        const matchPage: CardeMatchFullPage = await cardeGet<CardeMatchFullPage>(cursor);
+        all.push(...(matchPage.results ?? []));
+        cursor = matchPage.next ?? null;
+    }
+
+    return all.filter((m) => m.table_number > 0); // exclude byes (table_number -1 or 0)
+}
+
 export async function fetchCardeMatches(cardeRoundId: number): Promise<CardeMatch[]> {
     const all: CardeMatch[] = [];
     // page_size=1000 to pull all in-progress matches in one shot for large events (400+ tables).

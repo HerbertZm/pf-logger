@@ -169,6 +169,20 @@ export interface RoundTimingReportRow {
     maxExtensionSec: number | null;
 }
 
+export interface FixedSeatEntry {
+    playerName: string;
+    fixedSeat: number;
+    currentTable: number | null;
+    opponentName: string | null;
+    isBye: boolean;
+    moved: boolean;
+}
+
+export interface FixedSeatingResponse {
+    roundNumber: number | null;
+    entries: FixedSeatEntry[];
+}
+
 export interface MeResponse {
     username: string;
     role: string;

@@ -12,6 +12,39 @@ Base URL: https://api.admin.carde.io
 
 ## Read patterns
 
+### Registrations (fixed seats, player roster)
+
+    GET /api/v2/organize/events/{event_id}/registrations-slim/?page=1&page_size=200&ordering=fixed_seat
+
+Returns all registrations for the event. Use `ordering=fixed_seat` to put fixed-seat players first
+(nulls sort last). Paginate until `fixed_seat: null` entries appear to get only fixed-seat players,
+or collect all pages and filter client-side.
+
+Key fields:
+
+    id                         integer   registration ID
+    user.id                    integer   stable player ID
+    user.email                 string
+    user.first_last            string    "Firstname Lastname"
+    user.last_first            string    "Lastname, Firstname"
+    user_identifier            string    display name e.g. "Rachel S"
+    registration_status        string    "COMPLETE" | "DROPPED" | "CANCELED"
+    fixed_seat                 integer|null  assigned fixed table number; null = normal Swiss seating
+    table_assignment           null      always null in observed data
+    matches_won / matches_lost / total_match_points  integer  live standings snapshot
+
+To detect fixed-seat players who were moved:
+1. Fetch all registrations with non-null `fixed_seat` from this endpoint (keyed by `user.id`)
+2. For each round, fetch `matches-list` and find each player's `table_number`
+3. Flag any match where `table_number != fixed_seat`
+
+Note: `ordering=fixed_seat` puts non-null values first ascending, then all nulls — useful for
+paginating only until the first null to avoid fetching the full roster.
+
+Confirmed 2026-06-21 via live event 602068.
+
+---
+
 ### All rounds (structure + status)
 
     GET /api/magic-events/{event_id}/get_all_rounds/

@@ -3,7 +3,8 @@ import { Prisma } from '../generated/prisma/client';
 import { prisma } from '../db/prisma';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { AuthenticatedRequest, requireAdmin } from '../middleware/auth';
-import type { Tournament, ActiveRoundResponse, LogsResponse, RoundSummary, WorkerStatus, Game } from '../api/types';
+import type { Tournament, ActiveRoundResponse, LogsResponse, RoundSummary, WorkerStatus, Game, FixedSeatEntry, FixedSeatingResponse } from '../api/types';
+import { fetchCardeFixedSeatRegistrations, fetchCardeAllRoundMatches } from '../ingestion/providers/carde';
 import {
     serializeRound,
     serializeDrop,
@@ -450,6 +451,90 @@ router.get(
         ]);
 
         res.json({ rows, total, limit, offset });
+    }),
+);
+
+// GET /api/fixed-seating?tournamentId=:id[&roundNumber=:n]
+// Live report: fixed-seat registrations cross-referenced with current round pairings from Carde.
+router.get(
+    '/fixed-seating',
+    asyncHandler(async (req: Request, res: Response) => {
+        const tid = Number(req.query['tournamentId']);
+        if (!tid) {
+            res.status(400).json({ error: 'tournamentId required' });
+            return;
+        }
+        if (await rejectTestTournamentInProduction(tid, res, (req as AuthenticatedRequest).user)) {
+            return;
+        }
+
+        const mapping = await prisma.tournamentSourceMapping.findFirst({
+            where: { tournamentId: tid, source: 'carde', isEnabled: true },
+        });
+        if (!mapping) {
+            res.status(400).json({ error: 'Tournament has no active Carde source' });
+            return;
+        }
+        const cardeEventId = Number(mapping.externalId);
+
+        const requestedRound = req.query['roundNumber'] ? Number(req.query['roundNumber']) : null;
+        const round = requestedRound
+            ? await prisma.round.findFirst({ where: { tournamentId: tid, roundNumber: requestedRound } })
+            : await prisma.round.findFirst({
+                  where: { tournamentId: tid, cardeStatus: { in: ['IN_PROGRESS', 'COMPLETE'] } },
+                  orderBy: { roundNumber: 'desc' },
+              });
+
+        if (!round) {
+            const body: FixedSeatingResponse = { roundNumber: null, entries: [] };
+            res.json(body);
+            return;
+        }
+
+        const [registrations, matches] = await Promise.all([
+            fetchCardeFixedSeatRegistrations(cardeEventId),
+            fetchCardeAllRoundMatches(round.cardeRoundId),
+        ]);
+
+        // Build userId → match info lookup
+        const matchByUserId = new Map<number, { tableNumber: number; opponentName: string | null; isBye: boolean }>();
+        for (const m of matches) {
+            const pmrs = m.player_match_relationships ?? [];
+            for (let i = 0; i < Math.min(pmrs.length, 2); i++) {
+                const uid = pmrs[i]?.user_event_status?.user?.id;
+                if (uid == null) continue;
+                const opp = pmrs[1 - i];
+                const oppName = m.match_is_bye
+                    ? null
+                    : (opp?.user_event_status?.user_identifier ??
+                       opp?.user_event_status?.user?.best_identifier ??
+                       null);
+                matchByUserId.set(uid, {
+                    tableNumber: m.table_number,
+                    opponentName: oppName,
+                    isBye: m.match_is_bye,
+                });
+            }
+        }
+
+        const entries: FixedSeatEntry[] = registrations
+            .filter((r) => r.registration_status === 'COMPLETE' && r.fixed_seat !== null)
+            .map((r) => {
+                const match = matchByUserId.get(r.user.id);
+                const currentTable = match?.tableNumber ?? null;
+                return {
+                    playerName: r.user.first_last || r.user_identifier,
+                    fixedSeat: r.fixed_seat as number,
+                    currentTable,
+                    opponentName: match?.opponentName ?? null,
+                    isBye: match?.isBye ?? false,
+                    moved: currentTable !== null && currentTable !== r.fixed_seat,
+                };
+            })
+            .sort((a, b) => a.fixedSeat - b.fixedSeat);
+
+        const body: FixedSeatingResponse = { roundNumber: round.roundNumber, entries };
+        res.json(body);
     }),
 );
 

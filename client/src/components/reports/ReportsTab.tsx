@@ -7,6 +7,7 @@ import { Banner } from '../shared/Banner';
 import { Button } from '../shared/Button';
 import { RoundTimingColumnGuide } from './RoundTimingColumnGuide';
 import { RoundTimingReportTable } from './RoundTimingReportTable';
+import { FixedSeatingReport } from './FixedSeatingReport';
 
 export const ReportsTab = () => {
     const { activeTournamentId, activeTournament } = useTournament();
@@ -79,6 +80,8 @@ export const ReportsTab = () => {
                 <RoundTimingReportTable rows={rows} timeZone={timeZone} />
             )}
             {!loading && error === null && <RoundTimingColumnGuide />}
+
+            <FixedSeatingReport />
         </div>
     );
 };
