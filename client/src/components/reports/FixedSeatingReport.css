@@ -92,6 +92,33 @@
     letter-spacing: 0.05em;
 }
 
+.fixed-seating__th--sortable {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.fixed-seating__th--sortable:hover {
+    color: var(--color-text);
+}
+
+.fixed-seating__sort-indicator {
+    font-size: 0.6875rem;
+    opacity: 0.7;
+}
+
+.fixed-seating__fs-badge {
+    display: inline-block;
+    margin-left: 0.4rem;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    border-radius: 3px;
+    background: var(--color-info, #3b82f6);
+    color: #fff;
+    vertical-align: middle;
+}
+
 /* Print styles */
 @media print {
     .fixed-seating__actions {

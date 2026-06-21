@@ -504,14 +504,22 @@ router.get(
             return;
         }
 
+        const fixedSeatUserIds = new Set(registrations.map((r) => r.user.id));
+
         // Build userId → match info lookup
-        const matchByUserId = new Map<number, { tableNumber: number; opponentName: string | null; isBye: boolean }>();
+        const matchByUserId = new Map<number, {
+            tableNumber: number;
+            opponentName: string | null;
+            opponentUserId: number | null;
+            isBye: boolean;
+        }>();
         for (const m of matches) {
             const pmrs = m.player_match_relationships ?? [];
             for (let i = 0; i < Math.min(pmrs.length, 2); i++) {
                 const uid = pmrs[i]?.user_event_status?.user?.id;
                 if (uid === null || uid === undefined) continue;
                 const opp = pmrs[1 - i];
+                const oppUserId = m.match_is_bye ? null : (opp?.user_event_status?.user?.id ?? null);
                 const oppName = m.match_is_bye
                     ? null
                     : (opp?.user_event_status?.user_identifier ??
@@ -520,6 +528,7 @@ router.get(
                 matchByUserId.set(uid, {
                     tableNumber: m.table_number,
                     opponentName: oppName,
+                    opponentUserId: oppUserId,
                     isBye: m.match_is_bye,
                 });
             }
@@ -530,6 +539,7 @@ router.get(
             .map((r) => {
                 const match = matchByUserId.get(r.user.id);
                 const currentTable = match?.tableNumber ?? null;
+                const oppUid = match?.opponentUserId ?? null;
                 return {
                     playerName: r.user.first_last || r.user_identifier,
                     fixedSeat: r.fixed_seat as number,
@@ -537,6 +547,7 @@ router.get(
                     opponentName: match?.opponentName ?? null,
                     isBye: match?.isBye ?? false,
                     moved: currentTable !== null && currentTable !== r.fixed_seat,
+                    opponentIsFixedSeat: oppUid !== null && fixedSeatUserIds.has(oppUid),
                 };
             })
             .sort((a, b) => a.fixedSeat - b.fixedSeat);

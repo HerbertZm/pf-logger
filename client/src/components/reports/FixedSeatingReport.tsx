@@ -7,24 +7,46 @@ import { Banner } from '../shared/Banner';
 import { Button } from '../shared/Button';
 import { Spinner } from '../shared/Spinner';
 
+// ── Sorting ───────────────────────────────────────────────────────────────────
+
+type SortKey = 'playerName' | 'fixedSeat' | 'currentTable' | 'opponentName';
+type SortDir = 'asc' | 'desc';
+
+function sortEntries(entries: FixedSeatEntry[], key: SortKey, dir: SortDir): FixedSeatEntry[] {
+    return [...entries].sort((a, b) => {
+        let cmp = 0;
+        if (key === 'playerName') {
+            cmp = a.playerName.localeCompare(b.playerName);
+        } else if (key === 'fixedSeat') {
+            cmp = a.fixedSeat - b.fixedSeat;
+        } else if (key === 'currentTable') {
+            if (a.currentTable === null && b.currentTable === null) cmp = 0;
+            else if (a.currentTable === null) cmp = 1;
+            else if (b.currentTable === null) cmp = -1;
+            else cmp = a.currentTable - b.currentTable;
+        } else {
+            cmp = (a.opponentName ?? '').localeCompare(b.opponentName ?? '');
+        }
+        return dir === 'asc' ? cmp : -cmp;
+    });
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export const FixedSeatingReport = () => {
     const { activeTournamentId } = useTournament();
     const [data, setData] = useState<FixedSeatingResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [sortKey, setSortKey] = useState<SortKey>('fixedSeat');
+    const [sortDir, setSortDir] = useState<SortDir>('asc');
 
     const load = (tid: number): void => {
         setLoading(true);
         setError(null);
         api.get<FixedSeatingResponse>(`/api/fixed-seating?tournamentId=${tid}`)
-            .then((res) => {
-                setData(res);
-                setLoading(false);
-            })
-            .catch((e: Error) => {
-                setError(e.message);
-                setLoading(false);
-            });
+            .then((res) => { setData(res); setLoading(false); })
+            .catch((e: Error) => { setError(e.message); setLoading(false); });
     };
 
     useEffect(() => {
@@ -32,7 +54,13 @@ export const FixedSeatingReport = () => {
         else { setData(null); setLoading(false); }
     }, [activeTournamentId]);
 
+    const handleSort = (key: SortKey): void => {
+        if (key === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+        else { setSortKey(key); setSortDir('asc'); }
+    };
+
     const movedCount = data?.entries.filter((e) => e.moved).length ?? 0;
+    const sortedEntries = data ? sortEntries(data.entries, sortKey, sortDir) : [];
 
     return (
         <section className="fixed-seating">
@@ -77,26 +105,49 @@ export const FixedSeatingReport = () => {
             )}
 
             {!loading && data !== null && data.entries.length > 0 && (
-                <FixedSeatingTable entries={data.entries} roundNumber={data.roundNumber} />
+                <FixedSeatingTable
+                    entries={sortedEntries}
+                    roundNumber={data.roundNumber}
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                />
             )}
         </section>
     );
 };
 
+// ── Table ─────────────────────────────────────────────────────────────────────
+
 interface TableProps {
     entries: FixedSeatEntry[];
     roundNumber: number | null;
+    sortKey: SortKey;
+    sortDir: SortDir;
+    onSort: (key: SortKey) => void;
 }
 
-const FixedSeatingTable = ({ entries, roundNumber }: TableProps) => (
+const SortIndicator = ({ active, dir }: { active: boolean; dir: SortDir }) =>
+    active ? <span className="fixed-seating__sort-indicator">{dir === 'asc' ? ' ▲' : ' ▼'}</span> : null;
+
+const FixedSeatingTable = ({ entries, roundNumber, sortKey, sortDir, onSort }: TableProps) => (
     <div className="fixed-seating__table-wrap">
         <table className="fixed-seating__table">
             <thead>
                 <tr>
-                    <th>Player</th>
-                    <th>Fixed seat</th>
-                    <th>{roundNumber !== null ? `Round ${roundNumber} table` : 'Current table'}</th>
-                    <th>Opponent</th>
+                    <th className="fixed-seating__th--sortable" onClick={() => onSort('playerName')}>
+                        Player <SortIndicator active={sortKey === 'playerName'} dir={sortDir} />
+                    </th>
+                    <th className="fixed-seating__th--sortable fixed-seating__cell--num" onClick={() => onSort('fixedSeat')}>
+                        Fixed seat <SortIndicator active={sortKey === 'fixedSeat'} dir={sortDir} />
+                    </th>
+                    <th className="fixed-seating__th--sortable fixed-seating__cell--num" onClick={() => onSort('currentTable')}>
+                        {roundNumber !== null ? `Round ${roundNumber} table` : 'Current table'}
+                        <SortIndicator active={sortKey === 'currentTable'} dir={sortDir} />
+                    </th>
+                    <th className="fixed-seating__th--sortable" onClick={() => onSort('opponentName')}>
+                        Opponent <SortIndicator active={sortKey === 'opponentName'} dir={sortDir} />
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -114,7 +165,18 @@ const FixedSeatingTable = ({ entries, roundNumber }: TableProps) => (
                                 <span className="fixed-seating__no-pairing">—</span>
                             )}
                         </td>
-                        <td>{e.isBye ? <span className="fixed-seating__bye">BYE</span> : (e.opponentName ?? '—')}</td>
+                        <td>
+                            {e.isBye ? (
+                                <span className="fixed-seating__bye">BYE</span>
+                            ) : (
+                                <>
+                                    {e.opponentName ?? '—'}
+                                    {e.opponentIsFixedSeat && (
+                                        <span className="fixed-seating__fs-badge">FS</span>
+                                    )}
+                                </>
+                            )}
+                        </td>
                     </tr>
                 ))}
             </tbody>

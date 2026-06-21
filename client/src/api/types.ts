@@ -169,6 +169,7 @@ export interface FixedSeatEntry {
     opponentName: string | null;
     isBye: boolean;
     moved: boolean;
+    opponentIsFixedSeat: boolean;
 }
 
 export interface FixedSeatingResponse {
