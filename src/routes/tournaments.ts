@@ -478,10 +478,19 @@ router.get(
         const cardeEventId = Number(mapping.externalId);
 
         const requestedRound = req.query['roundNumber'] ? Number(req.query['roundNumber']) : null;
+        // Use the highest-numbered round that either has a running/complete status OR already
+        // has Match records in the DB. The second condition catches the window after pairings
+        // are generated but before the next worker tick updates cardeStatus from UPCOMING.
         const round = requestedRound
             ? await prisma.round.findFirst({ where: { tournamentId: tid, roundNumber: requestedRound } })
             : await prisma.round.findFirst({
-                  where: { tournamentId: tid, cardeStatus: { in: ['IN_PROGRESS', 'COMPLETE'] } },
+                  where: {
+                      tournamentId: tid,
+                      OR: [
+                          { cardeStatus: { in: ['IN_PROGRESS', 'COMPLETE'] } },
+                          { matches: { some: {} } },
+                      ],
+                  },
                   orderBy: { roundNumber: 'desc' },
               });
 
