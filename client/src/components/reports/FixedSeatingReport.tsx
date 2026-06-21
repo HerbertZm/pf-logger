@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './FixedSeatingReport.css';
 import { api } from '../../api/client';
 import type { FixedSeatEntry, FixedSeatingResponse } from '../../api/types';
@@ -40,6 +40,7 @@ export const FixedSeatingReport = () => {
     const [error, setError] = useState<string | null>(null);
     const [sortKey, setSortKey] = useState<SortKey>('fixedSeat');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
+    const sectionRef = useRef<HTMLElement>(null);
 
     const load = (tid: number): void => {
         setLoading(true);
@@ -59,11 +60,30 @@ export const FixedSeatingReport = () => {
         else { setSortKey(key); setSortDir('asc'); }
     };
 
+    const handlePrint = (): void => {
+        const style = document.createElement('style');
+        style.textContent = [
+            '@media print {',
+            '  body > * { visibility: hidden; }',
+            '  .fixed-seating, .fixed-seating * { visibility: visible; }',
+            '  .fixed-seating { position: fixed; inset: 0; padding: 1rem; }',
+            '  .fixed-seating__actions { display: none; }',
+            '}',
+        ].join('\n');
+        document.head.appendChild(style);
+        const cleanup = (): void => {
+            document.head.removeChild(style);
+            window.removeEventListener('afterprint', cleanup);
+        };
+        window.addEventListener('afterprint', cleanup);
+        window.print();
+    };
+
     const movedCount = data?.entries.filter((e) => e.moved).length ?? 0;
     const sortedEntries = data ? sortEntries(data.entries, sortKey, sortDir) : [];
 
     return (
-        <section className="fixed-seating">
+        <section className="fixed-seating" ref={sectionRef}>
             <div className="fixed-seating__header">
                 <div className="fixed-seating__header-text">
                     <h2 className="fixed-seating__title">
@@ -90,7 +110,7 @@ export const FixedSeatingReport = () => {
                         variant="secondary"
                         size="sm"
                         disabled={data === null || data.entries.length === 0}
-                        onClick={() => window.print()}
+                        onClick={handlePrint}
                     >
                         Print
                     </Button>
@@ -152,7 +172,13 @@ const FixedSeatingTable = ({ entries, roundNumber, sortKey, sortDir, onSort }: T
             </thead>
             <tbody>
                 {entries.map((e) => (
-                    <tr key={e.fixedSeat} className={e.moved ? 'fixed-seating__row--moved' : undefined}>
+                    <tr
+                        key={e.fixedSeat}
+                        className={[
+                            e.moved ? 'fixed-seating__row--moved' : '',
+                            e.opponentIsFixedSeat ? 'fixed-seating__row--vs-fixed' : '',
+                        ].filter(Boolean).join(' ') || undefined}
+                    >
                         <td>{e.playerName}</td>
                         <td className="fixed-seating__cell--num">{e.fixedSeat}</td>
                         <td className="fixed-seating__cell--num">
@@ -165,15 +191,15 @@ const FixedSeatingTable = ({ entries, roundNumber, sortKey, sortDir, onSort }: T
                                 <span className="fixed-seating__no-pairing">—</span>
                             )}
                         </td>
-                        <td>
+                        <td className={e.opponentIsFixedSeat ? 'fixed-seating__cell--vs-fixed' : undefined}>
                             {e.isBye ? (
                                 <span className="fixed-seating__bye">BYE</span>
                             ) : (
                                 <>
-                                    {e.opponentName ?? '—'}
                                     {e.opponentIsFixedSeat && (
                                         <span className="fixed-seating__fs-badge">FS</span>
                                     )}
+                                    {e.opponentName ?? '—'}
                                 </>
                             )}
                         </td>

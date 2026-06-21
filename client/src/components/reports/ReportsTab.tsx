@@ -52,6 +52,8 @@ export const ReportsTab = () => {
 
     return (
         <div className="reports-tab">
+            <FixedSeatingReport />
+
             <header className="reports-tab__header">
                 <div className="reports-tab__header-text">
                     <h1 className="reports-tab__title">Round timing report</h1>
@@ -80,8 +82,6 @@ export const ReportsTab = () => {
                 <RoundTimingReportTable rows={rows} timeZone={timeZone} />
             )}
             {!loading && error === null && <RoundTimingColumnGuide />}
-
-            <FixedSeatingReport />
         </div>
     );
 };
