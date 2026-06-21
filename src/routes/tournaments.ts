@@ -478,23 +478,29 @@ router.get(
         const cardeEventId = Number(mapping.externalId);
 
         const requestedRound = req.query['roundNumber'] ? Number(req.query['roundNumber']) : null;
-        // Use the highest-numbered round that either has a running/complete status OR already
-        // has Match records in the DB. The second condition catches the window after pairings
-        // are generated but before the next worker tick updates cardeStatus from UPCOMING.
-        const round = requestedRound
-            ? await prisma.round.findFirst({ where: { tournamentId: tid, roundNumber: requestedRound } })
-            : await prisma.round.findFirst({
-                  where: {
-                      tournamentId: tid,
-                      OR: [
-                          { cardeStatus: { in: ['IN_PROGRESS', 'COMPLETE'] } },
-                          { matches: { some: {} } },
-                      ],
-                  },
-                  orderBy: { roundNumber: 'desc' },
-              });
 
-        if (!round) {
+        // Resolve which round to use. raw_carde_rounds stores pairings_status directly from
+        // Carde, so pairingsStatus='GENERATED' is true as soon as pairings exist — even before
+        // the timer starts and cardeStatus flips to IN_PROGRESS. This is the right source.
+        interface RoundRef { cardeRoundId: number; roundNumber: number; }
+        let roundRef: RoundRef | null = null;
+
+        if (requestedRound !== null) {
+            const r = await prisma.round.findFirst({
+                where: { tournamentId: tid, roundNumber: requestedRound },
+                select: { cardeRoundId: true, roundNumber: true },
+            });
+            if (r) roundRef = r;
+        } else {
+            const raw = await prisma.rawCardeRound.findFirst({
+                where: { tournamentId: tid, pairingsStatus: 'GENERATED' },
+                orderBy: [{ roundNumber: 'desc' }, { fetchedAt: 'desc' }],
+                select: { cardeRoundId: true, roundNumber: true },
+            });
+            if (raw) roundRef = raw;
+        }
+
+        if (!roundRef) {
             const body: FixedSeatingResponse = { roundNumber: null, entries: [] };
             res.json(body);
             return;
@@ -505,7 +511,7 @@ router.get(
         try {
             [registrations, matches] = await Promise.all([
                 fetchCardeFixedSeatRegistrations(cardeEventId),
-                fetchCardeAllRoundMatches(round.cardeRoundId),
+                fetchCardeAllRoundMatches(roundRef.cardeRoundId),
             ]);
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : String(e);
@@ -561,7 +567,7 @@ router.get(
             })
             .sort((a, b) => a.fixedSeat - b.fixedSeat);
 
-        const body: FixedSeatingResponse = { roundNumber: round.roundNumber, entries };
+        const body: FixedSeatingResponse = { roundNumber: roundRef.roundNumber, entries };
         res.json(body);
     }),
 );
