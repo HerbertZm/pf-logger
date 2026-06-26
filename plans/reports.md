@@ -43,13 +43,13 @@ All wall-clock fields display in **tournament timezone** (P1 §1.2). Durations b
 | Column | Description | Computation | Primary source | Phase |
 |---|---|---|---|---|
 | **Round Number** | Swiss round index | `round.round_number` | Normalized `rounds` | P0 |
-| **Published At** | When pairings were published for players to see | TBD — Carde field TBD from API exploration | Carde pairings publish timestamp | TBD |
-| **Round Time Start** | When the head judge called "you may begin" | StageTimer `start` event for round, or SK log equivalent | StageTimer import + manual SK log | 2.5+ |
-| **Round Time Scheduled End** | Scheduled end from judge start + configured round length | `roundTimeStart + timer_duration_minutes` (default 60m if unset for Swiss) | Derived | 1.x |
-| **Additional Time Used** | Time from scheduled end until last match result | `lastMatchResultAt - roundTimeScheduledEnd` (clamp ≥ 0) | Carde `result_at` / match timestamps | 1.x |
-| **Total Duration (Play Time)** | Playing time: judge start → last result | `lastMatchResultAt - roundTimeStart` | Carde match results | 1.x |
-| **Total Duration (Since Publish)** | Full round window: publish → last result | `lastMatchResultAt - publishedAt` | Carde | TBD |
-| **Seating Turnover** | Publish → judge start (players finding seats) | `roundTimeStart - publishedAt` | Carde + StageTimer | 2.5+ |
+| **Published At** | When pairings were published for players to see | `rounds.started_at` (proxy — Carde pairings-publish timestamp unresolved) | `rounds` | P0 (proxy) |
+| **Round Time Start** | When the head judge called "you may begin" | `rounds.play_started_at` (set by worker when timer end is known; = `timer_end_datetime − timer_duration_min`) | `rounds` | P1 |
+| **Round Time Scheduled End** | Scheduled end = clock start + configured round length | `COALESCE(rounds.timer_end_datetime, play_started_at + duration, started_at + duration)` | `rounds` | P1 |
+| **Additional Time Used** | Time from scheduled end until last match result | `last_match_completed_at − roundTimeScheduledEnd` (clamp ≥ 0) | `rounds.last_match_completed_at` | P1 |
+| **Total Duration (Play Time)** | Playing time: judge start → last result | `last_match_completed_at − play_started_at` | `rounds` | P1 |
+| **Total Duration (Since Publish)** | Full round window: publish → last result | `last_match_completed_at − started_at` | `rounds` | P1 |
+| **Seating Turnover** | Publish → judge start (players finding seats) | `play_started_at − started_at`; null if `play_started_at < started_at` (anomaly) | `rounds` | P1 |
 | **Tables Playing After Time** | Matches still in progress when timer expired | Count from `rounds.missing_tables_json` at `snapshot_captured_at` | PF Logger snapshot + Carde | P0 (partial) |
 | **Max Extension** | Largest single-table extension in the round | `MAX(extension_minutes)` for round from PF extensions; format as minutes | PurpleFox `tournament_logs` | P0 |
 
@@ -99,15 +99,21 @@ interface RoundTimingReportRow {
 
 | Field | Source |
 |---|---|
-| `roundTimeScheduledEnd` | `rounds.timer_end_datetime`, or `started_at + timer_duration_min` (game default if duration null) |
-| `additionalTimeUsedSec` | `max(matches.result_at)` − scheduled end (≥ 0) |
-| `totalDurationPlaySec` | `max(matches.result_at)` − `started_at` (Carde proxy until StageTimer) |
+| `publishedAt` | `rounds.started_at` (proxy) |
+| `roundTimeStart` | `rounds.play_started_at` |
+| `roundTimeScheduledEnd` | `COALESCE(rounds.timer_end_datetime, play_started_at + duration, started_at + duration)` |
+| `additionalTimeUsedSec` | `last_match_completed_at` − scheduled end (≥ 0) |
+| `totalDurationPlaySec` | `last_match_completed_at` − `play_started_at` (falls back to `started_at`) |
+| `totalDurationSincePublishSec` | `last_match_completed_at` − `started_at` |
+| `seatingTurnoverSec` | `play_started_at` − `started_at`; null if anomalous |
 | `tablesPlayingAfterTime` | `length(missing_tables_json)` when `snapshot_captured_at` set |
 | `maxExtensionSec` | `MAX(extension_minutes) × 60` per round (PF extensions only) |
 
-Still `null`: `publishedAt`, `roundTimeStart`, `totalDurationSincePublishSec`, `seatingTurnoverSec`.
+**⚠️ Service needs update:** `roundTimingReport.ts` still uses `MAX(matches.result_at)` for timing end-points. Must migrate to `rounds.last_match_completed_at` — `result_at` equals `updated_at` (stale fetch time) for in-progress matches and produces wrong values.
 
-**v2:** StageTimer + Published At.
+Still `null` (pending real data source): `publishedAt` (using `started_at` proxy until Carde field confirmed).
+
+**v2:** StageTimer for true judge-start time (replaces `play_started_at` proxy); confirmed Carde publish timestamp.
 
 ### Export
 
@@ -168,11 +174,12 @@ Align with sample spreadsheet from ops — not the same rules as the indicators 
 1. ✅ Scaffold — tab, types, API route, table with headers
 2. ✅ tablesPlayingAfterTime + maxExtension from normalized data
 3. ✅ scheduled end + play duration from started_at, timer_end, match result_at
-4. ⬜ Published At — after Carde field confirmed
-5. ⬜ StageTimer — round time start, seating turnover, true play duration
-6. ✅ CSV export (formatted cells for spreadsheets)
-7. ⬜ Event-level rollup (all tournaments under an event)
-8. ⬜ Tournament timezone from P1 §1.2 (replace hardcoded default in UI + export query param)
+4. ⬜ Migrate service to last_match_completed_at + play_started_at (replaces matches.result_at)
+5. ⬜ Published At — after Carde field confirmed (currently using started_at proxy)
+6. ⬜ StageTimer — true judge "you may begin" time (replaces play_started_at proxy for Round Time Start)
+7. ✅ CSV export (formatted cells for spreadsheets)
+8. ⬜ Event-level rollup (all tournaments under an event)
+9. ⬜ Tournament timezone from P1 §1.2 (replace hardcoded default in UI + export query param)
 ```
 
 ---

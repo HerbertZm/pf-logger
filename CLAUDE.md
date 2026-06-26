@@ -27,7 +27,7 @@ Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Sup
 - Prisma 7: import from `'../generated/prisma/client'` (not `'@prisma/client'`). `src/generated/` is gitignored — run `npm run db:generate` after install or schema changes. `postinstall` handles it for `npm install`; run manually after `npm ci --omit=dev`.
 - PF table names: `tournament_drops` (not `drops`), `tournament_penalities` (extra 'i' — the correct spelling 404s).
 - `timer_is_running` in Carde does NOT flip false when the round clock expires — detect expiry by comparing `timer_end_datetime` to wall time.
-- Round timing report (`plans/reports.md`): `totalDurationPlaySec` uses `started_at` as play-start proxy until StageTimer import — not judge call time.
+- Round timing report (`plans/reports.md`): `totalDurationPlaySec` = `last_match_completed_at − play_started_at`. Use `rounds.last_match_completed_at` (not `matches.result_at`) for all timing end-points — `result_at` is a stale fetch timestamp for in-progress matches. `play_started_at` on `rounds` is the play-start anchor; fall back to `started_at` only when null.
 - Tournaments belong to a **game** (`games` table, `game_id` FK) — default round length comes from `games.default_round_length_minutes`.
 - Local `npm run dev`: Vite waits for API (`wait-on`); proxy `PORT` from repo root `.env`. See `docs/DEPLOY.md`.
 - **Timestamps:** store UTC (`TIMESTAMPTZ`); ingest with `src/utils/datetime.ts`; API JSON uses `toISOString()` (`Z`); display only in the client (`formatInTournamentTz` for tournament UI, `formatUtc` for Manage). Set `tournament.timezone` correctly before trusting wall clocks.
