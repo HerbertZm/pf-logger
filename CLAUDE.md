@@ -58,6 +58,8 @@ Local-network tournament ops dashboard for TCG events. Pulls from PurpleFox (Sup
 | Phase 2 — Events, SSE, Timing Analysis, StageTimer | `plans/phase-2.md` |
 | Phase 3 — Analytics, Infrastructure, Polish | `plans/phase-3.md` |
 | Round timing report (admin) | `plans/reports.md` |
+| User guide improvements — rewrite stale USER_GUIDE.md to current app | `plans/user-guide-improvements.md` |
+| Demo data update — seed fixture gaps vs current features | `plans/demo-data-update.md` |
 | QoL improvements (13 items) | `plans/qol.md` |
 | Open decisions (4 remaining) | `plans/open-decisions.md` |
 | Carde.io API post-mortem (essential before touching Carde integration) | `docs/api-exploration-lessons-learned.md` |

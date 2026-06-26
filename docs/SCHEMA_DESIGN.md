@@ -14,7 +14,7 @@ Last updated: 2026-05-21
 - **App layer has no source dependency.** `app_*` tables are owned entirely by this tool.
 - **TIMESTAMPTZ everywhere.** Every timestamp column on every table. No TEXT timestamps, no silent UTC assumptions. Carde timestamps (EDT for US events) are converted to UTC at ingestion.
 - **Selective match storage.** Player-identifying match records are only stored for tables with tracked events (drops, extensions, penalties, coverage). Full match lists are fetched into memory to compute `missing_tables_json`, then discarded. See [TBD: P0.1] below.
-- **`timer_end_datetime` is always computed locally:** `started_at + (timer_duration_minutes * 60)`. The Carde API does expose it on `v2/organize/events/{id}/detail/`, but compute locally for reliability — the API value has +7–83s server lag and is absent from round objects entirely. There is no round-level `extra_time_seconds` field in Carde; round timer adjustments are reflected only in the event-level `timer_end_datetime`, not in any round object field.
+- **`timer_end_datetime` prefers the live Carde value, falls back to computed.** For IN_PROGRESS rounds the worker writes the real value from `v2/organize/events/{id}/detail/` (it reflects when the TO pressed Resume); it falls back to the existing stored value, then to `started_at + (timer_duration_min * 60)`. For COMPLETE rounds the field is **write-once** — never overwrite a captured real value with a recomputed one. (The +7–83s lag between round creation and Resume means the computed value is always too early, so the real value wins when available.) There is no round-level `extra_time_seconds` field in Carde; round timer adjustments are reflected only in the event-level `timer_end_datetime`, not in any round object field.
 - **`completed_at` is stored verbatim but never used in any computation.** For Swiss rounds it equals the next round's `started_at` (same button click in Carde). Stored for raw fidelity only.
 - **PF staff ≠ players ≠ app users.** Three distinct identity concepts. See identity section below.
 - **SQLite DB kept as legacy archive.** No migration to new schema. Kept at `data/legacy.db` for verification during transition.
@@ -258,9 +258,18 @@ timer_duration_min    INT               -- NULL for Top-8 and until timer is exp
   -- No extra_time_seconds: Carde has no round-level extra time field.
   -- Round timer adjustments are absorbed into timer_end_datetime only.
 timer_end_datetime    TIMESTAMPTZ
-  -- Computed: started_at + (timer_duration_min * 60s)
-  -- NULL when timer_duration_min is NULL (Top-8)
-  -- Computed locally; do not read from API (server has +7-83s lag)
+  -- Prefer real value from v2/organize/events/{id}/detail/ (captured live while IN_PROGRESS).
+  -- Fallbacks: existing stored value, then started_at + (timer_duration_min * 60s).
+  -- WRITE-ONCE for COMPLETE rounds — never overwrite a captured real value with a recomputed one.
+  -- NULL when timer_duration_min is NULL (Top-8).
+play_started_at       TIMESTAMPTZ       -- when the TO pressed Resume (real play start).
+  -- = timer_end_datetime − game.default_round_length_min. NEVER timer_duration_min (can be stale,
+  --   e.g. 16 on a 60-min round). Anchor for play duration, scheduled end, seating turnover.
+  -- Set once by the worker when timer end is known. Migration 20260619130000.
+last_match_completed_at TIMESTAMPTZ     -- real round end: wall-clock time the worker observed the
+  -- last IN_PROGRESS match go COMPLETE (stillInProgress === 0). USE THIS for all timing end-points —
+  -- NOT matches.result_at, which equals updated_at (a stale fetch timestamp) for in-progress matches.
+  -- Migration 20260619120000.
 completed_at          TIMESTAMPTZ
   -- Stored verbatim from Carde. For Swiss: equals next round's started_at.
   -- NEVER use for duration, break time, or round-end calculations.
@@ -556,7 +565,7 @@ updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
 | Item | Resolution |
 |---|---|
 | Selective match ingestion strategy | `status=in_progress` confirmed functional. Worker fetches only outstanding matches. |
-| `timer_end_datetime` in live events | Lives on `v2/organize/events/{id}/detail/` only. Compute locally: `started_at + (timer_duration_min * 60s)`. |
+| `timer_end_datetime` in live events | Lives on `v2/organize/events/{id}/detail/` only. Worker captures the real value live while IN_PROGRESS (write-once for COMPLETE); falls back to `started_at + (timer_duration_min * 60s)` when no real value exists. |
 | `result_reported_at` behavior | NULL for in-progress; non-null on completed. Draws confirmed: `result_reported_at` null, `match_is_intentional_draw: true`. |
 | PF table/column names | All confirmed. `tournament_penalities` typo real. `tournament_drops` (not `drops`). See `agent/PURPLEFOX.md`. |
 | PF round attribution mechanism | `tournament_logs` has direct `round` column. No timestamp inference needed. |

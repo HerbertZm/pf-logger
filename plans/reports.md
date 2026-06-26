@@ -44,7 +44,7 @@ All wall-clock fields display in **tournament timezone** (P1 §1.2). Durations b
 |---|---|---|---|---|
 | **Round Number** | Swiss round index | `round.round_number` | Normalized `rounds` | P0 |
 | **Published At** | When pairings were published for players to see | `rounds.started_at` (proxy — Carde pairings-publish timestamp unresolved) | `rounds` | P0 (proxy) |
-| **Round Time Start** | When the head judge called "you may begin" | `rounds.play_started_at` (set by worker when timer end is known; = `timer_end_datetime − timer_duration_min`) | `rounds` | P1 |
+| **Round Time Start** | When the head judge called "you may begin" | `rounds.play_started_at` (set by worker when timer end is known; = `timer_end_datetime − game.default_round_length_min` — **never** `timer_duration_min`, which can be stale, e.g. 16 on a 60-min round) | `rounds` | P1 |
 | **Round Time Scheduled End** | Scheduled end = clock start + configured round length | `COALESCE(rounds.timer_end_datetime, play_started_at + duration, started_at + duration)` | `rounds` | P1 |
 | **Additional Time Used** | Time from scheduled end until last match result | `last_match_completed_at − roundTimeScheduledEnd` (clamp ≥ 0) | `rounds.last_match_completed_at` | P1 |
 | **Total Duration (Play Time)** | Playing time: judge start → last result | `last_match_completed_at − play_started_at` | `rounds` | P1 |
