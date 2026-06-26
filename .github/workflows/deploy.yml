@@ -38,8 +38,10 @@ jobs:
                       # package-lock.json, which makes `git pull` abort — hard reset instead.
                       git fetch origin main
                       git reset --hard origin/main
-                      # `npm ci` is reproducible and never mutates the lockfile.
-                      npm ci --no-audit --no-fund
+                      # `npm install` (not `npm ci`): the lockfile is generated on
+                      # Windows and omits Linux-only optional deps, which `npm ci`
+                      # rejects. Any drift it causes is wiped by the reset above.
+                      npm install --no-audit --no-fund
                       npm run db:generate
                       if ! npx prisma migrate deploy 2>migrate.err; then
                         if grep -q P1002 migrate.err; then
