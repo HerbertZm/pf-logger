@@ -34,8 +34,12 @@ jobs:
                       set -e
                       git config --global --add safe.directory /opt/pf-logger
                       cd /opt/pf-logger
-                      git pull origin main
-                      npm install --no-audit --no-fund
+                      # Deploy target must always mirror main. npm sometimes rewrites
+                      # package-lock.json, which makes `git pull` abort — hard reset instead.
+                      git fetch origin main
+                      git reset --hard origin/main
+                      # `npm ci` is reproducible and never mutates the lockfile.
+                      npm ci --no-audit --no-fund
                       npm run db:generate
                       if ! npx prisma migrate deploy 2>migrate.err; then
                         if grep -q P1002 migrate.err; then
