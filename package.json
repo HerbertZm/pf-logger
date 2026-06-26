@@ -4,9 +4,12 @@
     "private": true,
     "scripts": {
         "dev": "concurrently -k -n api,web -c blue,magenta \"npm run dev:api\" \"node scripts/start-client.cjs\"",
+        "dev:prod": "cross-env USE_PROD_DB=true npm run dev",
         "dev:api": "ts-node-dev --respawn --transpile-only src/server.ts",
+        "dev:api:prod": "cross-env USE_PROD_DB=true npm run dev:api",
         "build": "tsc -p tsconfig.build.json && vite build client",
         "start": "node dist/server.js",
+        "start:prod": "cross-env USE_PROD_DB=true node dist/server.js",
         "typecheck": "tsc --noEmit && tsc --noEmit -p client/tsconfig.json",
         "lint": "eslint src client/src --ext .ts,.tsx",
         "format": "prettier --write \"src/**/*.{ts,tsx}\" \"client/src/**/*.{ts,tsx,css}\" \"*.json\" \".eslintrc.json\"",
@@ -17,11 +20,13 @@
         "db:push": "prisma db push",
         "db:seed": "prisma db seed",
         "db:studio": "prisma studio",
+        "db:studio:prod": "cross-env USE_PROD_DB=true prisma studio",
         "db:seed-test": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" src/db/seed-test-tournament.ts",
         "db:seed-test:late": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" src/db/seed-test-tournament.ts late",
         "db:seed-test:overtime": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" src/db/seed-test-tournament.ts overtime",
         "db:seed-test:top8": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" src/db/seed-test-tournament.ts top8",
-        "postinstall": "prisma generate"
+        "postinstall": "prisma generate",
+        "postpull": "npm install && npx prisma migrate deploy && npm run db:generate"
     },
     "dependencies": {
         "@prisma/adapter-pg": "^7.8.0",
@@ -52,6 +57,7 @@
         "@typescript-eslint/parser": "^8.15.0",
         "@vitejs/plugin-react": "^6.0.2",
         "concurrently": "^10.0.1",
+        "cross-env": "^7.0.3",
         "eslint": "^8.57.1",
         "eslint-config-prettier": "^9.1.0",
         "eslint-plugin-jsx-a11y": "^6.10.2",
