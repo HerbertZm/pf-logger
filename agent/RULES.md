@@ -122,6 +122,8 @@ Rules are organized by topic. Each rule leads with the behavior, followed by **W
 - Carde round objects do NOT have `extra_time_seconds` or `additional_time_seconds` fields. These do not exist. Round-level timer adjustments are made via `edit_current_round_timer` and reflected only in `timer_end_datetime` on the event-level `detail/` endpoint.
 - `timer_end_datetime` lives on `GET /api/v2/organize/events/{id}/detail/` — NOT on round objects from `get_all_rounds` or `tournament_overview`. It is also returned by `edit_current_round_timer` responses.
 - Default page size for Carde `matches-list` is **25**, not 50. Always use `page_size=200` to fetch all matches in one call.
+- **Carde `next` pagination type differs by endpoint:** `registrations-slim` and unfiltered `matches-list` return `next` as a **numeric page number** (e.g., `2`). The `status=in_progress` matches-list returns `next` as a **URL string**. Never pass `next` to `cardeGet()` when it could be a number — always use an explicit `page` counter with `&page=${page}` in the URL, and check only `next !== null` as a boolean to decide whether to continue.
+- **Fixed seating / round-pairings detection:** to find which round currently has pairings, query `raw_carde_rounds WHERE pairings_status = 'GENERATED' ORDER BY round_number DESC`. Do NOT use `rounds.carde_status` for this — it stays `UPCOMING` until the timer starts, making it useless for the pairing-generated-but-timer-not-yet-started window. See `GET /api/fixed-seating` in `src/routes/tournaments.ts` for the implementation pattern.
 
 ## PF JWT management
 
