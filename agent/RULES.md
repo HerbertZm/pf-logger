@@ -138,6 +138,17 @@ Rules are organized by topic. Each rule leads with the behavior, followed by **W
 - Test data is **local only** — never deploy test tournaments to the VPS.
 - `npm run db:seed-test` is the dev fixture — idempotent, rebuilds with timestamps relative to now. Re-run to reset the live round timer.
 
+## Standalone scripts that are also imported as modules
+
+- Any TypeScript file that **exports functions** (imported by routes/services) AND runs as a **standalone CLI script** MUST guard its entry-point call with `require.main === module`:
+  ```ts
+  if (require.main === module) {
+      main().catch((e) => { logger.error('...', e); process.exit(1); });
+  }
+  ```
+- **Why:** Without this guard, the script's startup code (including DB transactions, `process.exit()`) runs every time Express imports the module — causing crash-restart loops on server start. This bit us in prod with `seed-test-tournament.ts` (165 systemd restarts, P2028 transaction timeout, persistent 502s; fixed in commit `342bacd`).
+- **When to apply:** Any file in `src/db/` or `src/scripts/` that both exports named functions AND has a `main()` or top-level async IIFE.
+
 ## PF staff profiles
 
 - PF `profiles` table is global (not per-tournament), ~2k rows. Fields: `{ id: UUID, firstname: string|null, lastname: string|null, colors: null }`.
