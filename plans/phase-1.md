@@ -451,4 +451,4 @@ See `docs/DEPLOY.md` — the "CI/CD access" section covers generating the key pa
 
 ### Phase 2 additions
 
-- [ ] CI pipeline runs the seed and smoke-tests the API responses before each deploy
+- [x] CI pipeline runs the seed and smoke-tests the API responses before each deploy (`smoke` job in `deploy.yml` + `scripts/ci-smoke.sh`; `deploy` job `needs: smoke`)

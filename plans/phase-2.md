@@ -102,7 +102,7 @@ Small items deferred from the P1 merge review that don't belong in a feature sec
 | **Activity log pagination** | `GET /api/admin/activity` is hard-capped at 100 rows. Add `limit`/`offset` query params; default limit 100. |
 | **Audit granularity for PATCH transitions** | When a tournament is ended or deactivated via `PATCH /api/admin/tournaments/:id` (rather than the dedicated end-tournament route), the audit reads `tournament_updated`. Consider emitting `tournament_ended` / `tournament_deactivated` based on which fields changed. |
 | **TournamentContext silent failures** | `fetchTournaments` swallows all errors with `.catch(() => {})`. Surface a staleness banner when the tournament list can't be refreshed while the app is open. |
-| **Authenticated CI smoke test** | `deploy.yml` confirms liveness via public `/api/health`. Add an authenticated smoke that calls `GET /api/admin/health` after restart so workers and PF JWT state are verified in CI. |
+| ~~**Authenticated CI smoke test**~~ | ✅ Done — `smoke` job in `deploy.yml` boots the API against a seeded Postgres service and `scripts/ci-smoke.sh` logs in and asserts `GET /api/admin/health` (plus `/me` and the seed-test tournament in `/api/tournaments`). `deploy` job is gated on it via `needs: smoke`. |
 
 ---
 
